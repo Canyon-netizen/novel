@@ -192,7 +192,6 @@ let aiSettings = {
     apiKey: '',
     baseUrl: '',
     model: '',
-    customModel: '',
     maxTokens: 2048
 };
 
@@ -210,11 +209,9 @@ function openSettingsModal() {
     document.getElementById('apiProvider').value = aiSettings.provider;
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
-    document.getElementById('modelSelect').value = aiSettings.model;
-    document.getElementById('customModelInput').value = aiSettings.customModel;
+    document.getElementById('modelInput').value = aiSettings.model;
     document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
     onApiProviderChange();
-    onModelChange();
 }
 
 function closeSettingsModal() {
@@ -227,31 +224,25 @@ function onApiProviderChange() {
 
     document.getElementById('apiKeyGroup').style.display = showFields ? 'block' : 'none';
     document.getElementById('baseUrlGroup').style.display = showFields ? 'block' : 'none';
+
+    const modelGroup = document.getElementById('modelGroup');
+    if (provider === 'local') {
+        modelGroup.style.display = 'none';
+    } else {
+        modelGroup.style.display = 'block';
+    }
 }
 
 function saveSettings() {
     aiSettings.provider = document.getElementById('apiProvider').value;
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
-    aiSettings.model = document.getElementById('modelSelect').value;
-    aiSettings.customModel = document.getElementById('customModelInput').value;
+    aiSettings.model = document.getElementById('modelInput').value;
     aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
 
     localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
     closeSettingsModal();
     alert('设置已保存！');
-}
-
-function onModelChange() {
-    const modelSelect = document.getElementById('modelSelect');
-    const customModelGroup = document.getElementById('customModelGroup');
-
-    if (modelSelect.value === '') {
-        customModelGroup.style.display = 'block';
-        document.getElementById('customModelInput').focus();
-    } else {
-        customModelGroup.style.display = 'none';
-    }
 }
 
 // ==================== Templates ====================
@@ -470,25 +461,31 @@ async function callAI(messages) {
     }
 
     const headers = { 'Content-Type': 'application/json' };
-    let endpoint = '';
+    let endpoint = aiSettings.baseUrl;
     let body = {};
 
     if (aiSettings.provider === 'anthropic') {
-        endpoint = aiSettings.baseUrl || 'https://api.anthropic.com/v1/messages';
         headers['x-api-key'] = aiSettings.apiKey;
         headers['anthropic-version'] = '2023-06-01';
         body = {
-            model: aiSettings.model || aiSettings.customModel,
+            model: aiSettings.model,
             max_tokens: aiSettings.maxTokens,
             messages: messages
         };
     } else {
-        endpoint = aiSettings.baseUrl || 'https://api.openai.com/v1/chat/completions';
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
-            model: aiSettings.model || aiSettings.customModel,
+            model: aiSettings.model,
             messages: messages
         };
+    }
+
+    if (!endpoint) {
+        if (aiSettings.provider === 'anthropic') {
+            endpoint = 'https://api.anthropic.com/v1/messages';
+        } else {
+            endpoint = 'https://api.openai.com/v1/chat/completions';
+        }
     }
 
     const response = await fetch(endpoint, {

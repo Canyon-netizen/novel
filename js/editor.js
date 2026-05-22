@@ -218,7 +218,6 @@ let aiSettings = {
     apiKey: '',
     baseUrl: '',
     model: '',
-    customModel: '',
     maxTokens: 2048,
     temperature: 0.7
 };
@@ -228,7 +227,7 @@ function openSettingsModal() {
     document.getElementById('apiProvider').value = aiSettings.provider;
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
-    document.getElementById('modelSelect').value = aiSettings.model;
+    document.getElementById('modelInput').value = aiSettings.model;
     document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
     document.getElementById('temperatureInput').value = aiSettings.temperature;
     document.getElementById('temperatureValue').textContent = aiSettings.temperature;
@@ -243,41 +242,17 @@ function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
     const keyGroup = document.getElementById('apiKeyGroup');
     const urlGroup = document.getElementById('baseUrlGroup');
+    const modelGroup = document.getElementById('modelGroup');
 
     if (provider === 'local') {
         keyGroup.style.display = 'none';
         urlGroup.style.display = 'none';
+        modelGroup.style.display = 'none';
     } else {
         keyGroup.style.display = 'block';
         urlGroup.style.display = 'block';
+        modelGroup.style.display = 'block';
     }
-
-    updateModelOptions(provider);
-}
-
-function updateModelOptions(provider) {
-    const modelSelect = document.getElementById('modelSelect');
-    let options = [];
-
-    if (provider === 'anthropic') {
-        options = [
-            { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
-            { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
-            { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' }
-        ];
-    } else if (provider === 'openai') {
-        options = [
-            { value: 'gpt-4o', label: 'GPT-4o' },
-            { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-            { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
-        ];
-    } else if (provider === 'custom') {
-        options = [{ value: 'custom', label: '自定义模型' }];
-    }
-
-    modelSelect.innerHTML = options.map(opt =>
-        `<option value="${opt.value}">${opt.label}</option>`
-    ).join('');
 }
 
 document.getElementById('temperatureInput').addEventListener('input', function() {
@@ -288,7 +263,7 @@ function saveSettings() {
     aiSettings.provider = document.getElementById('apiProvider').value;
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
-    aiSettings.model = document.getElementById('modelSelect').value;
+    aiSettings.model = document.getElementById('modelInput').value;
     aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
     aiSettings.temperature = parseFloat(document.getElementById('temperatureInput').value);
 
@@ -334,11 +309,11 @@ async function callAI(messages, systemPrompt) {
     }
 
     const headers = { 'Content-Type': 'application/json' };
-    let endpoint = '';
+    let endpoint = aiSettings.baseUrl;
     let body = {};
 
     if (aiSettings.provider === 'anthropic') {
-        endpoint = aiSettings.baseUrl || 'https://api.anthropic.com/v1/messages';
+        if (!endpoint) endpoint = 'https://api.anthropic.com/v1/messages';
         headers['x-api-key'] = aiSettings.apiKey;
         headers['anthropic-version'] = '2023-06-01';
         body = {
@@ -348,7 +323,7 @@ async function callAI(messages, systemPrompt) {
             messages: messages
         };
     } else if (aiSettings.provider === 'openai' || aiSettings.provider === 'custom') {
-        endpoint = aiSettings.baseUrl || 'https://api.openai.com/v1/chat/completions';
+        if (!endpoint) endpoint = 'https://api.openai.com/v1/chat/completions';
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
             model: aiSettings.model,
