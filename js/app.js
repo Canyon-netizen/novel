@@ -159,7 +159,7 @@ function openNewNovelModal() {
 }
 
 function closeNewNovelModal() {
-    document.getElementById('newNovelModal').classList.remove('show');
+    // No longer used - modal removed
 }
 
 function openAddChapterModal() {
