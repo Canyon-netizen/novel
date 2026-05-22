@@ -217,7 +217,8 @@ let aiSettings = {
     provider: 'anthropic',
     apiKey: '',
     baseUrl: '',
-    model: 'claude-sonnet-4-20250514',
+    model: '',
+    customModel: '',
     maxTokens: 2048,
     temperature: 0.7
 };

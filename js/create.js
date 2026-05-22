@@ -190,7 +190,8 @@ let aiSettings = {
     provider: 'anthropic',
     apiKey: '',
     baseUrl: '',
-    model: 'claude-sonnet-4-20250514',
+    model: '',
+    customModel: '',
     maxTokens: 2048
 };
 
@@ -209,6 +210,7 @@ function openSettingsModal() {
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
     document.getElementById('modelSelect').value = aiSettings.model;
+    document.getElementById('customModelInput').value = aiSettings.customModel;
     document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
     onApiProviderChange();
 }
@@ -230,11 +232,23 @@ function saveSettings() {
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
     aiSettings.model = document.getElementById('modelSelect').value;
+    aiSettings.customModel = document.getElementById('customModelInput').value;
     aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
 
     localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
     closeSettingsModal();
     alert('设置已保存！');
+}
+
+function onModelChange() {
+    const modelSelect = document.getElementById('modelSelect');
+    const customModelGroup = document.getElementById('customModelGroup');
+
+    if (modelSelect.value === '') {
+        customModelGroup.style.display = 'block';
+    } else {
+        customModelGroup.style.display = 'none';
+    }
 }
 
 // ==================== Templates ====================
@@ -443,7 +457,7 @@ async function callAI(messages) {
         headers['x-api-key'] = aiSettings.apiKey;
         headers['anthropic-version'] = '2023-06-01';
         body = {
-            model: aiSettings.model,
+            model: aiSettings.model || aiSettings.customModel,
             max_tokens: aiSettings.maxTokens,
             messages: messages
         };
@@ -451,7 +465,7 @@ async function callAI(messages) {
         endpoint = aiSettings.baseUrl || 'https://api.openai.com/v1/chat/completions';
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
-            model: aiSettings.model,
+            model: aiSettings.model || aiSettings.customModel,
             messages: messages
         };
     }

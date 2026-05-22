@@ -7,7 +7,8 @@ let aiSettings = {
     provider: 'anthropic',
     apiKey: '',
     baseUrl: '',
-    model: 'claude-sonnet-4-20250514',
+    model: '',
+    customModel: '',
     maxTokens: 2048,
     temperature: 0.7
 };
@@ -204,26 +205,41 @@ function onApiProviderChange() {
     updateModelOptions(provider);
 }
 
+function onModelChange() {
+    const modelSelect = document.getElementById('modelSelect');
+    const customModelGroup = document.getElementById('customModelGroup');
+
+    if (modelSelect.value === '') {
+        customModelGroup.style.display = 'block';
+    } else {
+        customModelGroup.style.display = 'none';
+    }
+}
+
 function updateModelOptions(provider) {
     const modelSelect = document.getElementById('modelSelect');
+    const customModelGroup = document.getElementById('customModelGroup');
     let options = [];
 
     if (provider === 'anthropic') {
         options = [
+            { value: '', label: '使用自定义模型' },
             { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4' },
             { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
             { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' }
         ];
     } else if (provider === 'openai') {
         options = [
+            { value: '', label: '使用自定义模型' },
             { value: 'gpt-4o', label: 'GPT-4o' },
             { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
             { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
         ];
     } else if (provider === 'custom') {
         options = [
-            { value: 'custom', label: '自定义模型' }
+            { value: '', label: '使用自定义模型' }
         ];
+        customModelGroup.style.display = 'block';
     }
 
     modelSelect.innerHTML = options.map(opt =>
@@ -240,6 +256,7 @@ function saveSettings() {
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
     aiSettings.model = document.getElementById('modelSelect').value;
+    aiSettings.customModel = document.getElementById('customModelInput').value;
     aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
     aiSettings.temperature = parseFloat(document.getElementById('temperatureInput').value);
 
@@ -254,7 +271,8 @@ function updateAIStatus() {
     if (aiSettings.provider === 'local') {
         status.textContent = '📍 本地模式';
     } else if (aiSettings.apiKey) {
-        status.textContent = '✅ ' + aiSettings.provider.toUpperCase();
+        const modelDisplay = aiSettings.model === '' ? aiSettings.customModel : aiSettings.model;
+        status.textContent = '✅ ' + (modelDisplay || aiSettings.provider.toUpperCase());
     } else {
         status.textContent = '⚠️ 未配置API';
     }
@@ -441,7 +459,7 @@ async function callAI(messages, systemPrompt) {
         headers['x-api-key'] = aiSettings.apiKey;
         headers['anthropic-version'] = '2023-06-01';
         body = {
-            model: aiSettings.model,
+            model: aiSettings.model || aiSettings.customModel,
             max_tokens: aiSettings.maxTokens,
             system: systemPrompt,
             messages: messages
@@ -450,7 +468,7 @@ async function callAI(messages, systemPrompt) {
         endpoint = aiSettings.baseUrl || 'https://api.openai.com/v1/chat/completions';
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
-            model: aiSettings.model,
+            model: aiSettings.model || aiSettings.customModel,
             max_tokens: aiSettings.maxTokens,
             temperature: aiSettings.temperature,
             messages: [{ role: 'system', content: systemPrompt }, ...messages]
@@ -459,7 +477,7 @@ async function callAI(messages, systemPrompt) {
         endpoint = aiSettings.baseUrl;
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
-            model: aiSettings.model,
+            model: aiSettings.model || aiSettings.customModel,
             max_tokens: aiSettings.maxTokens,
             temperature: aiSettings.temperature,
             messages: [{ role: 'system', content: systemPrompt }, ...messages]
