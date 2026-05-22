@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨韵AI - 创建小说</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .page-container {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 1.5rem;
+            min-height: calc(100vh - 140px);
+        }
+
+        /* Left Panel - Build Config */
+        .build-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            max-height: calc(100vh - 180px);
+            overflow-y: auto;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .reset-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .reset-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .form-row {
+            margin-bottom: 1.2rem;
+        }
+
+        .form-row label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .input-with-btn {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .input-with-btn input {
+            flex: 1;
+        }
+
+        .ai-btn {
+            padding: 0.8rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .ai-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        /* Tag Buttons */
+        .tag-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tag-btn {
+            padding: 0.4rem 0.8rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .tag-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .tag-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .tag-btn.romance.active { background: rgba(236, 72, 153, 0.2); border-color: var(--accent-pink); color: var(--accent-pink); }
+        .tag-btn.fantasy.active { background: rgba(139, 92, 246, 0.2); border-color: var(--accent-purple); color: var(--accent-purple); }
+        .tag-btn.scifi.active { background: rgba(20, 184, 166, 0.2); border-color: var(--accent-teal); color: var(--accent-teal); }
+        .tag-btn.wuxia.active { background: rgba(245, 158, 11, 0.2); border-color: var(--accent-gold); color: var(--accent-gold); }
+
+        /* Collapsible Section */
+        .collapsible {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+            overflow: hidden;
+        }
+
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            background: var(--bg-secondary);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .collapsible-header:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .collapsible-header::after {
+            content: '▼';
+            font-size: 0.7rem;
+            transition: transform 0.3s;
+        }
+
+        .collapsible.open .collapsible-header::after {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            padding: 1rem;
+            background: var(--bg-card);
+        }
+
+        .collapsible.open .collapsible-content {
+            display: block;
+        }
+
+        /* Slider */
+        .slider-group {
+            margin-bottom: 1rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .slider-value {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            background: var(--bg-secondary);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .preset-btns {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .preset-btn {
+            flex: 1;
+            padding: 0.4rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .preset-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .preset-btn.active {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        /* Right Panel - Templates */
+        .template-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .template-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .template-tab {
+            padding: 1rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .template-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .template-tab.active {
+            color: var(--accent-blue);
+        }
+
+        .template-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--accent-blue);
+        }
+
+        .template-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .template-filters {
+            display: flex;
+            gap: 0.5rem;
+            overflow-x: auto;
+        }
+
+        .filter-btn {
+            padding: 0.4rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .filter-btn.active {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .template-search {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .search-input {
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            width: 200px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .my-templates-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .my-templates-btn:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .template-grid {
+            flex: 1;
+            padding: 1.5rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        .template-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            padding: 1.2rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .template-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .template-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .template-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+
+        .template-icon.romance { background: rgba(236, 72, 153, 0.2); }
+        .template-icon.fantasy { background: rgba(139, 92, 246, 0.2); }
+        .template-icon.scifi { background: rgba(20, 184, 166, 0.2); }
+        .template-icon.wuxia { background: rgba(245, 158, 11, 0.2); }
+        .template-icon.urban { background: rgba(59, 130, 246, 0.2); }
+        .template-icon.mystery { background: rgba(168, 85, 247, 0.2); }
+        .template-icon.historical { background: rgba(239, 68, 68, 0.2); }
+
+        .template-info h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.2rem;
+        }
+
+        .template-info span {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .template-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            margin-bottom: 0.8rem;
+        }
+
+        .template-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .template-tag {
+            padding: 0.2rem 0.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 4px;
+            color: var(--accent-blue);
+            font-size: 0.7rem;
+        }
+
+        .template-framework {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding-top: 0.8rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Bottom Actions */
+        .bottom-actions {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .action-cancel {
+            padding: 0.8rem 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-cancel:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .action-create {
+            padding: 0.8rem 2rem;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #2563EB 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .action-create:hover {
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        @media (max-width: 1024px) {
+            .page-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">📝</div>
+            <span class="brand-name">墨韵AI</span>
+            <span class="brand-sub">小说构思工作坊</span>
+        </div>
+        <div class="header-right">
+            <button class="settings-btn" onclick="openSettingsModal()" title="设置">⚙️</button>
+            <select class="theme-select" onchange="toggleTheme()">
+                <option value="dark">暗色系</option>
+                <option value="light">亮色系</option>
+            </select>
+            <div class="user-info">
+                <div class="user-avatar">Y</div>
+                <span class="user-name" id="userName" onclick="editUserName()">yyy</span>
+            </div>
+            <span class="logout-icon">↩</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <div class="page-container">
+            <!-- Left Panel - Build Config -->
+            <aside class="build-panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">构建配置</h2>
+                    <button class="reset-btn" onclick="resetConfig()">重置</button>
+                </div>
+
+                <div class="form-row">
+                    <label>小说名称</label>
+                    <div class="input-with-btn">
+                        <input type="text" class="form-input" id="novelName" placeholder="输入小说名称">
+                        <button class="ai-btn" onclick="aiGenerateName('novel')">✨ AI</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label>主角名称</label>
+                    <div class="input-with-btn">
+                        <input type="text" class="form-input" id="protagonistName" placeholder="输入主角名称">
+                        <button class="ai-btn" onclick="aiGenerateName('protagonist')">✨ AI</button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label>创作方向</label>
+                    <textarea class="form-input" id="direction" placeholder="简要描述故事方向或核心创意..." rows="3"></textarea>
+                </div>
+
+                <div class="form-row">
+                    <label>小说类型</label>
+                    <div class="tag-group" id="genreTags">
+                        <button class="tag-btn fantasy" data-value="fantasy">🔮 玄幻</button>
+                        <button class="tag-btn" data-value="xianxia">🧧 仙侠</button>
+                        <button class="tag-btn urban" data-value="urban">🏙️ 都市</button>
+                        <button class="tag-btn scifi" data-value="scifi">🚀 科幻</button>
+                        <button class="tag-btn" data-value="historical">🏯 历史</button>
+                        <button class="tag-btn romance" data-value="romance">💕 言情</button>
+                        <button class="tag-btn" data-value="mystery">🔍 悬疑</button>
+                        <button class="tag-btn wuxia" data-value="wuxia">⚔️ 武侠</button>
+                        <button class="tag-btn" data-value="game">🎮 游戏</button>
+                        <button class="tag-btn" data-value="apocalypse">🌡️ 末世</button>
+                    </div>
+                </div>
+
+                <div class="collapsible" id="narrativeTropes">
+                    <div class="collapsible-header" onclick="toggleCollapsible('narrativeTropes')">
+                        叙事套路 <span style="color: var(--text-muted); font-size: 0.8rem;">已选 0/15</span>
+                    </div>
+                    <div class="collapsible-content">
+                        <div class="tag-group" id="tropeTags">
+                            <button class="tag-btn" data-value="system">📱 系统流</button>
+                            <button class="tag-btn" data-value="levelup">⬆️ 升级流</button>
+                            <button class="tag-btn" data-value="invincible">👑 无敌流</button>
+                            <button class="tag-btn" data-value="farming">🌾 种田流</button>
+                            <button class="tag-btn" data-value="cultivation">⚡ 炼功流</button>
+                            <button class="tag-btn" data-value="tech">🔧 技术流</button>
+                            <button class="tag-btn" data-value="checkin">📝 签到流</button>
+                            <button class="tag-btn" data-value="rebirth">🔄 重生</button>
+                            <button class="tag-btn" data-value="transmigration">🚪 穿越</button>
+                            <button class="tag-btn" data-value="comprehension">💡 悟道流</button>
+                            <button class="tag-btn" data-value="seductive">💅 媚宠流</button>
+                            <button class="tag-btn" data-value="harem">👥 后宫</button>
+                            <button class="tag-btn" data-value="brainwar">🧠 脑子战</button>
+                            <button class="tag-btn" data-value="beast">🐉 御兽</button>
+                            <button class="tag-btn" data-value="alchemy">⚗️ 炼丹</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label>受众定位</label>
+                    <select class="form-select" id="audience">
+                        <option value="male-youth">男频 · 青年向</option>
+                        <option value="male-teen">男频 · 青少年</option>
+                        <option value="female-youth">女频 · 青年向</option>
+                        <option value="female-teen">女频 · 青少年</option>
+                        <option value="universal">通用</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>篇幅字数</label>
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <span>预计字数</span>
+                            <span class="slider-value" id="wordCountValue">50-100万</span>
+                        </div>
+                        <input type="range" id="wordCountSlider" min="5" max="300" value="75" step="5">
+                        <div class="preset-btns">
+                            <button class="preset-btn" onclick="setWordCount(10)">短篇</button>
+                            <button class="preset-btn" onclick="setWordCount(30)">中篇</button>
+                            <button class="preset-btn active" onclick="setWordCount(75)">长篇</button>
+                            <button class="preset-btn" onclick="setWordCount(200)">超长篇</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label>情节结构模式</label>
+                    <select class="form-select" id="plotStructure">
+                        <option value="linear">线性叙事</option>
+                        <option value="rings">环形结构</option>
+                        <option value="flashback">倒叙插叙</option>
+                        <option value="parallel">多线并行</option>
+                        <option value="network">网状结构</option>
+                    </select>
+                </div>
+            </aside>
+
+            <!-- Right Panel - Templates -->
+            <section class="template-panel">
+                <div class="template-tabs">
+                    <button class="template-tab active">模板构建</button>
+                    <button class="template-tab">导入大纲</button>
+                    <button class="template-tab">探讨模式</button>
+                </div>
+
+                <div class="template-toolbar">
+                    <div class="template-filters" id="templateFilters">
+                        <button class="filter-btn active" data-filter="all">全部 60</button>
+                        <button class="filter-btn" data-filter="fantasy-xianxia">玄幻仙侠 8</button>
+                        <button class="filter-btn" data-filter="urban">都市现代 8</button>
+                        <button class="filter-btn" data-filter="scifi">科幻未来 6</button>
+                        <button class="filter-btn" data-filter="historical">历史军事 5</button>
+                    </div>
+                    <div class="template-search">
+                        <input type="text" class="search-input" placeholder="搜索模板...">
+                        <button class="my-templates-btn">📁 我的模板</button>
+                    </div>
+                </div>
+
+                <div class="template-grid" id="templateGrid">
+                    <!-- Templates will be rendered here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Bottom Actions -->
+        <div class="bottom-actions">
+            <button class="action-cancel" onclick="goBack()">取消</button>
+            <button class="action-create" onclick="createNovel()">开始创作</button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      更新了些新BUG，额....是新功能 ✨
+    </footer>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h3 class="modal-title">⚙️ AI设置</h3>
+            <div class="form-group">
+                <label class="form-label">API Provider</label>
+                <select class="form-select" id="apiProvider" onchange="onApiProviderChange()">
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai">OpenAI (GPT)</option>
+                    <option value="custom">自定义 API</option>
+                    <option value="local">本地模拟</option>
+                </select>
+            </div>
+            <div class="form-group" id="apiKeyGroup">
+                <label class="form-label">API Key</label>
+                <input type="password" class="form-input" id="apiKeyInput" placeholder="请输入API Key">
+            </div>
+            <div class="form-group" id="baseUrlGroup">
+                <label class="form-label">Base URL</label>
+                <input type="text" class="form-input" id="baseUrlInput" placeholder="https://api.anthropic.com">
+            </div>
+            <div class="form-group" id="modelGroup">
+                <label class="form-label">Model</label>
+                <select class="form-select" id="modelSelect">
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Max Tokens</label>
+                <input type="number" class="form-input" id="maxTokensInput" value="2048">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
+                <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Name Edit Modal -->
+    <div class="modal-overlay" id="userNameModal">
+        <div class="modal">
+            <h3 class="modal-title">修改用户名</h3>
+            <div class="form-group">
+                <input type="text" class="form-input" id="userNameInput" placeholder="请输入用户名">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeUserNameModal()">取消</button>
+                <button class="modal-btn confirm" onclick="saveUserName()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/create.js"></script>
+</body>
+</html>

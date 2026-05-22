@@ -154,9 +154,8 @@ function renderChapters() {
 
 // ==================== Modal Functions ====================
 function openNewNovelModal() {
-    document.getElementById('newNovelModal').classList.add('show');
-    document.getElementById('novelTitleInput').value = '';
-    document.getElementById('novelDescInput').value = '';
+    // Redirect to create page with full configuration
+    window.location.href = 'create.html';
 }
 
 function closeNewNovelModal() {
