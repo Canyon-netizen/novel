@@ -214,6 +214,7 @@ function openSettingsModal() {
     document.getElementById('customModelInput').value = aiSettings.customModel;
     document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
     onApiProviderChange();
+    onModelChange();
 }
 
 function closeSettingsModal() {
@@ -247,6 +248,7 @@ function onModelChange() {
 
     if (modelSelect.value === '') {
         customModelGroup.style.display = 'block';
+        document.getElementById('customModelInput').focus();
     } else {
         customModelGroup.style.display = 'none';
     }
