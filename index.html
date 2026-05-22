@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨韵AI - 智能小说创作</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #F5F0E6;
+            --bg-secondary: #EDE8DB;
+            --bg-card: #FFFEF9;
+            --text-primary: #2C2C2C;
+            --text-secondary: #5C5C5C;
+            --accent-red: #C54B4B;
+            --accent-gold: #B8860B;
+            --border-color: #D4C9B5;
+            --shadow: rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            background-image:
+                radial-gradient(circle at 20% 80%, rgba(197, 75, 75, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(184, 134, 11, 0.03) 0%, transparent 50%);
+        }
+
+        header {
+            background: linear-gradient(135deg, #3D3D3D 0%, #2C2C2C 100%);
+            color: var(--bg-primary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px var(--shadow);
+        }
+
+        .logo {
+            font-family: 'ZCOOL XiaoWei', serif;
+            font-size: 1.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: '✒';
+            font-size: 1.5rem;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .header-btn {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--bg-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+
+        .header-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 0;
+            min-height: calc(100vh - 70px);
+        }
+
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            overflow-y: auto;
+            max-height: calc(100vh - 70px);
+        }
+
+        .sidebar-section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--accent-red);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-title::before {
+            content: '📜';
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .theme-type-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .theme-type-btn {
+            padding: 0.6rem 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .theme-type-btn:hover {
+            border-color: var(--accent-red);
+        }
+
+        .theme-type-btn.active {
+            background: linear-gradient(135deg, var(--accent-red) 0%, #A33A3A 100%);
+            color: white;
+            border-color: var(--accent-red);
+        }
+
+        .theme-input {
+            width: 100%;
+            min-height: 100px;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-card);
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.8;
+            resize: vertical;
+            transition: all 0.3s;
+        }
+
+        .theme-input:focus {
+            outline: none;
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(197, 75, 75, 0.1);
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(135deg, var(--accent-red) 0%, #A33A3A 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(197, 75, 75, 0.3);
+        }
+
+        .btn-secondary {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .ai-suggestion {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            display: none;
+        }
+
+        .ai-suggestion.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .outline-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .outline-item:hover {
+            border-color: var(--accent-red);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .outline-item.active {
+            border-color: var(--accent-red);
+            background: linear-gradient(135deg, rgba(197, 75, 75, 0.05) 0%, transparent 100%);
+        }
+
+        .outline-item.dragging {
+            opacity: 0.5;
+            background: var(--bg-secondary);
+        }
+
+        .outline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .chapter-number {
+            font-size: 0.8rem;
+            color: var(--accent-red);
+            font-weight: 600;
+        }
+
+        .chapter-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .chapter-summary {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-top: 0.5rem;
+        }
+
+        .outline-actions {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            display: flex;
+            gap: 0.3rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .outline-item:hover .outline-actions {
+            opacity: 1;
+        }
+
+        .outline-action-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+
+        .outline-action-btn:hover {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            background: var(--bg-primary);
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .chapter-editor-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .word-count {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+        }
+
+        .content-editor {
+            flex: 1;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            min-height: 500px;
+            position: relative;
+        }
+
+        .editor-textarea {
+            width: 100%;
+            height: 100%;
+            min-height: 450px;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+            font-size: 1.1rem;
+            line-height: 2;
+            resize: none;
+            color: var(--text-primary);
+        }
+
+        .editor-textarea:focus {
+            outline: none;
+        }
+
+        .editor-textarea::placeholder {
+            color: #AAAAAA;
+        }
+
+        .content-toolbar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-btn {
+            padding: 0.6rem 1.2rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.3s;
+        }
+
+        .toolbar-btn:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .toolbar-btn.primary {
+            background: linear-gradient(135deg, var(--accent-red) 0%, #A33A3A 100%);
+            color: white;
+            border: none;
+        }
+
+        .toolbar-btn.primary:hover {
+            box-shadow: 0 4px 15px rgba(197, 75, 75, 0.3);
+        }
+
+        .ai-chat-panel {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 380px;
+            max-height: 500px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        .ai-chat-panel.show {
+            display: flex;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #3D3D3D 0%, #2C2C2C 100%);
+            color: var(--bg-primary);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: var(--bg-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: 350px;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.ai {
+            align-items: flex-start;
+        }
+
+        .message-content {
+            max-width: 85%;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .message.user .message-content {
+            background: var(--accent-red);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai .message-content {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-input-area {
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--accent-red);
+        }
+
+        .chat-send {
+            padding: 0.8rem 1.2rem;
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .chat-toggle {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent-red) 0%, #A33A3A 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(197, 75, 75, 0.4);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-toggle::before {
+            content: '🤖';
+        }
+
+        .chat-toggle.hidden {
+            display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .empty-state-text {
+            font-size: 1.1rem;
+            line-height: 1.8;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            animation: modalIn 0.3s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: var(--accent-red);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 0.8rem;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn.cancel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+        }
+
+        .modal-btn.confirm {
+            background: var(--accent-red);
+            color: white;
+            border: none;
+        }
+
+        .loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+        }
+
+        .loading-spinner.show {
+            display: block;
+        }
+
+        .loading-spinner::after {
+            content: '';
+            display: block;
+            width: 40px;
+            height: 40px;
+            margin: 1rem auto;
+            border: 3px solid var(--border-color);
+            border-top-color: var(--accent-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .add-chapter-btn {
+            width: 100%;
+            padding: 1rem;
+            background: transparent;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 1rem;
+        }
+
+        .add-chapter-btn:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .current-theme-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--accent-gold) 0%, #8B6914 100%);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-left: 1rem;
+        }
+
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                max-height: none;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+            }
+            .ai-chat-panel {
+                width: calc(100% - 2rem);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">墨韵AI</div>
+        <div class="header-actions">
+            <button class="header-btn" onclick="saveProject()">💾 保存</button>
+            <button class="header-btn" onclick="exportProject()">📤 导出</button>
+        </div>
+    </header>
+
+    <main class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h2 class="section-title">题材类型</h2>
+                <div class="theme-type-selector">
+                    <button class="theme-type-btn" data-type="romance">💕 言情</button>
+                    <button class="theme-type-btn" data-type="fantasy">🔮 玄幻</button>
+                    <button class="theme-type-btn" data-type="mystery">🔍 悬疑</button>
+                    <button class="theme-type-btn" data-type="scifi">🚀 科幻</button>
+                    <button class="theme-type-btn" data-type="wuxia">⚔️ 武侠</button>
+                    <button class="theme-type-btn" data-type="urban">🏙️ 都市</button>
+                    <button class="theme-type-btn" data-type="historical">🏯 历史</button>
+                    <button class="theme-type-btn" data-type="horror">👻 恐怖</button>
+                </div>
+
+                <h2 class="section-title" style="margin-top: 1.5rem;">主题设定</h2>
+                <textarea id="themeInput" class="theme-input" placeholder="请输入你的小说主题或灵感...\n\n例如：\n• 一个关于时间旅行的爱情故事\n• 发生在民国时期的悬疑推理\n• 未来世界的赛博朋克冒险"></textarea>
+                <button class="btn-primary" onclick="analyzeTheme()">
+                    🔮 AI分析主题
+                </button>
+                <div id="themeSuggestion" class="ai-suggestion"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <h2 class="section-title">🌍 世界观设定</h2>
+
+                <div class="form-group">
+                    <label class="form-label">时代背景</label>
+                    <select id="eraSelect" class="theme-input" style="padding: 0.8rem; min-height: auto;">
+                        <option value="">请选择时代背景</option>
+                        <option value="ancient">古代</option>
+                        <option value="medieval">中世纪</option>
+                        <option value="feudal">封建时代</option>
+                        <option value="republic">民国时期</option>
+                        <option value="modern">现代</option>
+                        <option value="future">近未来</option>
+                        <option value="distant-future">远未来</option>
+                        <option value="fantasy-era">异世界/奇幻时代</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">社会环境</label>
+                    <textarea id="societyInput" class="theme-input" style="min-height: 80px;" placeholder="描述故事发生的社会环境，如：江湖门派、都市职场、学校生活等"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">地理/空间设定</label>
+                    <textarea id="locationInput" class="theme-input" style="min-height: 80px;" placeholder="描述故事发生的地点，如：繁华都市、深山古寺、宇宙飞船等"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">特殊规则/体系</label>
+                    <textarea id="rulesInput" class="theme-input" style="min-height: 80px;" placeholder="如：魔法体系、武林秘籍、科技设定、异能等级等"></textarea>
+                </div>
+
+                <button class="btn-secondary" onclick="analyzeWorldSetting()">
+                    ✨ AI生成世界观
+                </button>
+            </div>
+
+            <div class="sidebar-section">
+                <h2 class="section-title">📖 故事大纲</h2>
+                <div id="outlineList">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📖</div>
+                        <p class="empty-state-text">设置主题后<br>AI将为你生成章节大纲</p>
+                    </div>
+                </div>
+                <button class="btn-secondary" onclick="generateOutline()" id="generateOutlineBtn" style="display:none;">
+                    ✨ AI生成大纲
+                </button>
+                <button class="add-chapter-btn" onclick="openAddChapterModal()">
+                    ➕ 添加章节
+                </button>
+            </div>
+        </aside>
+
+        <section class="content-area">
+            <div class="content-header">
+                <h2 class="chapter-editor-title" id="currentChapterTitle">
+                    选择或创建章节开始创作
+                </h2>
+                <div style="display: flex; align-items: center;">
+                    <span id="currentThemeDisplay"></span>
+                    <span class="word-count" id="wordCount">0 字</span>
+                </div>
+            </div>
+
+            <div class="content-editor">
+                <textarea id="contentEditor" class="editor-textarea" placeholder="在这里开始你的创作...\n\n选中左侧的章节，或创建新章节后，在此书写故事内容。\n\n使用工具栏的AI功能，可获得写作建议、续写或润色。"></textarea>
+            </div>
+
+            <div class="content-toolbar">
+                <button class="toolbar-btn primary" onclick="aiWrite()">
+                    ✍️ AI续写
+                </button>
+                <button class="toolbar-btn" onclick="aiPolish()">
+                    🎨 AI润色
+                </button>
+                <button class="toolbar-btn" onclick="aiImprove()">
+                    💡 AI建议
+                </button>
+            </div>
+
+            <div id="loadingIndicator" class="loading-spinner">
+                AI正在思考中...
+            </div>
+        </section>
+    </main>
+
+    <button class="chat-toggle hidden" id="chatToggle" onclick="toggleChat()"></button>
+
+    <div class="ai-chat-panel" id="chatPanel">
+        <div class="chat-header">
+            <span class="chat-title">🤖 AI写作助手</span>
+            <button class="chat-close" onclick="toggleChat()">×</button>
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai">
+                <div class="message-content">
+                    你好！我是墨韵AI写作助手。我可以帮助你：<br><br>
+                    • 完善故事设定和世界观<br>
+                    • 塑造角色性格<br>
+                    • 解决写作瓶颈<br>
+                    • 提供情节发展建议<br><br>
+                    有什么我可以帮你的吗？
+                </div>
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chatInput" placeholder="输入你的问题..." onkeypress="handleChatKeypress(event)">
+            <button class="chat-send" onclick="sendChatMessage()">发送</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addChapterModal">
+        <div class="modal">
+            <h3 class="modal-title">添加新章节</h3>
+            <input type="text" class="modal-input" id="newChapterTitle" placeholder="章节标题">
+            <textarea class="modal-input" id="newChapterSummary" placeholder="章节简介（可选）" rows="3"></textarea>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeAddChapterModal()">取消</button>
+                <button class="modal-btn confirm" onclick="addChapter()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editChapterModal">
+        <div class="modal">
+            <h3 class="modal-title">编辑章节</h3>
+            <input type="text" class="modal-input" id="editChapterTitle" placeholder="章节标题">
+            <textarea class="modal-input" id="editChapterSummary" placeholder="章节简介" rows="3"></textarea>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeEditChapterModal()">取消</button>
+                <button class="modal-btn confirm" onclick="saveChapterEdit()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentProject = {
+            themeType: '',
+            theme: '',
+            themeAnalysis: '',
+            worldSetting: {
+                era: '',
+                society: '',
+                location: '',
+                rules: ''
+            },
+            chapters: [],
+            currentChapterIndex: -1
+        };
+
+        let editingChapterIndex = -1;
+
+        // 题材类型选择
+        document.querySelectorAll('.theme-type-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.theme-type-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentProject.themeType = this.dataset.type;
+                updateThemeDisplay();
+            });
+        });
+
+        function updateThemeDisplay() {
+            const display = document.getElementById('currentThemeDisplay');
+            if (currentProject.themeType) {
+                const typeNames = {
+                    romance: '言情',
+                    fantasy: '玄幻',
+                    mystery: '悬疑',
+                    scifi: '科幻',
+                    wuxia: '武侠',
+                    urban: '都市',
+                    historical: '历史',
+                    horror: '恐怖'
+                };
+                display.innerHTML = `<span class="current-theme-tag">${typeNames[currentProject.themeType]}</span>`;
+            } else {
+                display.innerHTML = '';
+            }
+        }
+
+        // 主题分析
+        async function analyzeTheme() {
+            const theme = document.getElementById('themeInput').value.trim();
+            if (!theme) {
+                alert('请先输入小说主题');
+                return;
+            }
+
+            currentProject.theme = theme;
+            showLoading();
+
+            try {
+                const response = await fetch('/api/analyze-theme', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        theme,
+                        themeType: currentProject.themeType
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                displayThemeAnalysis(data.suggestion);
+            } catch (error) {
+                setTimeout(() => {
+                    const suggestion = generateMockThemeAnalysis(theme, currentProject.themeType);
+                    displayThemeAnalysis(suggestion);
+                }, 1500);
+            }
+        }
+
+        function displayThemeAnalysis(suggestion) {
+            hideLoading();
+            const container = document.getElementById('themeSuggestion');
+            container.innerHTML = `<strong>📝 AI分析建议：</strong><br><br>${suggestion}`;
+            container.classList.add('show');
+            currentProject.themeAnalysis = suggestion;
+
+            if (currentProject.chapters.length === 0) {
+                document.getElementById('generateOutlineBtn').style.display = 'block';
+            }
+        }
+
+        // 世界观分析
+        async function analyzeWorldSetting() {
+            const era = document.getElementById('eraSelect').value;
+            const society = document.getElementById('societyInput').value.trim();
+            const location = document.getElementById('locationInput').value.trim();
+            const rules = document.getElementById('rulesInput').value.trim();
+
+            if (!era && !society && !location && !rules) {
+                alert('请至少填写一项世界观设定');
+                return;
+            }
+
+            currentProject.worldSetting = { era, society, location, rules };
+            showLoading();
+
+            try {
+                const response = await fetch('/api/analyze-world', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        worldSetting: currentProject.worldSetting,
+                        themeType: currentProject.themeType,
+                        theme: currentProject.theme
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                alert('AI世界观分析完成：\n\n' + data.suggestion);
+            } catch (error) {
+                setTimeout(() => {
+                    alert('AI世界观分析完成：\n\n已根据你的设定生成详细的世界观描述。');
+                }, 1500);
+            }
+
+            hideLoading();
+        }
+
+        // 生成大纲
+        async function generateOutline() {
+            if (!currentProject.theme) {
+                alert('请先设置主题');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/generate-outline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        theme: currentProject.theme,
+                        themeType: currentProject.themeType,
+                        themeAnalysis: currentProject.themeAnalysis,
+                        worldSetting: currentProject.worldSetting
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                displayOutline(data.outline);
+            } catch (error) {
+                setTimeout(() => {
+                    const outline = generateMockOutline(currentProject.theme, currentProject.themeType);
+                    displayOutline(outline);
+                }, 2000);
+            }
+        }
+
+        function displayOutline(outline) {
+            hideLoading();
+            currentProject.chapters = outline;
+            renderOutline();
+        }
+
+        function renderOutline() {
+            const container = document.getElementById('outlineList');
+
+            if (currentProject.chapters.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📖</div>
+                        <p class="empty-state-text">设置主题后<br>AI将为你生成章节大纲</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = currentProject.chapters.map((chapter, index) => `
+                <div class="outline-item ${index === currentProject.currentChapterIndex ? 'active' : ''}"
+                     onclick="selectChapter(${index})"
+                     draggable="true"
+                     ondragstart="handleDragStart(event, ${index})"
+                     ondragover="handleDragOver(event)"
+                     ondrop="handleDrop(event, ${index})"
+                     ondragend="handleDragEnd(event)">
+                    <div class="outline-actions">
+                        <button class="outline-action-btn" onclick="event.stopPropagation(); openEditChapterModal(${index})" title="编辑">✏️</button>
+                        <button class="outline-action-btn" onclick="event.stopPropagation(); deleteChapter(${index})" title="删除">🗑️</button>
+                    </div>
+                    <div class="outline-header">
+                        <span class="chapter-number">第${index + 1}章</span>
+                    </div>
+                    <div class="chapter-title">${chapter.title}</div>
+                    ${chapter.summary ? `<div class="chapter-summary">${chapter.summary}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // 章节操作
+        function selectChapter(index) {
+            currentProject.currentChapterIndex = index;
+            const chapter = currentProject.chapters[index];
+
+            document.getElementById('currentChapterTitle').textContent = `第${index + 1}章 · ${chapter.title}`;
+            document.getElementById('contentEditor').value = chapter.content || '';
+
+            updateWordCount();
+            renderOutline();
+
+            document.getElementById('chatToggle').classList.remove('hidden');
+        }
+
+        function openAddChapterModal() {
+            document.getElementById('newChapterTitle').value = '';
+            document.getElementById('newChapterSummary').value = '';
+            document.getElementById('addChapterModal').classList.add('show');
+        }
+
+        function closeAddChapterModal() {
+            document.getElementById('addChapterModal').classList.remove('show');
+        }
+
+        function addChapter() {
+            const title = document.getElementById('newChapterTitle').value.trim();
+            const summary = document.getElementById('newChapterSummary').value.trim();
+
+            if (!title) {
+                alert('请输入章节标题');
+                return;
+            }
+
+            currentProject.chapters.push({
+                title,
+                summary,
+                content: ''
+            });
+
+            closeAddChapterModal();
+            renderOutline();
+        }
+
+        function openEditChapterModal(index) {
+            editingChapterIndex = index;
+            const chapter = currentProject.chapters[index];
+
+            document.getElementById('editChapterTitle').value = chapter.title;
+            document.getElementById('editChapterSummary').value = chapter.summary || '';
+            document.getElementById('editChapterModal').classList.add('show');
+        }
+
+        function closeEditChapterModal() {
+            document.getElementById('editChapterModal').classList.remove('show');
+            editingChapterIndex = -1;
+        }
+
+        function saveChapterEdit() {
+            if (editingChapterIndex === -1) return;
+
+            const title = document.getElementById('editChapterTitle').value.trim();
+            const summary = document.getElementById('editChapterSummary').value.trim();
+
+            if (!title) {
+                alert('请输入章节标题');
+                return;
+            }
+
+            currentProject.chapters[editingChapterIndex].title = title;
+            currentProject.chapters[editingChapterIndex].summary = summary;
+
+            closeEditChapterModal();
+            renderOutline();
+
+            if (currentProject.currentChapterIndex === editingChapterIndex) {
+                document.getElementById('currentChapterTitle').textContent =
+                    `第${editingChapterIndex + 1}章 · ${title}`;
+            }
+        }
+
+        function deleteChapter(index) {
+            if (confirm('确定要删除这一章吗？')) {
+                currentProject.chapters.splice(index, 1);
+
+                if (currentProject.currentChapterIndex === index) {
+                    currentProject.currentChapterIndex = -1;
+                    document.getElementById('currentChapterTitle').textContent = '选择或创建章节开始创作';
+                    document.getElementById('contentEditor').value = '';
+                } else if (currentProject.currentChapterIndex > index) {
+                    currentProject.currentChapterIndex--;
+                }
+
+                renderOutline();
+            }
+        }
+
+        // 拖拽排序
+        let draggedIndex = -1;
+
+        function handleDragStart(event, index) {
+            draggedIndex = index;
+            event.target.classList.add('dragging');
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+        }
+
+        function handleDrop(event, targetIndex) {
+            event.preventDefault();
+            if (draggedIndex === -1 || draggedIndex === targetIndex) return;
+
+            const chapter = currentProject.chapters.splice(draggedIndex, 1)[0];
+            currentProject.chapters.splice(targetIndex, 0, chapter);
+
+            if (currentProject.currentChapterIndex === draggedIndex) {
+                currentProject.currentChapterIndex = targetIndex;
+            } else if (draggedIndex < currentProject.currentChapterIndex &&
+                       targetIndex >= currentProject.currentChapterIndex) {
+                currentProject.currentChapterIndex--;
+            } else if (draggedIndex > currentProject.currentChapterIndex &&
+                       targetIndex <= currentProject.currentChapterIndex) {
+                currentProject.currentChapterIndex++;
+            }
+
+            draggedIndex = -1;
+            renderOutline();
+        }
+
+        function handleDragEnd(event) {
+            event.target.classList.remove('dragging');
+            draggedIndex = -1;
+        }
+
+        // 内容编辑
+        document.getElementById('contentEditor').addEventListener('input', function() {
+            if (currentProject.currentChapterIndex !== -1) {
+                currentProject.chapters[currentProject.currentChapterIndex].content = this.value;
+                updateWordCount();
+            }
+        });
+
+        function updateWordCount() {
+            const content = document.getElementById('contentEditor').value;
+            const count = content.length;
+            document.getElementById('wordCount').textContent = `${count} 字`;
+        }
+
+        // AI写作功能
+        async function aiWrite() {
+            if (currentProject.currentChapterIndex === -1) {
+                alert('请先选择一个章节');
+                return;
+            }
+
+            const currentContent = document.getElementById('contentEditor').value;
+            if (!currentContent) {
+                alert('请先在编辑器中输入一些内容');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/ai-write', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: currentContent,
+                        chapterTitle: currentProject.chapters[currentProject.currentChapterIndex].title,
+                        themeType: currentProject.themeType,
+                        worldSetting: currentProject.worldSetting
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                document.getElementById('contentEditor').value = currentContent + data.continuation;
+                currentProject.chapters[currentProject.currentChapterIndex].content = document.getElementById('contentEditor').value;
+                updateWordCount();
+            } catch (error) {
+                setTimeout(() => {
+                    const continuation = generateMockContinuation(currentContent, currentProject.themeType);
+                    document.getElementById('contentEditor').value = currentContent + continuation;
+                    currentProject.chapters[currentProject.currentChapterIndex].content = document.getElementById('contentEditor').value;
+                    updateWordCount();
+                }, 2000);
+            }
+
+            hideLoading();
+        }
+
+        async function aiPolish() {
+            if (currentProject.currentChapterIndex === -1) {
+                alert('请先选择一个章节');
+                return;
+            }
+
+            const content = document.getElementById('contentEditor').value;
+            if (!content) {
+                alert('请先在编辑器中输入内容');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/ai-polish', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        themeType: currentProject.themeType
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                document.getElementById('contentEditor').value = data.polished;
+                currentProject.chapters[currentProject.currentChapterIndex].content = data.polished;
+                updateWordCount();
+            } catch (error) {
+                setTimeout(() => {
+                    document.getElementById('contentEditor').value = content + '\n\n【AI润色建议】此处内容已优化措辞和表达。';
+                    currentProject.chapters[currentProject.currentChapterIndex].content = document.getElementById('contentEditor').value;
+                    updateWordCount();
+                }, 1500);
+            }
+
+            hideLoading();
+        }
+
+        async function aiImprove() {
+            if (currentProject.currentChapterIndex === -1) {
+                alert('请先选择一个章节');
+                return;
+            }
+
+            const content = document.getElementById('contentEditor').value;
+            const chapterTitle = currentProject.chapters[currentProject.currentChapterIndex].title;
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/ai-improve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        chapterTitle,
+                        themeType: currentProject.themeType
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                showChatMessage('user', `帮我改进这一段：${content.slice(0, 50)}...`);
+                showChatMessage('ai', data.suggestion);
+                toggleChat();
+            } catch (error) {
+                setTimeout(() => {
+                    showChatMessage('user', `帮我改进这一段：${content.slice(0, 50)}...`);
+                    showChatMessage('ai', getThemeBasedSuggestion(currentProject.themeType));
+                    toggleChat();
+                }, 1500);
+            }
+
+            hideLoading();
+        }
+
+        function getThemeBasedSuggestion(themeType) {
+            const suggestions = {
+                romance: '建议：增加更多情感细节描写，让人物内心活动更加丰富。多使用感官描写（触觉、听觉、嗅觉）来增强代入感。',
+                fantasy: '建议：加强世界观设定的体现，注意力量体系的逻辑自洽。适时穿插环境描写来营造奇幻氛围。',
+                mystery: '建议：增加悬念铺设，设置更多伏笔和线索。可以使用倒叙或插叙来丰富叙事层次。',
+                scifi: '建议：确保科技设定的逻辑自洽，使用专业术语增强可信度。描写未来生活细节让世界观更丰满。',
+                wuxia: '建议：增加武功招式的细节描写，融入江湖规矩和门派特色。人物对话要符合古代语境。',
+                urban: '建议：贴近现代生活细节，增加职场/社交场景的真实感。注意节奏把控，避免拖沓。',
+                historical: '建议：注意时代还原，历史细节要准确。人物言行要符合时代背景和身份。',
+                horror: '建议：营造恐怖氛围，善用留白和暗示而非直接描写。增加环境细节来烘托恐怖感。'
+            };
+            return suggestions[themeType] || suggestions.romance;
+        }
+
+        // AI聊天
+        function toggleChat() {
+            const panel = document.getElementById('chatPanel');
+            const toggle = document.getElementById('chatToggle');
+
+            if (panel.classList.contains('show')) {
+                panel.classList.remove('show');
+                toggle.classList.remove('hidden');
+            } else {
+                panel.classList.add('show');
+                toggle.classList.add('hidden');
+            }
+        }
+
+        function showChatMessage(role, content) {
+            const container = document.getElementById('chatMessages');
+            const message = document.createElement('div');
+            message.className = `message ${role}`;
+            message.innerHTML = `<div class="message-content">${content}</div>`;
+            container.appendChild(message);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message) return;
+
+            showChatMessage('user', message);
+            input.value = '';
+
+            showLoading();
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message,
+                        context: {
+                            theme: currentProject.theme,
+                            themeType: currentProject.themeType,
+                            currentChapter: currentProject.currentChapterIndex !== -1 ?
+                                currentProject.chapters[currentProject.currentChapterIndex] : null
+                        }
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+
+                const data = await response.json();
+                showChatMessage('ai', data.response);
+            } catch (error) {
+                setTimeout(() => {
+                    showChatMessage('ai', getMockChatResponse(message, currentProject.themeType));
+                }, 1500);
+            }
+
+            hideLoading();
+        }
+
+        function getMockChatResponse(message, themeType) {
+            const responses = [
+                '好的，我来帮你分析一下。根据你目前的小说设定，我建议可以继续深化人物之间的矛盾冲突。',
+                '这是一个很好的问题！我建议在接下来的情节中增加一些反转，让故事更加吸引人。',
+                '关于这个角色塑造，我建议增加更多的内心独白，让读者更好地理解人物的动机。'
+            ];
+            return responses[Math.floor(Math.random() * responses.length)];
+        }
+
+        function handleChatKeypress(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // 保存和导出
+        function saveProject() {
+            localStorage.setItem('moyun_project', JSON.stringify(currentProject));
+            alert('项目已保存');
+        }
+
+        function exportProject() {
+            if (currentProject.chapters.length === 0) {
+                alert('没有可导出的内容');
+                return;
+            }
+
+            let content = `# ${currentProject.theme || '未命名小说'}\n\n`;
+            content += `## 题材类型\n${getThemeTypeName(currentProject.themeType)}\n\n`;
+            content += `## 主题设定\n${currentProject.theme || '无'}\n\n`;
+            if (currentProject.themeAnalysis) {
+                content += `### AI分析\n${currentProject.themeAnalysis}\n\n`;
+            }
+
+            content += `## 世界观设定\n`;
+            if (currentProject.worldSetting.era) {
+                content += `- 时代背景：${getEraName(currentProject.worldSetting.era)}\n`;
+            }
+            if (currentProject.worldSetting.society) {
+                content += `- 社会环境：${currentProject.worldSetting.society}\n`;
+            }
+            if (currentProject.worldSetting.location) {
+                content += `- 地理/空间：${currentProject.worldSetting.location}\n`;
+            }
+            if (currentProject.worldSetting.rules) {
+                content += `- 特殊规则：${currentProject.worldSetting.rules}\n`;
+            }
+
+            content += `\n---\n\n## 章节内容\n\n`;
+
+            currentProject.chapters.forEach((chapter, index) => {
+                content += `### 第${index + 1}章 · ${chapter.title}\n\n`;
+                if (chapter.summary) {
+                    content += `> ${chapter.summary}\n\n`;
+                }
+                content += `${chapter.content || '（待撰写）'}\n\n---\n\n`;
+            });
+
+            const blob = new Blob([content], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentProject.theme || '小说'}.md`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function getThemeTypeName(type) {
+            const names = {
+                romance: '言情',
+                fantasy: '玄幻',
+                mystery: '悬疑',
+                scifi: '科幻',
+                wuxia: '武侠',
+                urban: '都市',
+                historical: '历史',
+                horror: '恐怖'
+            };
+            return names[type] || '未选择';
+        }
+
+        function getEraName(era) {
+            const names = {
+                'ancient': '古代',
+                'medieval': '中世纪',
+                'feudal': '封建时代',
+                'republic': '民国时期',
+                'modern': '现代',
+                'future': '近未来',
+                'distant-future': '远未来',
+                'fantasy-era': '异世界/奇幻时代',
+                'custom': '自定义'
+            };
+            return names[era] || era;
+        }
+
+        // 辅助函数
+        function showLoading() {
+            document.getElementById('loadingIndicator').classList.add('show');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').classList.remove('show');
+        }
+
+        // 模拟AI响应
+        function generateMockThemeAnalysis(theme, themeType) {
+            const baseAnalysis = {
+                romance: {
+                    tips: '言情小说核心在于情感刻画，建议注重人物内心变化，善用细节描写来表现情感。',
+                    structure: '建议按照：相识→相知→相恋→误解→和好→升华的结构来安排情节。'
+                },
+                fantasy: {
+                    tips: '玄幻小说需要构建完整的世界观和力量体系，建议提前规划修炼等级和势力分布。',
+                    structure: '建议按照：平凡→觉醒→修炼→历练→势力→巅峰的结构来安排。'
+                },
+                mystery: {
+                    tips: '悬疑小说关键是悬念和节奏，建议设置多个谜题，适时揭示答案，保持读者好奇心。',
+                    structure: '建议按照：案发→调查→迷局→推理→破案→反转的结构来安排。'
+                },
+                scifi: {
+                    tips: '科幻小说需要逻辑自洽的科技设定，建议提前规划技术水平线，避免设定矛盾。',
+                    structure: '建议按照：现状→变革→冲突→解决→新常态的结构来安排情节。'
+                },
+                wuxia: {
+                    tips: '武侠小说要注重江湖规矩和武功招式的描写，对话要符合古代语境，有古风韵味。',
+                    structure: '建议按照：新手→拜师→历练→纷争→华山论剑→归隐的结构来安排。'
+                },
+                urban: {
+                    tips: '都市小说贴近生活，建议多收集现代生活素材，对话要自然，符合人物身份。',
+                    structure: '建议按照：相遇→交集→矛盾→解决→感情升华的结构来安排。'
+                },
+                historical: {
+                    tips: '历史小说要还原时代背景，建议多研究历史资料，人物言行要符合时代特征。',
+                    structure: '建议按照：时代背景→人物登场→命运交织→历史洪流→结局的结构来安排。'
+                },
+                horror: {
+                    tips: '恐怖小说善用环境描写和留白，不要过度描写恐怖场景，让读者自己想象。',
+                    structure: '建议按照：日常→异象→逼近→危机→真相→余韵的结构来安排。'
+                }
+            };
+
+            const analysis = baseAnalysis[themeType] || baseAnalysis.romance;
+
+            return `基于「${theme}」这个${getThemeTypeName(themeType)}题材，我建议：
+
+📚 **写作要点**
+${analysis.tips}
+
+📖 **结构建议**
+${analysis.structure}
+
+👥 **人物建议**
+设计2-3个主要人物，突出他们之间的情感/利益冲突。
+`;
+        }
+
+        function generateMockOutline(theme, themeType) {
+            const outlineTemplates = {
+                romance: [
+                    { title: '缘起', summary: '命运的相遇' },
+                    { title: '相识', summary: '渐生情愫' },
+                    { title: '相知', summary: '深入了解' },
+                    { title: '风波', summary: '误会产生' },
+                    { title: '真相', summary: '误解解开' },
+                    { title: '相守', summary: '终成眷属' }
+                ],
+                fantasy: [
+                    { title: '觉醒', summary: '发现特殊体质' },
+                    { title: '拜师', summary: '踏入修行之路' },
+                    { title: '修炼', summary: '实力稳步提升' },
+                    { title: '历练', summary: '初入江湖' },
+                    { title: '纷争', summary: '势力争夺' },
+                    { title: '巅峰', summary: '终成大道' }
+                ],
+                mystery: [
+                    { title: '案发', summary: '离奇事件发生' },
+                    { title: '调查', summary: '深入现场' },
+                    { title: '线索', summary: '发现关键证据' },
+                    { title: '迷局', summary: '案情扑朔迷离' },
+                    { title: '推理', summary: '真相浮出水面' },
+                    { title: '破局', summary: '真相大白' }
+                ],
+                scifi: [
+                    { title: '起点', summary: '科技改变生活' },
+                    { title: '异变', summary: '发现异常' },
+                    { title: '探索', summary: '深入调查' },
+                    { title: '危机', summary: '面临生存威胁' },
+                    { title: '抉择', summary: '寻找解决方案' },
+                    { title: '新生', summary: '开创未来' }
+                ],
+                wuxia: [
+                    { title: '少年', summary: '初入江湖' },
+                    { title: '拜师', summary: '偶遇高人' },
+                    { title: '成长', summary: '武功精进' },
+                    { title: '纷争', summary: '卷入门派恩怨' },
+                    { title: '论剑', summary: '华山之巅' },
+                    { title: '归隐', summary: '江湖再见' }
+                ],
+                urban: [
+                    { title: '相遇', summary: '命运安排' },
+                    { title: '交集', summary: '生活交织' },
+                    { title: '职场', summary: '现实压力' },
+                    { title: '矛盾', summary: '冲突爆发' },
+                    { title: '解决', summary: '共同面对' },
+                    { title: '未来', summary: '携手前行' }
+                ],
+                historical: [
+                    { title: '乱世', summary: '时代背景' },
+                    { title: '抉择', summary: '人物登场' },
+                    { title: '纷争', summary: '势力角逐' },
+                    { title: '情义', summary: '爱恨情仇' },
+                    { title: '变局', summary: '历史转折' },
+                    { title: '落幕', summary: '时代终结' }
+                ],
+                horror: [
+                    { title: '日常', summary: '平静生活' },
+                    { title: '异象', summary: '诡异征兆' },
+                    { title: '逼近', summary: '恐惧加深' },
+                    { title: '危机', summary: '生死边缘' },
+                    { title: '真相', summary: '揭开秘密' },
+                    { title: '余韵', summary: '噩梦终结' }
+                ]
+            };
+
+            return outlineTemplates[themeType] || outlineTemplates.romance;
+        }
+
+        function generateMockContinuation(content, themeType) {
+            const continuations = {
+                romance: [
+                    '\n\n她抬起头，目光与他相遇，心中涌起一股难以言喻的感觉。微风拂过，带起了她的发丝，也带起了那段尘封已久的记忆。',
+                    '\n\n他望着她的背影，心中泛起层层涟漪。月光洒落在两人之间，仿佛在诉说着某个古老的故事。'
+                ],
+                fantasy: [
+                    '\n\n就在此时，他感到体内真气涌动，周身灵力开始汇聚。突破的契机已经来临，他必须抓住这个机会。',
+                    '\n\n天地灵气如潮水般涌入体内，他感觉到自己的修为正在发生质的飞跃。'
+                ],
+                mystery: [
+                    '\n\n然而，当线索指向真相时，却发现一切远比想象中更加复杂。隐藏在背后的秘密，正在慢慢浮出水面。',
+                    '\n\n他仔细端详着现场，忽然注意到一个被所有人忽略的细节——那枚不起眼的纽扣。'
+                ],
+                scifi: [
+                    '\n\n量子计算机的屏幕上，数据流如瀑布般倾泻而下。AI终于给出了答案——一个让所有人都震惊的答案。',
+                    '\n\n星际战舰的引擎轰鸣声中，他们踏上了前往未知星域的旅程。'
+                ],
+                wuxia: [
+                    '\n\n剑光闪烁，剑气纵横。两人在月下交手，招式精妙绝伦，每一剑都蕴含着深不可测的内力。',
+                    '\n\n江湖风波骤起，门派之间的恩怨终于迎来了清算的时刻。'
+                ],
+                urban: [
+                    '\n\n夜幕降临，城市的霓虹灯次第亮起。他站在落地窗前，俯瞰着这座不夜城，心中感慨万千。',
+                    '\n\n咖啡厅里，两人相对而坐。空气中弥漫着淡淡的咖啡香，也弥漫着某种微妙的情绪。'
+                ],
+                historical: [
+                    '\n\n烽火连三月，家书抵万金。战争的阴云笼罩着这片土地，命运的齿轮开始转动。',
+                    '\n\n皇城根下，风云变幻。一场足以撼动朝野的大事，正在悄然酝酿。'
+                ],
+                horror: [
+                    '\n\n黑暗中，仿佛有什么东西在注视着他们。寒意从脊背升起，让人不敢回头。',
+                    '\n\n古老的宅院中，传来若有若无的低语声。尘封的秘密，即将被唤醒。'
+                ]
+            };
+
+            const options = continuations[themeType] || continuations.romance;
+            return options[Math.floor(Math.random() * options.length)];
+        }
+
+        // 加载已保存的项目
+        function loadSavedProject() {
+            const saved = localStorage.getItem('moyun_project');
+            if (saved) {
+                try {
+                    currentProject = JSON.parse(saved);
+
+                    if (currentProject.themeType) {
+                        document.querySelectorAll('.theme-type-btn').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.type === currentProject.themeType);
+                        });
+                        updateThemeDisplay();
+                    }
+
+                    document.getElementById('themeInput').value = currentProject.theme || '';
+
+                    if (currentProject.worldSetting) {
+                        document.getElementById('eraSelect').value = currentProject.worldSetting.era || '';
+                        document.getElementById('societyInput').value = currentProject.worldSetting.society || '';
+                        document.getElementById('locationInput').value = currentProject.worldSetting.location || '';
+                        document.getElementById('rulesInput').value = currentProject.worldSetting.rules || '';
+                    }
+
+                    if (currentProject.themeAnalysis) {
+                        displayThemeAnalysis(currentProject.themeAnalysis);
+                    }
+
+                    renderOutline();
+
+                    if (currentProject.currentChapterIndex !== -1) {
+                        selectChapter(currentProject.currentChapterIndex);
+                    }
+                } catch (e) {
+                    console.log('加载保存的项目失败');
+                }
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', loadSavedProject);
+
+        // 自动保存
+        setInterval(() => {
+            if (currentProject.chapters.length > 0 || currentProject.theme) {
+                localStorage.setItem('moyun_project', JSON.stringify(currentProject));
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
