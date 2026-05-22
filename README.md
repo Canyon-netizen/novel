@@ -29,34 +29,43 @@
 - **AI建议**：提供写作改进建议
 - **实时对话**：与AI写作助手交流
 
+### AI配置
+- 支持 Anthropic (Claude)、OpenAI (GPT)、自定义 API、本地模拟
+- 可配置 API Key、Base URL、模型、温度等参数
+- 配置保存在浏览器本地
+
 ### 其他功能
 - 自动保存到本地Storage
 - 导出为Markdown格式
+- 亮色/暗色主题切换
 - 字数统计
+
+## 技术架构
+
+```
+/data/zju-130/zhourui/novel/
+├── index.html       # 主页面
+├── css/
+│   └── style.css    # 样式文件
+├── js/
+│   └── app.js      # JavaScript逻辑
+├── server.py       # Flask后端服务（可选）
+├── requirements.txt # Python依赖
+├── SPEC.md         # 规格说明
+└── README.md        # 本文件
+```
 
 ## 运行方式
 
-### 方式一：纯前端模式（无需后端）
-直接用浏览器打开 `index.html` 文件即可使用。
-> 纯前端模式下，AI功能会使用模拟数据，但完整功能均可使用。
+### 纯前端模式
+直接用浏览器打开 `index.html` 即可使用。
 
-### 方式二：后端API模式（需要Claude API密钥）
-1. 安装依赖：
+### 后端API模式（需要Claude API密钥）
 ```bash
 pip install -r requirements.txt
-```
-
-2. 设置环境变量：
-```bash
-export ANTHROPIC_API_KEY="your-api-key-here"
-```
-
-3. 启动服务器：
-```bash
+export ANTHROPIC_API_KEY="your-key"
 python server.py
 ```
-
-4. 打开浏览器访问 `http://localhost:5000`
 
 ## 主题专属提示词系统
 
@@ -72,20 +81,3 @@ python server.py
 | 都市 | 现代生活、人际关系、社会现实 |
 | 历史 | 时代还原、历史细节、人物风貌 |
 | 恐怖 | 氛围营造、心理恐惧、留白技巧 |
-
-## 技术栈
-
-- **前端**: HTML5 + CSS3 + Vanilla JavaScript
-- **后端**: Python Flask
-- **AI接口**: Claude API（可选）
-
-## 目录结构
-
-```
-/data/zju-130/zhourui/novel/
-├── index.html       # 前端页面
-├── server.py        # Flask后端服务
-├── requirements.txt # Python依赖
-├── SPEC.md          # 规格说明
-└── README.md        # 本文件
-```
