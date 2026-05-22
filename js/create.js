@@ -142,6 +142,7 @@ function init() {
     loadSettings();
     loadTheme();
     renderTemplates();
+    updateFilterCounts();
     setupEventListeners();
 }
 
@@ -252,6 +253,24 @@ function onModelChange() {
 }
 
 // ==================== Templates ====================
+function updateFilterCounts() {
+    const counts = {
+        all: templates.length,
+        'fantasy-xianxia': templates.filter(t => t.type === 'fantasy' || t.type === 'xianxia').length,
+        urban: templates.filter(t => t.type === 'urban').length,
+        scifi: templates.filter(t => t.type === 'scifi').length,
+        historical: templates.filter(t => t.type === 'historical').length
+    };
+
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        const filter = btn.dataset.filter;
+        if (counts[filter] !== undefined) {
+            const text = btn.textContent.replace(/\s*\d+$/, '');
+            btn.textContent = text + ' ' + counts[filter];
+        }
+    });
+}
+
 function renderTemplates(filter = 'all') {
     const grid = document.getElementById('templateGrid');
 
