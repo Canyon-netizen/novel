@@ -288,26 +288,14 @@ function createNovel() {
 }
 
 function openProject(index) {
-    currentProjectIndex = index;
-    const project = projects[index];
-
-    document.getElementById('projectSection').style.display = 'none';
-    document.getElementById('welcomeSection').style.display = 'none';
-    document.getElementById('editorView').classList.add('active');
-
-    renderChapters();
+    // Store current project index and redirect to editor
+    localStorage.setItem('moyun_current_project', index);
+    localStorage.setItem('moyun_current_chapter', 0);
+    window.location.href = `editor.html?project=${index}&chapter=0`;
 }
 
 function goBack() {
-    currentProjectIndex = -1;
-    currentChapterIndex = -1;
-
-    document.getElementById('projectSection').style.display = 'block';
-    document.getElementById('welcomeSection').style.display = 'flex';
-    document.getElementById('editorView').classList.remove('active');
-
-    renderProjects();
-    updateStats();
+    window.location.href = 'index.html';
 }
 
 function addChapter() {

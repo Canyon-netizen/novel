@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>墨韵AI - 章节编辑</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">📝</div>
+            <span class="brand-name">墨韵AI</span>
+            <span class="brand-sub">智能创作工作台</span>
+        </div>
+        <div class="header-right">
+            <button class="settings-btn" onclick="openSettingsModal()" title="设置">⚙️</button>
+            <select class="theme-select" onchange="toggleTheme()">
+                <option value="dark">暗色系</option>
+                <option value="light">亮色系</option>
+            </select>
+            <div class="user-info">
+                <div class="user-avatar">Y</div>
+                <span class="user-name">yyy</span>
+            </div>
+            <span class="logout-icon">↩</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Editor View -->
+        <section class="editor-view active" id="editorView">
+            <div class="editor-header">
+                <div class="back-btn" onclick="goBack()">
+                    <span>←</span> 返回
+                </div>
+                <h2 class="editor-title" id="editorTitle">第1章 · 章节标题</h2>
+                <div class="editor-actions">
+                    <button class="action-btn" onclick="saveCurrentChapter()">
+                        <span>💾</span> 保存
+                    </button>
+                    <button class="action-btn" onclick="exportCurrentProject()">
+                        <span>📤</span> 导出
+                    </button>
+                </div>
+            </div>
+
+            <div class="editor-container">
+                <aside class="chapter-sidebar">
+                    <h3>章节目录</h3>
+                    <div class="chapter-list" id="chapterList">
+                        <!-- Chapter items will be rendered here -->
+                    </div>
+                    <button class="add-chapter-btn" onclick="openAddChapterModal()">
+                        <span>+</span> 添加章节
+                    </button>
+                </aside>
+
+                <div class="content-area">
+                    <textarea class="content-textarea" id="contentEditor" placeholder="在这里开始你的创作..."></textarea>
+                    <div class="content-toolbar">
+                        <button class="toolbar-btn primary" onclick="aiWrite()">
+                            ✍️ AI续写
+                        </button>
+                        <button class="toolbar-btn" onclick="aiPolish()">
+                            🎨 AI润色
+                        </button>
+                        <button class="toolbar-btn" onclick="aiImprove()">
+                            💡 AI建议
+                        </button>
+                    </div>
+                    <div class="word-count-bar">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <span id="currentWordCount">0 字</span>
+                            <span class="ai-status" id="aiStatus"></span>
+                        </div>
+                        <span>自动保存已开启</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      更新了些新BUG，额....是新功能 ✨
+    </footer>
+
+    <!-- Add Chapter Modal -->
+    <div class="modal-overlay" id="addChapterModal">
+        <div class="modal">
+            <h3 class="modal-title">添加章节</h3>
+            <div class="form-group">
+                <label class="form-label">章节标题</label>
+                <input type="text" class="form-input" id="chapterTitleInput" placeholder="请输入章节标题">
+            </div>
+            <div class="form-group">
+                <label class="form-label">章节简介（可选）</label>
+                <textarea class="form-input" id="chapterDescInput" placeholder="请输入章节简介" rows="2"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeAddChapterModal()">取消</button>
+                <button class="modal-btn confirm" onclick="addChapter()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <h3 class="modal-title">⚙️ AI设置</h3>
+
+            <div class="form-group">
+                <label class="form-label">API Provider</label>
+                <select class="form-select" id="apiProvider" onchange="onApiProviderChange()">
+                    <option value="anthropic">Anthropic (Claude)</option>
+                    <option value="openai">OpenAI (GPT)</option>
+                    <option value="custom">自定义 API</option>
+                    <option value="local">本地模拟</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="apiKeyGroup">
+                <label class="form-label">API Key</label>
+                <input type="password" class="form-input" id="apiKeyInput" placeholder="请输入API Key">
+            </div>
+
+            <div class="form-group" id="baseUrlGroup">
+                <label class="form-label">Base URL</label>
+                <input type="text" class="form-input" id="baseUrlInput" placeholder="https://api.anthropic.com">
+            </div>
+
+            <div class="form-group" id="modelGroup">
+                <label class="form-label">Model</label>
+                <select class="form-select" id="modelSelect">
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                    <option value="claude-opus-4-20250514">Claude Opus 4</option>
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Max Tokens</label>
+                <input type="number" class="form-input" id="maxTokensInput" value="2048" min="256" max="8192">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Temperature</label>
+                <input type="range" class="form-input" id="temperatureInput" value="0.7" min="0" max="1" step="0.1" style="padding: 0;">
+                <span id="temperatureValue" style="color: var(--text-secondary); font-size: 0.85rem; margin-left: 0.5rem;">0.7</span>
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
+                <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/editor.js"></script>
+</body>
+</html>
