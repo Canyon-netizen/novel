@@ -1077,7 +1077,10 @@ async function callAI(messages, systemPrompt) {
             return data.content?.[0]?.text || '';
         } else {
             // OpenAI / DeepSeek / MiniMax
-            return data.choices?.[0]?.message?.content || '';
+            let result = data.choices?.[0]?.message?.content || '';
+            // 移除思考过程标签
+            result = result.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+            return result;
         }
     } catch (error) {
         if (error.message.includes('fetch') || error.message.includes('CORS')) {

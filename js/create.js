@@ -866,11 +866,17 @@ async function callAI(messages, systemPrompt = '你是一个助手。') {
 
         const data = await response.json();
 
+        let result = '';
         if (provider === 'anthropic') {
-            return data.content?.[0]?.text || '';
+            result = data.content?.[0]?.text || '';
         } else {
-            return data.choices?.[0]?.message?.content || '';
+            result = data.choices?.[0]?.message?.content || '';
         }
+
+        // 移除思考过程标签 (DeepSeek 等模型)
+        result = result.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+        return result;
     } catch (error) {
         if (error.message.includes('fetch') || error.message.includes('CORS')) {
             throw new Error('网络请求失败，可能是 CORS 跨域问题。请确认 API 端点支持跨域访问。');
