@@ -129,6 +129,12 @@
             margin-top: 0.5rem;
             display: none;
         }
+        .login-status {
+            min-height: 1.4rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -155,10 +161,11 @@
         </div>
 
         <button class="login-btn" onclick="handleLogin()">登录</button>
+        <div class="login-status" id="loginStatus"></div>
 
         <div class="login-links">
-            <a onclick="alert('注册功能开发中')">注册账号</a>
-            <a onclick="alert('找回密码功能开发中')">忘记密码？</a>
+            <a onclick="showLoginStatus('当前为本地演示登录，输入任意账号和密码即可进入。')">注册账号</a>
+            <a onclick="showLoginStatus('本地演示模式不校验真实密码；如忘记密码，直接重新输入即可。')">忘记密码？</a>
         </div>
     </div>
 
@@ -181,6 +188,7 @@
         function handleLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
+            const avatar = document.getElementById('avatarPreview').src || '';
             let valid = true;
 
             document.getElementById('usernameError').style.display = 'none';
@@ -197,9 +205,21 @@
 
             if (valid) {
                 // 模拟登录成功，跳转到主页
-                localStorage.setItem('user', JSON.stringify({ name: username }));
+                const user = {
+                    name: username,
+                    avatar,
+                    loginAt: new Date().toISOString()
+                };
+                sessionStorage.setItem('moyun_auth_user', JSON.stringify(user));
+                localStorage.removeItem('moyun_auth_user');
+                localStorage.removeItem('user');
+                localStorage.setItem('moyun_user_name', username);
                 window.location.href = 'index.html';
             }
+        }
+
+        function showLoginStatus(message) {
+            document.getElementById('loginStatus').textContent = message;
         }
 
         // 回车登录

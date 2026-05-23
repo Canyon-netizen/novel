@@ -2,15 +2,106 @@
 
 // Get project index from URL params
 const urlParams = new URLSearchParams(window.location.search);
-const projectIndex = parseInt(urlParams.get('project')) || -1;
-const chapterIndex = parseInt(urlParams.get('chapter')) || 0;
+const parsedProjectIndex = parseInt(urlParams.get('project'), 10);
+const parsedChapterIndex = parseInt(urlParams.get('chapter'), 10);
+const projectIndex = Number.isNaN(parsedProjectIndex) ? -1 : parsedProjectIndex;
+const chapterIndex = Number.isNaN(parsedChapterIndex) ? 0 : parsedChapterIndex;
 
 // ==================== Initialize ====================
 function init() {
+    if (!requireAuth()) return;
     loadSettings();
     loadTheme();
+    setupAuthDisplay();
+    setupAuthActions();
     loadProject();
     updateAIStatus();
+}
+
+function requireAuth() {
+    const user = getAuthUser();
+    if (!user) {
+        window.location.href = 'login.html';
+        return false;
+    }
+    localStorage.setItem('moyun_user_name', user.name);
+    return true;
+}
+
+function getAuthUser() {
+    const auth = parseJson(sessionStorage.getItem('moyun_auth_user'));
+    return auth?.name ? auth : null;
+}
+
+function parseJson(raw) {
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function setupAuthDisplay() {
+    const name = localStorage.getItem('moyun_user_name') || 'yyy';
+    const userNameEl = document.querySelector('.user-name');
+    const avatarEl = document.querySelector('.user-avatar');
+    if (userNameEl) userNameEl.textContent = name;
+    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+}
+
+function setupAuthActions() {
+    const userInfo = document.querySelector('.user-info');
+    if (!userInfo) return;
+
+    userInfo.setAttribute('role', 'button');
+    userInfo.setAttribute('tabindex', '0');
+    userInfo.title = '用户菜单';
+
+    let menu = userInfo.querySelector('.user-menu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.className = 'user-menu';
+
+        const user = document.createElement('div');
+        user.className = 'user-menu-user';
+        user.textContent = localStorage.getItem('moyun_user_name') || '当前用户';
+
+        const logoutBtn = document.createElement('button');
+        logoutBtn.type = 'button';
+        logoutBtn.textContent = '退出登录';
+        logoutBtn.addEventListener('click', function(event) {
+            event.stopPropagation();
+            handleLogout();
+        });
+
+        menu.append(user, logoutBtn);
+        userInfo.appendChild(menu);
+    }
+
+    userInfo.addEventListener('click', function(event) {
+        event.stopPropagation();
+        userInfo.classList.toggle('open');
+    });
+    userInfo.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            userInfo.classList.toggle('open');
+        }
+        if (event.key === 'Escape') {
+            userInfo.classList.remove('open');
+        }
+    });
+    document.addEventListener('click', function() {
+        userInfo.classList.remove('open');
+    });
+}
+
+function handleLogout() {
+    sessionStorage.removeItem('moyun_auth_user');
+    localStorage.removeItem('moyun_auth_user');
+    localStorage.removeItem('user');
+    window.location.href = 'login.html';
 }
 
 function loadSettings() {

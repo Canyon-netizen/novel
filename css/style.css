@@ -137,6 +137,16 @@ body {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    position: relative;
+    padding: 0.25rem 0.45rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.user-info:hover,
+.user-info.open {
+    background: var(--bg-card);
 }
 
 .user-avatar {
@@ -156,14 +166,48 @@ body {
     color: var(--text-primary);
 }
 
-.logout-icon {
-    color: var(--text-secondary);
-    cursor: pointer;
-    font-size: 1.2rem;
-    transition: color 0.3s;
+.user-menu {
+    position: absolute;
+    top: calc(100% + 0.55rem);
+    right: 0;
+    min-width: 156px;
+    padding: 0.45rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+    display: none;
+    z-index: 1000;
 }
 
-.logout-icon:hover {
+.user-info.open .user-menu {
+    display: block;
+}
+
+.user-menu-user {
+    padding: 0.55rem 0.65rem;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.35rem;
+    word-break: break-all;
+}
+
+.user-menu button {
+    width: 100%;
+    padding: 0.58rem 0.65rem;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.user-menu button:hover {
+    background: var(--bg-secondary);
     color: var(--accent-pink);
 }
 
