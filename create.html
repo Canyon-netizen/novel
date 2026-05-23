@@ -887,19 +887,22 @@
         }
 
         .create-page .template-grid {
-            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 0.8rem;
             padding: 1rem;
             align-content: start;
+            align-items: start;
             overflow-y: auto;
         }
 
         .create-page .template-card {
             border-radius: 8px;
-            padding: 1rem;
-            min-height: 198px;
+            padding: 1.05rem;
+            min-height: 0;
+            height: auto;
             display: flex;
             flex-direction: column;
+            overflow: hidden;
         }
 
         .create-page .template-card:hover {
@@ -918,15 +921,32 @@
         }
 
         .create-page .template-desc {
-            min-height: 3.8em;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
+            min-height: 0;
+            display: block;
+            overflow: visible;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        .create-page .template-tags {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .create-page .template-tag {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
         }
 
         .create-page .template-framework {
             margin-top: auto;
+            width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.55;
         }
 
         .create-page .bottom-actions {

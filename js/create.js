@@ -100,7 +100,7 @@
         {
             id: 'xianxia-path',
             name: '修仙问道',
-            type: 'fantasy',
+            type: 'xianxia',
             icon: '🧧',
             audience: '男频',
             desc: '追求长生与天道，在修炼体系中一步步突破极限',
@@ -672,7 +672,6 @@
         const theme = select?.value || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem(STORAGE.theme, theme);
-        toast(`已切换为${theme === 'light' ? '亮色系' : '暗色系'}`, 'success');
     }
 
     function loadUserName() {
@@ -799,9 +798,6 @@
             model.placeholder = preset.model || '输入模型名称';
         }
 
-        if (!options.silent && document.activeElement?.id === 'apiProvider') {
-            toast(isLocal ? '本地模拟模式不需要 API Key' : `已选择 ${preset.label}`, 'info');
-        }
     }
 
     function setDisplay(id, visible) {
@@ -899,7 +895,6 @@
         config.genre = button.dataset.value;
         updateGenreTags();
         filterTemplates(config.genre, { silent: true, syncGenre: false });
-        toast(`类型已选择：${TYPE_LABELS[config.genre] || config.genre}`, 'success');
     }
 
     function handleTropeClick(event) {
@@ -947,7 +942,6 @@
             const match = button.getAttribute('onclick')?.match(/setWordCount\((\d+)/);
             button.classList.toggle('active', Number(match?.[1]) === numericValue);
         });
-        if (!options.silent) toast(`篇幅已设置为约 ${numericValue} 万字`, 'success');
     }
 
     function updateWordCountLabel() {
@@ -976,7 +970,6 @@
         clearImportedOutline({ silent: true });
         renderTemplates();
         updateFilterButtons();
-        toast('构建配置已重置', 'success');
     }
 
     function setValue(id, value) {
@@ -990,8 +983,7 @@
             toast('未找到可展开区域', 'error');
             return;
         }
-        const open = collapsible.classList.toggle('open');
-        toast(open ? '已展开叙事套路' : '已收起叙事套路', 'info');
+        collapsible.classList.toggle('open');
     }
 
     // ==================== Templates ====================
@@ -1020,7 +1012,14 @@
 
         currentTemplateFilter = filter || 'all';
         const query = ($('templateSearchInput')?.value || '').trim().toLowerCase();
-        const filtered = getFilteredTemplates(currentTemplateFilter, query);
+        let filtered = [];
+        try {
+            filtered = getFilteredTemplates(currentTemplateFilter, query);
+        } catch (error) {
+            console.error('Render templates failed:', error);
+            filtered = templates.filter((template) => currentTemplateFilter === 'all' || template.type === currentTemplateFilter);
+            toast('本地模板数据异常，已先显示内置模板', 'warning');
+        }
 
         if (filtered.length === 0) {
             grid.innerHTML = `
@@ -1076,13 +1075,14 @@
 
     function filterTemplates(filter, options = {}) {
         currentTemplateFilter = filter || 'all';
+        const searchInput = $('templateSearchInput');
+        if (!options.keepSearch && searchInput?.value) {
+            searchInput.value = '';
+        }
         renderTemplates(currentTemplateFilter);
         if (!options.syncGenre && filter !== 'all' && $('genreTags')) {
             config.genre = filter;
             updateGenreTags();
-        }
-        if (!options.silent) {
-            toast(`模板筛选：${TYPE_LABELS[currentTemplateFilter] || currentTemplateFilter}`, 'info');
         }
     }
 
@@ -1132,7 +1132,8 @@
 
     // ==================== Saved Templates ====================
     function getUserTemplates() {
-        return readJson(STORAGE.userTemplates, []);
+        const saved = readJson(STORAGE.userTemplates, []);
+        return Array.isArray(saved) ? saved : [];
     }
 
     function saveUserTemplates(list) {
@@ -1377,7 +1378,6 @@
         tab.classList.add('active');
         content.style.display = 'block';
         updateTabChrome(normalized);
-        toast(`已切换到${tab.textContent.trim()}`, 'info');
     }
 
     function updateTabChrome(tabName) {
@@ -1678,7 +1678,6 @@
     }
 
     function goBack() {
-        toast('正在返回首页', 'info');
         window.setTimeout(() => {
             window.location.href = 'index.html';
         }, 250);
