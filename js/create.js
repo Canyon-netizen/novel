@@ -310,6 +310,21 @@ function selectTemplate(id) {
 
 // ==================== Event Listeners ====================
 function setupEventListeners() {
+    // Template search
+    const searchInput = document.querySelector('.template-search .search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            filterTemplatesBySearch(query);
+        });
+    }
+
+    // My templates button
+    const myTemplatesBtn = document.querySelector('.my-templates-btn');
+    if (myTemplatesBtn) {
+        myTemplatesBtn.addEventListener('click', showMyTemplates);
+    }
+
     // Genre tags
     document.querySelectorAll('#genreTags .tag-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -360,6 +375,218 @@ function setupEventListeners() {
             btn.classList.add('active');
         });
     });
+}
+
+function filterTemplatesBySearch(query) {
+    const filtered = templates.filter(t =>
+        t.name.toLowerCase().includes(query) ||
+        t.desc.toLowerCase().includes(query) ||
+        t.tags.some(tag => tag.toLowerCase().includes(query))
+    );
+    const grid = document.getElementById('templateGrid');
+    grid.innerHTML = filtered.map(t => `
+        <div class="template-card" onclick="selectTemplate(${t.id})">
+            <div class="template-card-header">
+                <div class="template-icon ${t.type}">${t.icon}</div>
+                <div class="template-info">
+                    <h4>${t.name}</h4>
+                    <span>${t.audience}</span>
+                </div>
+            </div>
+            <p class="template-desc">${t.desc}</p>
+            <div class="template-tags">
+                ${t.tags.map(tag => `<span class="template-tag">#${tag}</span>`).join('')}
+            </div>
+            <div class="template-framework">📋 ${t.framework}</div>
+        </div>
+    `).join('');
+}
+
+function showMyTemplates() {
+    document.getElementById('myTemplatesModal').classList.add('show');
+    document.getElementById('customTypeInput').value = '';
+    document.getElementById('customTagInput').value = '';
+    currentMyTemplateFilter = 'all';
+    selectedMyTemplate = null;
+    renderMyTemplatesList();
+    updateMyTemplatesFilterButtons();
+    updateMyTemplatesFiltersDisplay();
+}
+
+function closeMyTemplatesModal() {
+    document.getElementById('myTemplatesModal').classList.remove('show');
+}
+
+let currentMyTemplateFilter = 'all';
+let selectedMyTemplate = null;
+
+function filterMyTemplates(filter) {
+    currentMyTemplateFilter = filter;
+    updateMyTemplatesFilterButtons();
+    renderMyTemplatesList();
+    updateMyTemplatesFiltersDisplay();
+}
+
+function updateMyTemplatesFilterButtons() {
+    const filters = ['all', 'fantasy', 'urban', 'scifi', 'romance', 'wuxia', 'mystery', 'historical'];
+    filters.forEach(f => {
+        const btn = document.getElementById('myTemplate' + f.charAt(0).toUpperCase() + f.slice(1) + 'Btn');
+        if (btn) btn.classList.toggle('active', f === currentMyTemplateFilter);
+    });
+}
+
+function updateMyTemplatesFiltersDisplay() {
+    const display = document.getElementById('myTemplateFiltersDisplay');
+    let text = `当前筛选：${currentMyTemplateFilter === 'all' ? '全部' : currentMyTemplateFilter}`;
+    display.textContent = text;
+}
+
+function renderMyTemplatesList() {
+    const saved = JSON.parse(localStorage.getItem('moyun_user_templates') || '[]');
+    const list = document.getElementById('myTemplatesList');
+    const empty = document.getElementById('myTemplatesEmpty');
+
+    if (saved.length === 0) {
+        list.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+    }
+
+    let filtered = saved;
+    if (currentMyTemplateFilter !== 'all') {
+        filtered = saved.filter(t => t.type === currentMyTemplateFilter);
+    }
+
+    if (filtered.length === 0) {
+        list.style.display = 'none';
+        empty.style.display = 'block';
+        empty.textContent = '该类型下暂无模板';
+        return;
+    }
+
+    empty.style.display = 'none';
+    list.style.display = 'block';
+
+    list.innerHTML = filtered.map((t, index) => {
+        const originalIndex = saved.indexOf(t);
+        return `
+        <div class="template-card ${selectedMyTemplate === originalIndex ? 'selected' : ''}" onclick="selectMyTemplate(${originalIndex})" style="${selectedMyTemplate === originalIndex ? 'border-color:var(--accent-blue);background:rgba(59,130,246,0.1);' : ''}">
+            <div class="template-card-header">
+                <div class="template-icon ${t.type}">${t.icon}</div>
+                <div class="template-info">
+                    <h4>${t.name}</h4>
+                    <span>${t.audience || '通用'}</span>
+                </div>
+            </div>
+            <p class="template-desc">${t.desc || '暂无描述'}</p>
+            <div class="template-tags">
+                ${(t.tags || []).map(tag => `<span class="template-tag">#${tag}</span>`).join('')}
+            </div>
+            <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-muted);">类型: ${t.type}</div>
+        </div>
+    `}).join('');
+}
+
+function selectMyTemplate(index) {
+    selectedMyTemplate = index;
+    renderMyTemplatesList();
+}
+
+function applyMyTemplate() {
+    const saved = JSON.parse(localStorage.getItem('moyun_user_templates') || '[]');
+    if (selectedMyTemplate === null || !saved[selectedMyTemplate]) {
+        alert('请先选择一个模板');
+        return;
+    }
+
+    const template = saved[selectedMyTemplate];
+    document.getElementById('novelName').value = template.name || '';
+    document.getElementById('direction').value = template.desc || '';
+    config.genre = template.type;
+    config.tropes = template.tags || [];
+    updateGenreTags();
+    updateTropeTags();
+    closeMyTemplatesModal();
+}
+
+function addCustomType() {
+    const input = document.getElementById('customTypeInput');
+    const type = input.value.trim();
+    if (!type) return;
+
+    const saved = JSON.parse(localStorage.getItem('moyun_user_templates') || '[]');
+    const newTemplate = {
+        id: Date.now(),
+        name: '自定义-' + type,
+        type: type,
+        icon: '📝',
+        audience: '通用',
+        desc: '用户自定义类型',
+        tags: [],
+        framework: '用户自定义'
+    };
+    saved.push(newTemplate);
+    localStorage.setItem('moyun_user_templates', JSON.stringify(saved));
+    input.value = '';
+    renderMyTemplatesList();
+    alert('已添加类型：' + type);
+}
+
+function addCustomTag() {
+    const input = document.getElementById('customTagInput');
+    const tag = input.value.trim();
+    if (!tag) return;
+
+    const saved = JSON.parse(localStorage.getItem('moyun_user_templates') || '[]');
+    const newTemplate = {
+        id: Date.now(),
+        name: '自定义标签-' + tag,
+        type: 'custom',
+        icon: '🏷️',
+        audience: '通用',
+        desc: '标签：' + tag,
+        tags: [tag],
+        framework: '用户自定义标签'
+    };
+    saved.push(newTemplate);
+    localStorage.setItem('moyun_user_templates', JSON.stringify(saved));
+    input.value = '';
+    renderMyTemplatesList();
+    alert('已添加标签：' + tag);
+}
+
+function closeSaveTemplateModal() {
+    document.getElementById('saveTemplateModal').classList.remove('show');
+}
+
+function openSaveTemplateModal() {
+    document.getElementById('saveTemplateModal').classList.add('show');
+    document.getElementById('templateNameInput').value = document.getElementById('novelName').value;
+}
+
+function confirmSaveTemplate() {
+    const name = document.getElementById('templateNameInput').value.trim();
+    const icon = document.getElementById('templateIconInput').value.trim() || '📚';
+    if (!name) {
+        alert('请输入模板名称');
+        return;
+    }
+
+    const saved = JSON.parse(localStorage.getItem('moyun_user_templates') || '[]');
+    const newTemplate = {
+        id: Date.now(),
+        name: name,
+        type: config.genre || 'custom',
+        icon: icon,
+        audience: config.audience === 'male-youth' ? '男频' : '女频',
+        desc: document.getElementById('direction').value || '用户保存的模板',
+        tags: config.tropes || [],
+        framework: '用户配置'
+    };
+    saved.push(newTemplate);
+    localStorage.setItem('moyun_user_templates', JSON.stringify(saved));
+    closeSaveTemplateModal();
+    alert('模板已保存！');
 }
 
 function updateGenreTags() {

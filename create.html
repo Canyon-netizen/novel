@@ -707,6 +707,82 @@
         </div>
     </div>
 
+    <!-- My Templates Modal -->
+    <div class="modal-overlay" id="myTemplatesModal">
+        <div class="modal" style="max-width: 700px;">
+            <h3 class="modal-title">📁 我的模板</h3>
+
+            <!-- My Templates Toolbar -->
+            <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+                <button class="toolbar-btn active" id="myTemplateAllBtn" onclick="filterMyTemplates('all')">全部</button>
+                <button class="toolbar-btn" id="myTemplateFantasyBtn" onclick="filterMyTemplates('fantasy')">玄幻</button>
+                <button class="toolbar-btn" id="myTemplateUrbanBtn" onclick="filterMyTemplates('urban')">都市</button>
+                <button class="toolbar-btn" id="myTemplateScifiBtn" onclick="filterMyTemplates('scifi')">科幻</button>
+                <button class="toolbar-btn" id="myTemplateRomanceBtn" onclick="filterMyTemplates('romance')">言情</button>
+                <button class="toolbar-btn" id="myTemplateWuxiaBtn" onclick="filterMyTemplates('wuxia')">武侠</button>
+                <button class="toolbar-btn" id="myTemplateMysteryBtn" onclick="filterMyTemplates('mystery')">悬疑</button>
+                <button class="toolbar-btn" id="myTemplateHistoricalBtn" onclick="filterMyTemplates('historical')">历史</button>
+            </div>
+
+            <!-- Custom Type Input -->
+            <div style="margin-bottom:1rem;">
+                <label class="form-label">自定义类型</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="text" class="form-input" id="customTypeInput" placeholder="输入自定义类型名称" style="flex:1;">
+                    <button class="toolbar-btn" onclick="addCustomType()">添加类型</button>
+                </div>
+            </div>
+
+            <!-- Custom Tags Input -->
+            <div style="margin-bottom:1rem;">
+                <label class="form-label">自定义标签</label>
+                <div style="display:flex;gap:0.5rem;">
+                    <input type="text" class="form-input" id="customTagInput" placeholder="输入自定义标签" style="flex:1;">
+                    <button class="toolbar-btn" onclick="addCustomTag()">添加标签</button>
+                </div>
+            </div>
+
+            <!-- Current Filters Display -->
+            <div id="myTemplateFiltersDisplay" style="margin-bottom:1rem;padding:0.8rem;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;color:var(--text-secondary);">
+                当前筛选：全部
+            </div>
+
+            <!-- My Templates List -->
+            <div id="myTemplatesList" style="max-height:300px;overflow-y:auto;">
+                <!-- Templates will be rendered here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="myTemplatesEmpty" style="text-align:center;padding:2rem;color:var(--text-muted);">
+                暂无保存的模板
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeMyTemplatesModal()">关闭</button>
+                <button class="modal-btn confirm" onclick="applyMyTemplate()">应用选中模板</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Template Modal -->
+    <div class="modal-overlay" id="saveTemplateModal">
+        <div class="modal">
+            <h3 class="modal-title">💾 保存当前配置为模板</h3>
+            <div class="form-group">
+                <label class="form-label">模板名称</label>
+                <input type="text" class="form-input" id="templateNameInput" placeholder="输入模板名称">
+            </div>
+            <div class="form-group">
+                <label class="form-label">模板图标</label>
+                <input type="text" class="form-input" id="templateIconInput" placeholder="输入图标，如：📚" value="📚">
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeSaveTemplateModal()">取消</button>
+                <button class="modal-btn confirm" onclick="confirmSaveTemplate()">保存</button>
+            </div>
+        </div>
+    </div>
+
     <script src="js/create.js"></script>
 </body>
 </html>

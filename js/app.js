@@ -11,11 +11,21 @@ let aiSettings = {
     temperature: 0.7
 };
 
+// Gist sync
+let gistSettings = {
+    token: '',
+    gistId: '',
+    lastSync: null
+};
+
+const GIST_FILENAME = 'moyun_data.json';
+
 // ==================== Initialize ====================
 function init() {
     loadProjects();
     loadSettings();
     loadTheme();
+    loadGistSettings();
     updateGreeting();
     renderProjects();
     updateStats();
@@ -74,14 +84,15 @@ function updateGreeting() {
 }
 
 // ==================== Render Functions ====================
-function renderProjects() {
+function renderProjects(filterFn) {
     const grid = document.getElementById('novelGrid');
     const empty = document.getElementById('emptyState');
     const count = document.getElementById('projectCount');
 
-    count.textContent = `(${projects.length})`;
+    let filteredProjects = filterFn ? filterFn(projects) : projects;
+    count.textContent = `(${filteredProjects.length})`;
 
-    if (projects.length === 0) {
+    if (filteredProjects.length === 0) {
         grid.innerHTML = '';
         empty.style.display = 'block';
         return;
@@ -89,11 +100,13 @@ function renderProjects() {
 
     empty.style.display = 'none';
 
-    grid.innerHTML = projects.map((project, index) => `
-        <div class="novel-card" onclick="openProject(${index})">
+    grid.innerHTML = filteredProjects.map((project, index) => {
+        const originalIndex = projects.indexOf(project);
+        return `
+        <div class="novel-card" onclick="openProject(${originalIndex})">
             <div class="novel-card-header">
                 <span class="novel-type">${getTypeName(project.type)}</span>
-                <span class="novel-menu" onclick="event.stopPropagation(); showNovelMenu(${index})">⋮</span>
+                <span class="novel-menu" onclick="event.stopPropagation(); showNovelMenu(${originalIndex})">⋮</span>
             </div>
             <h3 class="novel-title">${project.title}</h3>
             <p class="novel-desc">${project.description || '暂无简介'}</p>
@@ -102,7 +115,7 @@ function renderProjects() {
                 <span>✍️ ${getProjectWordCount(project)}字</span>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 function getTypeName(type) {
@@ -122,6 +135,118 @@ function getTypeName(type) {
 function getProjectWordCount(project) {
     return project.chapters.reduce((sum, ch) => sum + (ch.content?.length || 0), 0);
 }
+
+let currentFilter = { type: null, search: '', timeSort: 'desc' };
+let currentView = 'grid';
+
+function toggleSearch() {
+    const searchBar = document.getElementById('searchBar');
+    const filterPanel = document.getElementById('filterPanel');
+    if (searchBar.style.display === 'none') {
+        searchBar.style.display = 'block';
+        filterPanel.style.display = 'none';
+        document.getElementById('searchInput').focus();
+    } else {
+        searchBar.style.display = 'none';
+        currentFilter.search = '';
+        filterProjects();
+    }
+}
+
+function toggleFilter(filterType) {
+    const searchBar = document.getElementById('searchBar');
+    const filterPanel = document.getElementById('filterPanel');
+
+    if (filterPanel.style.display === 'none' || currentFilter.type !== filterType) {
+        filterPanel.style.display = 'block';
+        searchBar.style.display = 'none';
+        renderFilterPanel(filterType);
+    } else {
+        filterPanel.style.display = 'none';
+        currentFilter.type = null;
+        filterProjects();
+    }
+}
+
+function renderFilterPanel(filterType) {
+    currentFilter.type = filterType;
+    const content = document.getElementById('filterContent');
+
+    if (filterType === 'type') {
+        const types = [
+            { value: '', label: '全部' },
+            { value: 'romance', label: '言情' },
+            { value: 'fantasy', label: '玄幻' },
+            { value: 'mystery', label: '悬疑' },
+            { value: 'scifi', label: '科幻' },
+            { value: 'wuxia', label: '武侠' },
+            { value: 'urban', label: '都市' },
+            { value: 'historical', label: '历史' },
+            { value: 'horror', label: '恐怖' }
+        ];
+        content.innerHTML = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
+            types.map(t => `<button class="toolbar-btn ${currentFilter.type === t.value ? 'active' : ''}" onclick="applyTypeFilter('${t.value}')">${t.label}</button>`).join('') +
+            '</div>';
+    } else if (filterType === 'time') {
+        content.innerHTML = '<div style="display:flex;gap:0.5rem;">' +
+            `<button class="toolbar-btn ${currentFilter.timeSort === 'desc' ? 'active' : ''}" onclick="applyTimeFilter('desc')">最新优先</button>` +
+            `<button class="toolbar-btn ${currentFilter.timeSort === 'asc' ? 'active' : ''}" onclick="applyTimeFilter('asc')">最旧优先</button>` +
+            '</div>';
+    }
+}
+
+function applyTypeFilter(type) {
+    currentFilter.type = type;
+    filterProjects();
+}
+
+function applyTimeFilter(order) {
+    currentFilter.timeSort = order;
+    filterProjects();
+}
+
+function filterProjects() {
+    renderProjects((projs) => {
+        let filtered = [...projs];
+
+        if (currentFilter.search) {
+            const q = currentFilter.search.toLowerCase();
+            filtered = filtered.filter(p =>
+                p.title.toLowerCase().includes(q) ||
+                (p.description && p.description.toLowerCase().includes(q))
+            );
+        }
+
+        if (currentFilter.type) {
+            filtered = filtered.filter(p => p.type === currentFilter.type);
+        }
+
+        filtered.sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return currentFilter.timeSort === 'desc' ? dateB - dateA : dateA - dateB;
+        });
+
+        return filtered;
+    });
+}
+
+function setView(view) {
+    currentView = view;
+    document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
+    document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+    const grid = document.getElementById('novelGrid');
+    if (view === 'list') {
+        grid.style.gridTemplateColumns = '1fr';
+    } else {
+        grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
+    }
+}
+
+document.getElementById('searchInput')?.addEventListener('input', function() {
+    currentFilter.search = this.value;
+    filterProjects();
+});
 
 function updateStats() {
     const totalNovels = projects.length;
@@ -177,9 +302,11 @@ function openSettingsModal() {
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
     document.getElementById('modelInput').value = aiSettings.model;
-        document.getElementById('temperatureInput').value = aiSettings.temperature;
+    document.getElementById('temperatureInput').value = aiSettings.temperature;
     document.getElementById('temperatureValue').textContent = aiSettings.temperature;
+    document.getElementById('githubTokenInput').value = gistSettings.token || '';
     onApiProviderChange();
+    updateGistStatus();
 }
 
 function closeSettingsModal() {
@@ -218,6 +345,249 @@ function saveSettings() {
     closeSettingsModal();
     updateAIStatus();
     alert('设置已保存！');
+}
+
+// ==================== Gist Sync ====================
+function loadGistSettings() {
+    const saved = localStorage.getItem('moyun_gist_settings');
+    if (saved) {
+        try {
+            gistSettings = JSON.parse(saved);
+        } catch (e) {}
+    }
+    if (gistSettings.token) {
+        document.getElementById('githubTokenInput').value = gistSettings.token;
+    }
+    updateGistStatus();
+}
+
+function saveGistSettings() {
+    localStorage.setItem('moyun_gist_settings', JSON.stringify(gistSettings));
+}
+
+function updateGistStatus() {
+    const statusEl = document.getElementById('gistStatus');
+    const statusText = document.getElementById('gistStatusText');
+    const syncBtn = document.getElementById('syncBtn');
+    const loadBtn = document.getElementById('loadFromGistBtn');
+
+    if (gistSettings.token) {
+        statusEl.style.display = 'block';
+        syncBtn.disabled = false;
+        loadBtn.disabled = false;
+        if (gistSettings.gistId) {
+            statusText.textContent = `✅ 已连接 Gist (ID: ${gistSettings.gistId.slice(0, 8)}...) 上次同步: ${gistSettings.lastSync || '从未'}`;
+        } else {
+            statusText.textContent = '⚠️ Token 已设置，点击"连接/更新 Gist"创建或更新 Gist';
+        }
+    } else {
+        statusEl.style.display = 'none';
+        syncBtn.disabled = true;
+        loadBtn.disabled = true;
+    }
+}
+
+async function connectGist() {
+    const token = document.getElementById('githubTokenInput').value.trim();
+    if (!token) {
+        alert('请输入 GitHub Token');
+        return;
+    }
+
+    gistSettings.token = token;
+    saveGistSettings();
+
+    try {
+        const data = getSyncData();
+        const gistData = JSON.stringify(data, null, 2);
+
+        if (gistSettings.gistId) {
+            // Update existing gist
+            const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    description: '墨韵AI 数据同步',
+                    files: {
+                        [GIST_FILENAME]: { content: gistData }
+                    }
+                })
+            });
+
+            if (!response.ok) throw new Error('更新 Gist 失败');
+
+            const result = await response.json();
+            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+            saveGistSettings();
+            updateGistStatus();
+            alert('✅ Gist 已更新！');
+
+        } else {
+            // Create new gist
+            const response = await fetch('https://api.github.com/gists', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    description: '墨韵AI 数据同步',
+                    public: false,
+                    files: {
+                        [GIST_FILENAME]: { content: gistData }
+                    }
+                })
+            });
+
+            if (!response.ok) throw new Error('创建 Gist 失败');
+
+            const result = await response.json();
+            gistSettings.gistId = result.id;
+            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+            saveGistSettings();
+            updateGistStatus();
+            alert('✅ Gist 创建成功！\n\nGist ID: ' + gistSettings.gistId + '\n请妥善保存此 ID，以便在其他设备上恢复数据。');
+        }
+    } catch (error) {
+        alert('❌ Gist 操作失败：' + error.message);
+    }
+}
+
+function getSyncData() {
+    return {
+        projects: projects,
+        aiSettings: aiSettings,
+        userTemplates: JSON.parse(localStorage.getItem('moyun_user_templates') || '[]'),
+        userName: localStorage.getItem('moyun_user_name') || 'yyy',
+        theme: localStorage.getItem('moyun_theme') || 'dark',
+        syncTime: new Date().toISOString()
+    };
+}
+
+async function syncToGist() {
+    if (!gistSettings.token || !gistSettings.gistId) {
+        alert('请先点击"连接/更新 Gist"');
+        return;
+    }
+
+    const syncBtn = document.getElementById('syncBtn');
+    const originalText = syncBtn.textContent;
+    syncBtn.textContent = '同步中...';
+    syncBtn.disabled = true;
+
+    try {
+        const data = getSyncData();
+        const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${gistSettings.token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                description: '墨韵AI 数据同步',
+                files: {
+                    [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) }
+                }
+            })
+        });
+
+        if (!response.ok) throw new Error('同步失败');
+
+        gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+        saveGistSettings();
+        updateGistStatus();
+        alert('✅ 数据已同步到 Gist！');
+    } catch (error) {
+        alert('❌ 同步失败：' + error.message);
+    } finally {
+        syncBtn.textContent = originalText;
+        syncBtn.disabled = false;
+    }
+}
+
+async function loadFromGist() {
+    if (!gistSettings.token) {
+        alert('请先输入 Token 并点击"连接/更新 Gist"');
+        return;
+    }
+
+    const loadBtn = document.getElementById('loadFromGistBtn');
+    const originalText = loadBtn.textContent;
+    loadBtn.textContent = '加载中...';
+    loadBtn.disabled = true;
+
+    try {
+        let gistId = gistSettings.gistId;
+
+        if (!gistId) {
+            gistId = prompt('请输入 Gist ID（首次使用后会自动保存）：');
+            if (!gistId) {
+                loadBtn.textContent = originalText;
+                loadBtn.disabled = false;
+                return;
+            }
+            gistSettings.gistId = gistId;
+            saveGistSettings();
+        }
+
+        const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${gistSettings.token}`,
+            }
+        });
+
+        if (!response.ok) throw new Error('加载失败，请检查 Gist ID 和 Token');
+
+        const result = await response.json();
+        const file = result.files[GIST_FILENAME];
+
+        if (!file) throw new Error('Gist 中未找到数据文件');
+
+        const data = JSON.parse(file.content);
+
+        // Restore data
+        if (data.projects) {
+            projects = data.projects;
+            localStorage.setItem('moyun_projects', JSON.stringify(projects));
+        }
+        if (data.aiSettings) {
+            aiSettings = data.aiSettings;
+            localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
+        }
+        if (data.userTemplates) {
+            localStorage.setItem('moyun_user_templates', JSON.stringify(data.userTemplates));
+        }
+        if (data.userName) {
+            localStorage.setItem('moyun_user_name', data.userName);
+        }
+        if (data.theme) {
+            localStorage.setItem('moyun_theme', data.theme);
+        }
+
+        // Reinitialize
+        loadProjects();
+        loadSettings();
+        loadTheme();
+        updateGreeting();
+        renderProjects();
+        updateStats();
+        updateAIStatus();
+
+        gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+        saveGistSettings();
+        updateGistStatus();
+
+        alert('✅ 数据加载成功！');
+    } catch (error) {
+        alert('❌ 加载失败：' + error.message);
+    } finally {
+        loadBtn.textContent = originalText;
+        loadBtn.disabled = false;
+    }
 }
 
 async function testApiConnection() {

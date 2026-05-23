@@ -80,25 +80,35 @@
             <div class="project-header">
                 <h2 class="project-title">我的小说 <span id="projectCount">(0)</span></h2>
                 <div class="project-toolbar">
-                    <button class="toolbar-btn">
+                    <button class="toolbar-btn" onclick="toggleSearch()">
                         <span>🔍</span> 搜索
                     </button>
-                    <button class="toolbar-btn">
+                    <button class="toolbar-btn" onclick="toggleFilter('type')">
                         <span>📁</span> 类型
                     </button>
-                    <button class="toolbar-btn">
+                    <button class="toolbar-btn" onclick="toggleFilter('time')">
                         <span>📅</span> 时间
                     </button>
-                    <button class="toolbar-btn active">
+                    <button class="toolbar-btn active" id="gridViewBtn" onclick="setView('grid')">
                         <span>⊞</span>
                     </button>
-                    <button class="toolbar-btn">
+                    <button class="toolbar-btn" id="listViewBtn" onclick="setView('list')">
                         <span>☰</span>
                     </button>
                     <button class="new-btn" onclick="openNewNovelModal()">
                         <span>+</span> 新建
                     </button>
                 </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div id="searchBar" style="display: none; margin-bottom: 1rem;">
+                <input type="text" class="form-input" id="searchInput" placeholder="搜索小说标题或简介..." oninput="filterProjects()">
+            </div>
+
+            <!-- Filter Panel -->
+            <div id="filterPanel" style="display: none; margin-bottom: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <div id="filterContent"></div>
             </div>
 
             <div class="novel-grid" id="novelGrid">
@@ -162,6 +172,30 @@
                 <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
                 <button class="modal-btn confirm" id="testBtn" onclick="testApiConnection()">测试连接</button>
                 <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
+            </div>
+
+            <div style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--border-color);">
+                <h4 style="font-size:1rem;margin-bottom:1rem;">☁️ GitHub Gist 同步</h4>
+
+                <div class="form-group">
+                    <label class="form-label">GitHub Personal Access Token</label>
+                    <input type="password" class="form-input" id="githubTokenInput" placeholder="请输入 GitHub Token">
+                    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.3rem;">
+                        需要勾选 gist 权限 <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" style="color:var(--accent-blue);">创建 Token</a>
+                    </p>
+                </div>
+
+                <div id="gistStatus" style="margin-bottom:1rem;font-size:0.85rem;display:none;">
+                    <span id="gistStatusText" style="color:var(--accent-teal);"></span>
+                </div>
+
+                <div class="modal-actions">
+                    <button class="modal-btn cancel" onclick="connectGist()">连接/更新 Gist</button>
+                    <button class="modal-btn confirm" id="syncBtn" onclick="syncToGist()" disabled>同步数据</button>
+                </div>
+                <div style="margin-top:0.5rem;text-align:right;">
+                    <button class="toolbar-btn" onclick="loadFromGist()" style="font-size:0.8rem;padding:0.4rem 0.8rem;" id="loadFromGistBtn">从 Gist 加载</button>
+                </div>
             </div>
         </div>
     </div>
