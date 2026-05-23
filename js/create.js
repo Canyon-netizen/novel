@@ -680,33 +680,97 @@ async function aiGenerateName(type) {
     }
 }
 
+// ==================== API Presets ====================
+const API_PRESETS = {
+    anthropic: {
+        name: 'Anthropic (Claude)',
+        baseUrl: 'https://api.anthropic.com/v1',
+        authHeader: 'x-api-key',
+        modelPrefix: ''
+    },
+    openai: {
+        name: 'OpenAI (GPT)',
+        baseUrl: 'https://api.openai.com/v1',
+        authHeader: 'bearer',
+        modelPrefix: ''
+    },
+    deepseek: {
+        name: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'deepseek-'
+    },
+    minimax: {
+        name: 'MiniMax',
+        baseUrl: 'https://api.minimax.chat/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'MiniMax-'
+    },
+    kimi: {
+        name: 'Kimi (Moonshot)',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'moonshot-'
+    },
+    glm: {
+        name: 'GLM (智谱)',
+        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+        authHeader: 'bearer',
+        modelPrefix: 'glm-'
+    }
+};
+
 // ==================== API Helpers ====================
 function inferApiProfile(baseUrl, model) {
     const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
     const normalizedModel = String(model || '').trim().toLowerCase();
 
-    // 先检查是否有明确的代理路径（如 /anthropic）
+    // 检查是否有明确的代理路径
     if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
         return 'anthropic';
     }
 
-    // DeepSeek - 必须是 deepseek.com 域名
-    if (/^https?:\/\/api\.deepseek\.com\/?$/i.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-')) {
-        return 'deepseek';
-    }
-
-    // MiniMax - 必须是 minimax.chat 域名
-    if (/^https?:\/\/api\.minimax\.chat\/?$/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-
-    // Anthropic - api.anthropic.com
-    if (/^https?:\/\/api\.anthropic\.com\/?$/i.test(normalizedBaseUrl)) {
+    // 按域名精确匹配
+    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
         return 'anthropic';
     }
+    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
+        return 'deepseek';
+    }
+    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
+        return 'minimax';
+    }
+    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
+        return 'kimi';
+    }
+    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
+        return 'glm';
+    }
+    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
+        return 'openai';
+    }
 
-    // 通用的 OpenAI 兼容格式
+    // 按 model 前缀匹配
+    if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
+    if (normalizedModel.startsWith('minimax-')) return 'minimax';
+    if (normalizedModel.startsWith('glm-')) return 'glm';
+    if (normalizedModel.startsWith('moonshot-')) return 'kimi';
+    if (/claude/i.test(normalizedModel)) return 'anthropic';
+
+    // 默认
     return 'openai';
+}
+
+function buildConnectivityTestPayload(provider, model) {
+    return {
+        model: model,
+        messages: [
+            { role: 'system', content: 'Reply with exactly: hello world' },
+            { role: 'user', content: 'hello world' }
+        ],
+        temperature: 0,
+        max_tokens: 256
+    };
 }
 
 function buildApiEndpoint(baseUrl, provider, model) {
@@ -716,6 +780,8 @@ function buildApiEndpoint(baseUrl, provider, model) {
         if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
         if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
         if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
+        if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat/completions';
+        if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
         return 'https://api.openai.com/v1/chat/completions';
     }
 

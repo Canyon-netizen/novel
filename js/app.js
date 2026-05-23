@@ -625,12 +625,32 @@ async function testApiConnection() {
         return;
     }
 
+    if (!model) {
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        alert('请先输入 Model 名称');
+        return;
+    }
+
     try {
         // 自动检测 provider 类型（根据 URL 和 model）
         const detectedProvider = inferApiProfile(baseUrl, model) || provider;
+
+        // 获取预设配置
+        const preset = API_PRESETS[detectedProvider] || API_PRESETS.openai;
         const endpoint = buildApiEndpoint(baseUrl, detectedProvider, model);
-        const headers = buildApiHeaders(detectedProvider, apiKey);
-        const body = buildApiBody(detectedProvider, model, '你是一个助手。', [{ role: 'user', content: '你好' }], 0.7);
+
+        // 构建请求头
+        const headers = { 'Content-Type': 'application/json' };
+        if (detectedProvider === 'anthropic') {
+            headers['x-api-key'] = apiKey;
+            headers['anthropic-version'] = '2023-06-01';
+        } else {
+            headers['Authorization'] = `Bearer ${apiKey}`;
+        }
+
+        // 使用标准的连接测试 payload
+        const body = buildConnectivityTestPayload(detectedProvider, model);
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -639,28 +659,35 @@ async function testApiConnection() {
         });
 
         if (!response.ok) {
-            let errorDetail = '';
+            // 读取错误信息（只读一次）
+            let errorDetail = await response.text().catch(() => '无法读取错误详情');
             try {
-                const errData = await response.json();
-                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
+                const errData = JSON.parse(errorDetail);
+                errorDetail = errData.error?.message || errData.error?.code || errorDetail.slice(0, 200);
             } catch {
-                errorDetail = await response.text();
+                errorDetail = errorDetail.slice(0, 200);
             }
             throw new Error(`HTTP ${response.status}: ${errorDetail}`);
         }
 
         const data = await response.json();
         let reply = '';
-        // 根据实际检测到的 provider 解析响应
         if (detectedProvider === 'anthropic') {
             reply = data.content?.[0]?.text || JSON.stringify(data).slice(0, 100);
         } else {
             reply = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 100);
         }
 
-        testBtn.textContent = originalText;
-        testBtn.disabled = false;
-        alert('✅ 连接成功！\n\nAI 回复：' + reply.slice(0, 200));
+        // 检查返回值是否正确
+        if (reply.toLowerCase().includes('hello world')) {
+            testBtn.textContent = originalText;
+            testBtn.disabled = false;
+            alert('✅ 连接成功！\n\n模型回复：' + reply.slice(0, 200));
+        } else {
+            testBtn.textContent = originalText;
+            testBtn.disabled = false;
+            alert('⚠️ 连接成功，但回复异常：' + reply.slice(0, 200));
+        }
     } catch (error) {
         testBtn.textContent = originalText;
         testBtn.disabled = false;
@@ -847,33 +874,97 @@ function getThemePrompt(themeType) {
     return prompts[themeType] || prompts.romance;
 }
 
+// ==================== API Presets ====================
+const API_PRESETS = {
+    anthropic: {
+        name: 'Anthropic (Claude)',
+        baseUrl: 'https://api.anthropic.com/v1',
+        authHeader: 'x-api-key',
+        modelPrefix: ''
+    },
+    openai: {
+        name: 'OpenAI (GPT)',
+        baseUrl: 'https://api.openai.com/v1',
+        authHeader: 'bearer',
+        modelPrefix: ''
+    },
+    deepseek: {
+        name: 'DeepSeek',
+        baseUrl: 'https://api.deepseek.com/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'deepseek-'
+    },
+    minimax: {
+        name: 'MiniMax',
+        baseUrl: 'https://api.minimax.chat/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'MiniMax-'
+    },
+    kimi: {
+        name: 'Kimi (Moonshot)',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        authHeader: 'bearer',
+        modelPrefix: 'moonshot-'
+    },
+    glm: {
+        name: 'GLM (智谱)',
+        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
+        authHeader: 'bearer',
+        modelPrefix: 'glm-'
+    }
+};
+
 // ==================== API Profile Detection ====================
 function inferApiProfile(baseUrl, model) {
     const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
     const normalizedModel = String(model || '').trim().toLowerCase();
 
-    // 先检查是否有明确的 Anthropic 代理路径（如 /anthropic）
+    // 检查是否有明确的代理路径
     if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
         return 'anthropic';
     }
 
-    // DeepSeek - 必须是 deepseek.com 域名
-    if (/^https?:\/\/api\.deepseek\.com\/?$/i.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-')) {
-        return 'deepseek';
-    }
-
-    // MiniMax - 必须是 minimax.chat 域名
-    if (/^https?:\/\/api\.minimax\.chat\/?$/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-
-    // Anthropic - api.anthropic.com
-    if (/^https?:\/\/api\.anthropic\.com\/?$/i.test(normalizedBaseUrl)) {
+    // 按域名精确匹配
+    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
         return 'anthropic';
     }
+    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
+        return 'deepseek';
+    }
+    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
+        return 'minimax';
+    }
+    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
+        return 'kimi';
+    }
+    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
+        return 'glm';
+    }
+    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
+        return 'openai';
+    }
 
-    // 通用的 OpenAI 兼容格式
+    // 按 model 前缀匹配
+    if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
+    if (normalizedModel.startsWith('minimax-')) return 'minimax';
+    if (normalizedModel.startsWith('glm-')) return 'glm';
+    if (normalizedModel.startsWith('moonshot-')) return 'kimi';
+    if (/claude/i.test(normalizedModel)) return 'anthropic';
+
+    // 默认
     return 'openai';
+}
+
+function buildConnectivityTestPayload(provider, model) {
+    return {
+        model: model,
+        messages: [
+            { role: 'system', content: 'Reply with exactly: hello world' },
+            { role: 'user', content: 'hello world' }
+        ],
+        temperature: 0,
+        max_tokens: 256
+    };
 }
 
 function buildApiEndpoint(baseUrl, provider, model) {
