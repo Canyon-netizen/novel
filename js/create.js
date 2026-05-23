@@ -266,6 +266,7 @@ function updateFilterCounts() {
 
 function renderTemplates(filter = 'all') {
     const grid = document.getElementById('templateGrid');
+    if (!grid) return;
 
     let filteredTemplates = templates;
     if (filter !== 'all') {
@@ -274,7 +275,10 @@ function renderTemplates(filter = 'all') {
             if (filter === 'urban') return t.type === 'urban';
             if (filter === 'scifi') return t.type === 'scifi';
             if (filter === 'historical') return t.type === 'historical';
-            return true;
+            if (filter === 'romance') return t.type === 'romance';
+            if (filter === 'wuxia') return t.type === 'wuxia';
+            if (filter === 'mystery') return t.type === 'mystery';
+            return t.type === filter;
         });
     }
 
@@ -294,6 +298,11 @@ function renderTemplates(filter = 'all') {
             <div class="template-framework">📋 ${t.framework}</div>
         </div>
     `).join('');
+
+    // Update filter button states
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
 }
 
 function selectTemplate(id) {
@@ -308,29 +317,81 @@ function selectTemplate(id) {
     }
 }
 
+// ==================== Tab Switching ====================
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.template-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.style.display = 'none';
+    });
+    document.getElementById('tabContent' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).style.display = 'block';
+}
+
+// ==================== Filter Functions ====================
+function filterTemplates(filter) {
+    currentTemplateFilter = filter;
+    renderTemplates(filter);
+
+    // 同步左侧类型标签
+    document.querySelectorAll('#genreTags .tag-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === filter);
+    });
+}
+
+function searchTemplates() {
+    const query = document.getElementById('templateSearchInput')?.value.toLowerCase() || '';
+    const grid = document.getElementById('templateGrid');
+    if (!grid) return;
+
+    const filtered = templates.filter(t =>
+        t.name.toLowerCase().includes(query) ||
+        t.desc.toLowerCase().includes(query) ||
+        t.tags.some(tag => tag.toLowerCase().includes(query))
+    );
+
+    grid.innerHTML = filtered.map(t => `
+        <div class="template-card" onclick="selectTemplate(${t.id})">
+            <div class="template-card-header">
+                <div class="template-icon ${t.type}">${t.icon}</div>
+                <div class="template-info">
+                    <h4>${t.name}</h4>
+                    <span>${t.audience}</span>
+                </div>
+            </div>
+            <p class="template-desc">${t.desc}</p>
+            <div class="template-tags">
+                ${t.tags.map(tag => `<span class="template-tag">#${tag}</span>`).join('')}
+            </div>
+            <div class="template-framework">📋 ${t.framework}</div>
+        </div>
+    `).join('');
+}
+
+let currentTemplateFilter = 'all';
+
 // ==================== Event Listeners ====================
 function setupEventListeners() {
     // Template search
-    const searchInput = document.querySelector('.template-search .search-input');
+    const searchInput = document.getElementById('templateSearchInput');
     if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            filterTemplatesBySearch(query);
-        });
+        searchInput.addEventListener('input', searchTemplates);
     }
 
-    // My templates button
-    const myTemplatesBtn = document.querySelector('.my-templates-btn');
-    if (myTemplatesBtn) {
-        myTemplatesBtn.addEventListener('click', showMyTemplates);
-    }
+    // My templates button - handled inline now
 
-    // Genre tags
+    // Genre tags (左侧)
     document.querySelectorAll('#genreTags .tag-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#genreTags .tag-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             config.genre = btn.dataset.value;
+            // 同步右侧模板筛选
+            filterTemplates(btn.dataset.value);
         });
     });
 
@@ -349,23 +410,23 @@ function setupEventListeners() {
     });
 
     // Word count slider
-    document.getElementById('wordCountSlider').addEventListener('input', (e) => {
-        const value = parseInt(e.target.value);
-        let label = '';
-        if (value <= 20) label = `${value}万`;
-        else if (value <= 50) label = `${value}万`;
-        else label = `${value}万`;
-        document.getElementById('wordCountValue').textContent = label;
-        config.wordCount = value * 10000;
-    });
-
-    // Filter buttons
-    document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            renderTemplates(btn.dataset.filter);
+    const wordSlider = document.getElementById('wordCountSlider');
+    if (wordSlider) {
+        wordSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            document.getElementById('wordCountValue').textContent = value + '万';
+            config.wordCount = value * 10000;
         });
+    }
+
+    // Filter buttons (右侧模板筛选) - 使用事件委托
+    document.getElementById('templateFilters')?.addEventListener('click', (e) => {
+        if (e.target.classList.contains('filter-btn')) {
+            const filter = e.target.dataset.filter;
+            if (filter) {
+                filterTemplates(filter);
+            }
+        }
     });
 
     // Word count preset buttons

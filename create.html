@@ -620,27 +620,55 @@
             <!-- Right Panel - Templates -->
             <section class="template-panel">
                 <div class="template-tabs">
-                    <button class="template-tab active">模板构建</button>
-                    <button class="template-tab">导入大纲</button>
-                    <button class="template-tab">探讨模式</button>
+                    <button class="template-tab active" id="tabBuild" onclick="switchTab('build')">模板构建</button>
+                    <button class="template-tab" id="tabImport" onclick="switchTab('import')">导入大纲</button>
+                    <button class="template-tab" id="tabDiscuss" onclick="switchTab('discuss')">探讨模式</button>
                 </div>
 
                 <div class="template-toolbar">
                     <div class="template-filters" id="templateFilters">
-                        <button class="filter-btn active" data-filter="all">全部</button>
-                        <button class="filter-btn" data-filter="fantasy-xianxia">玄幻仙侠</button>
-                        <button class="filter-btn" data-filter="urban">都市现代</button>
-                        <button class="filter-btn" data-filter="scifi">科幻未来</button>
-                        <button class="filter-btn" data-filter="historical">历史军事</button>
+                        <button class="filter-btn active" data-filter="all" onclick="filterTemplates('all')">全部</button>
+                        <button class="filter-btn" data-filter="fantasy" onclick="filterTemplates('fantasy')">玄幻仙侠</button>
+                        <button class="filter-btn" data-filter="urban" onclick="filterTemplates('urban')">都市现代</button>
+                        <button class="filter-btn" data-filter="scifi" onclick="filterTemplates('scifi')">科幻未来</button>
+                        <button class="filter-btn" data-filter="historical" onclick="filterTemplates('historical')">历史军事</button>
+                        <button class="filter-btn" data-filter="romance" onclick="filterTemplates('romance')">言情</button>
+                        <button class="filter-btn" data-filter="wuxia" onclick="filterTemplates('wuxia')">武侠</button>
+                        <button class="filter-btn" data-filter="mystery" onclick="filterTemplates('mystery')">悬疑</button>
                     </div>
                     <div class="template-search">
-                        <input type="text" class="search-input" placeholder="搜索模板...">
-                        <button class="my-templates-btn">📁 我的模板</button>
+                        <input type="text" class="search-input" id="templateSearchInput" placeholder="搜索模板..." oninput="searchTemplates()">
+                        <button class="my-templates-btn" onclick="showMyTemplates()">📁 我的模板</button>
                     </div>
                 </div>
 
-                <div class="template-grid" id="templateGrid">
-                    <!-- Templates will be rendered here -->
+                <!-- Tab Content: Build -->
+                <div id="tabContentBuild" class="tab-content">
+                    <div class="template-grid" id="templateGrid">
+                        <!-- Templates will be rendered here -->
+                    </div>
+                </div>
+
+                <!-- Tab Content: Import -->
+                <div id="tabContentImport" class="tab-content" style="display:none;">
+                    <div style="padding:2rem;text-align:center;color:var(--text-secondary);">
+                        <p style="font-size:1.2rem;margin-bottom:1rem;">📄 导入大纲功能</p>
+                        <p style="color:var(--text-muted);">支持导入 Markdown 或 JSON 格式的大纲文件</p>
+                        <div style="margin-top:1.5rem;">
+                            <button class="toolbar-btn" onclick="alert('导入功能开发中')">选择文件</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Discuss -->
+                <div id="tabContentDiscuss" class="tab-content" style="display:none;">
+                    <div style="padding:2rem;text-align:center;color:var(--text-secondary);">
+                        <p style="font-size:1.2rem;margin-bottom:1rem;">💬 探讨模式功能</p>
+                        <p style="color:var(--text-muted);">与 AI 探讨小说设定、情节走向等问题</p>
+                        <div style="margin-top:1.5rem;">
+                            <button class="toolbar-btn" onclick="alert('探讨功能开发中')">开始探讨</button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
