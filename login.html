@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 墨韵AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: var(--bg-primary);
+        }
+        .login-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 3rem;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .login-avatar {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--accent-teal) 0%, var(--accent-blue) 100%);
+            border-radius: 50%;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .login-avatar .avatar-text {
+            position: relative;
+            z-index: 1;
+        }
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .login-sub {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+            text-align: left;
+        }
+        .form-label {
+            display: block;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+        .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 0.8rem;
+            background: linear-gradient(135deg, var(--accent-blue) 0%, #2563EB 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 0.5rem;
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+        }
+        .login-links {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+        .login-links a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .login-links a:hover {
+            text-decoration: underline;
+        }
+        .avatar-upload {
+            display: none;
+        }
+        .error-msg {
+            color: #EF4444;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-avatar" id="loginAvatar" onclick="document.getElementById('avatarUpload').click()">
+            <span class="avatar-text" id="avatarText">未登录</span>
+            <img id="avatarPreview" style="display:none;" />
+        </div>
+        <input type="file" id="avatarUpload" class="avatar-upload" accept="image/*" onchange="handleAvatarUpload(event)">
+
+        <h2 class="login-title">欢迎回来</h2>
+        <p class="login-sub">登录墨韵AI，继续你的创作之旅</p>
+
+        <div class="form-group">
+            <label class="form-label">账号</label>
+            <input type="text" class="form-input" id="username" placeholder="请输入账号">
+            <p class="error-msg" id="usernameError">请输入账号</p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">密码</label>
+            <input type="password" class="form-input" id="password" placeholder="请输入密码">
+            <p class="error-msg" id="passwordError">请输入密码</p>
+        </div>
+
+        <button class="login-btn" onclick="handleLogin()">登录</button>
+
+        <div class="login-links">
+            <a onclick="alert('注册功能开发中')">注册账号</a>
+            <a onclick="alert('找回密码功能开发中')">忘记密码？</a>
+        </div>
+    </div>
+
+    <script>
+        function handleAvatarUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('avatarPreview');
+                    const text = document.getElementById('avatarText');
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    text.style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function handleLogin() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            let valid = true;
+
+            document.getElementById('usernameError').style.display = 'none';
+            document.getElementById('passwordError').style.display = 'none';
+
+            if (!username) {
+                document.getElementById('usernameError').style.display = 'block';
+                valid = false;
+            }
+            if (!password) {
+                document.getElementById('passwordError').style.display = 'block';
+                valid = false;
+            }
+
+            if (valid) {
+                // 模拟登录成功，跳转到主页
+                localStorage.setItem('user', JSON.stringify({ name: username }));
+                window.location.href = 'index.html';
+            }
+        }
+
+        // 回车登录
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+        });
+    </script>
+</body>
+</html>

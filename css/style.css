@@ -469,6 +469,8 @@ body {
     padding: 2rem;
     width: 90%;
     max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
     animation: modalIn 0.3s ease;
 }
 

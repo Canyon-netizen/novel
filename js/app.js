@@ -8,7 +8,6 @@ let aiSettings = {
     apiKey: '',
     baseUrl: '',
     model: '',
-    maxTokens: 2048,
     temperature: 0.7
 };
 
@@ -178,8 +177,7 @@ function openSettingsModal() {
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
     document.getElementById('modelInput').value = aiSettings.model;
-    document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
-    document.getElementById('temperatureInput').value = aiSettings.temperature;
+        document.getElementById('temperatureInput').value = aiSettings.temperature;
     document.getElementById('temperatureValue').textContent = aiSettings.temperature;
     onApiProviderChange();
 }
@@ -214,13 +212,97 @@ function saveSettings() {
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
     aiSettings.model = document.getElementById('modelInput').value;
-    aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
     aiSettings.temperature = parseFloat(document.getElementById('temperatureInput').value);
 
     saveSettingsToStorage();
     closeSettingsModal();
     updateAIStatus();
     alert('设置已保存！');
+}
+
+async function testApiConnection() {
+    const testBtn = document.getElementById('testBtn');
+    const originalText = testBtn.textContent;
+    testBtn.textContent = '测试中...';
+    testBtn.disabled = true;
+
+    const provider = document.getElementById('apiProvider').value;
+    const apiKey = document.getElementById('apiKeyInput').value;
+    const baseUrl = document.getElementById('baseUrlInput').value;
+    const model = document.getElementById('modelInput').value;
+
+    if (provider === 'local') {
+        setTimeout(() => {
+            testBtn.textContent = originalText;
+            testBtn.disabled = false;
+            alert('✅ 本地模拟模式可用');
+        }, 500);
+        return;
+    }
+
+    if (!apiKey) {
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        alert('请先输入 API Key');
+        return;
+    }
+
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        let endpoint = '';
+        let body = {};
+
+        if (provider === 'anthropic') {
+            endpoint = baseUrl || 'https://api.anthropic.com/v1/messages';
+            headers['x-api-key'] = apiKey;
+            headers['anthropic-version'] = '2023-06-01';
+            body = {
+                model: model || 'claude-sonnet-4-20250514',
+                system: '你是一个助手。',
+                messages: [{ role: 'user', content: '你好' }]
+            };
+        } else if (provider === 'openai') {
+            endpoint = baseUrl || 'https://api.openai.com/v1/chat/completions';
+            headers['Authorization'] = `Bearer ${apiKey}`;
+            body = {
+                model: model || 'gpt-4',
+                messages: [{ role: 'user', content: '你好' }]
+            };
+        } else if (provider === 'custom') {
+            endpoint = baseUrl;
+            headers['Authorization'] = `Bearer ${apiKey}`;
+            body = {
+                model: model || 'default',
+                messages: [{ role: 'user', content: '你好' }]
+            };
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        let reply = '';
+        if (provider === 'anthropic') {
+            reply = data.content?.[0]?.text || JSON.stringify(data).slice(0, 100);
+        } else {
+            reply = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 100);
+        }
+
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        alert('✅ 连接成功！\n\nAI 回复：' + reply.slice(0, 200));
+    } catch (error) {
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        alert('❌ 连接失败：' + error.message);
+    }
 }
 
 function updateAIStatus() {
@@ -417,7 +499,6 @@ async function callAI(messages, systemPrompt) {
         headers['anthropic-version'] = '2023-06-01';
         body = {
             model: aiSettings.model || aiSettings.customModel,
-            max_tokens: aiSettings.maxTokens,
             system: systemPrompt,
             messages: messages
         };
@@ -426,7 +507,6 @@ async function callAI(messages, systemPrompt) {
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
             model: aiSettings.model || aiSettings.customModel,
-            max_tokens: aiSettings.maxTokens,
             temperature: aiSettings.temperature,
             messages: [{ role: 'system', content: systemPrompt }, ...messages]
         };
@@ -435,7 +515,6 @@ async function callAI(messages, systemPrompt) {
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
         body = {
             model: aiSettings.model || aiSettings.customModel,
-            max_tokens: aiSettings.maxTokens,
             temperature: aiSettings.temperature,
             messages: [{ role: 'system', content: systemPrompt }, ...messages]
         };
