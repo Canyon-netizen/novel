@@ -81,6 +81,12 @@ function updateGreeting() {
     const name = saved || 'yyy';
 
     document.getElementById('greetingText').textContent = `${greeting}，${name}`;
+
+    // Also update header user name
+    const userNameEl = document.querySelector('.user-name');
+    const userAvatarEl = document.querySelector('.user-avatar');
+    if (userNameEl) userNameEl.textContent = name;
+    if (userAvatarEl) userAvatarEl.textContent = name.charAt(0).toUpperCase();
 }
 
 // ==================== Render Functions ====================
