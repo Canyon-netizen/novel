@@ -319,6 +319,22 @@ function closeSettingsModal() {
     document.getElementById('settingsModal').classList.remove('show');
 }
 
+function closeSettingsModalOnOverlay(event) {
+    if (event.target.id === 'settingsModal') {
+        closeSettingsModal();
+    }
+}
+
+// ESC key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('settingsModal');
+        if (modal && modal.classList.contains('show')) {
+            closeSettingsModal();
+        }
+    }
+});
+
 function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
     const keyGroup = document.getElementById('apiKeyGroup');

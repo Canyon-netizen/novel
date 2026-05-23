@@ -981,7 +981,76 @@ function createNovel() {
 
     // Redirect to editor
     const newIndex = projects.length - 1;
-    window.location.href = `editor.html?project=${newIndex}&chapter=0`;
+    // Use location.replace to ensure storage is flushed before navigation
+    location.replace(`editor.html?project=${newIndex}&chapter=0`);
+}
+
+// ==================== Discuss Mode ====================
+let discussHistory = [];
+
+function sendDiscussMessage() {
+    const input = document.getElementById('discussInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    const messagesEl = document.getElementById('discussMessages');
+
+    // Add user message
+    messagesEl.innerHTML += `
+        <div class="message user-message">
+            <div class="message-avatar">👤</div>
+            <div class="message-content">${escapeHtml(message)}</div>
+        </div>
+    `;
+
+    input.value = '';
+    discussHistory.push({ role: 'user', content: message });
+
+    // Scroll to bottom
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Add loading indicator
+    const loadingEl = document.createElement('div');
+    loadingEl.className = 'message bot-message';
+    loadingEl.id = 'discussLoading';
+    loadingEl.innerHTML = `
+        <div class="message-avatar">🤖</div>
+        <div class="message-content"><div class="discuss-loading">AI思考中...</div></div>
+    `;
+    messagesEl.appendChild(loadingEl);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    // Call AI
+    const systemPrompt = '你是一位专业的中文小说创作助手，擅长帮助用户探讨小说创作中的各种问题，包括世界观设定、人物塑造、情节设计、写作技巧等。请用友好、专业的态度回答用户的问题。';
+
+    callAI(discussHistory.map(m => ({ role: m.role, content: m.content })), systemPrompt)
+        .then(response => {
+            document.getElementById('discussLoading')?.remove();
+            messagesEl.innerHTML += `
+                <div class="message bot-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">${escapeHtml(response)}</div>
+                </div>
+            `;
+            discussHistory.push({ role: 'assistant', content: response });
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        })
+        .catch(error => {
+            document.getElementById('discussLoading')?.remove();
+            messagesEl.innerHTML += `
+                <div class="message bot-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">抱歉，AI回复失败：${escapeHtml(error.message)}</div>
+                </div>
+            `;
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/\n/g, '<br>');
 }
 
 // ==================== Init ====================
