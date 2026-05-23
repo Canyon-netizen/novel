@@ -680,67 +680,131 @@ async function aiGenerateName(type) {
     }
 }
 
-async function callAI(messages) {
+// ==================== API Helpers ====================
+function inferApiProfile(baseUrl, model) {
+    const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
+    const normalizedModel = String(model || '').trim().toLowerCase();
+
+    // 先检查是否有明确的代理路径（如 /anthropic）
+    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
+        return 'anthropic';
+    }
+
+    // DeepSeek - 必须是 deepseek.com 域名
+    if (/^https?:\/\/api\.deepseek\.com\/?$/i.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-')) {
+        return 'deepseek';
+    }
+
+    // MiniMax - 必须是 minimax.chat 域名
+    if (/^https?:\/\/api\.minimax\.chat\/?$/i.test(normalizedBaseUrl)) {
+        return 'minimax';
+    }
+
+    // Anthropic - api.anthropic.com
+    if (/^https?:\/\/api\.anthropic\.com\/?$/i.test(normalizedBaseUrl)) {
+        return 'anthropic';
+    }
+
+    // 通用的 OpenAI 兼容格式
+    return 'openai';
+}
+
+function buildApiEndpoint(baseUrl, provider, model) {
+    const normalized = (baseUrl || '').replace(/\/+$/, '');
+
+    if (!normalized) {
+        if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
+        if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
+        if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
+        return 'https://api.openai.com/v1/chat/completions';
+    }
+
+    // 如果已经是完整 URL，直接返回
+    if (normalized.includes('/v1/') || normalized.includes('/chat/')) {
+        return normalized;
+    }
+
+    // 根据 provider 追加合适路径
+    if (provider === 'anthropic') {
+        return `${normalized}/v1/messages`;
+    }
+
+    return `${normalized}/v1/chat/completions`;
+}
+
+function buildApiHeaders(provider, apiKey) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (provider === 'anthropic') {
+        headers['x-api-key'] = apiKey;
+        headers['anthropic-version'] = '2023-06-01';
+    } else {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+    return headers;
+}
+
+function buildApiBody(provider, model, systemPrompt, messages, temperature, maxTokens) {
+    const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
+
+    if (provider === 'anthropic') {
+        return {
+            model: modelName,
+            system: systemPrompt,
+            messages: messages,
+            max_tokens: maxTokens || 2048
+        };
+    }
+
+    return {
+        model: modelName,
+        messages: [{ role: 'system', content: systemPrompt }, ...messages],
+        temperature: temperature || 0.7,
+        max_tokens: maxTokens || 2048
+    };
+}
+
+async function callAI(messages, systemPrompt = '你是一个助手。') {
     if (aiSettings.provider === 'local') {
         return new Promise((resolve) => {
             setTimeout(() => resolve('模拟名称'), 1000);
         });
     }
 
-    const headers = { 'Content-Type': 'application/json' };
-    let endpoint = aiSettings.baseUrl || '';
+    const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
+    const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider, aiSettings.model);
+    const headers = buildApiHeaders(provider, aiSettings.apiKey);
+    const body = buildApiBody(provider, aiSettings.model, systemPrompt, messages, aiSettings.temperature, aiSettings.maxTokens);
 
-    if (aiSettings.provider === 'anthropic') {
-        headers['x-api-key'] = aiSettings.apiKey;
-        headers['anthropic-version'] = '2023-06-01';
-    } else {
-        headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
-    }
+    try {
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
 
-    // 构建端点
-    const normalized = endpoint.replace(/\/+$/, '');
-    if (aiSettings.provider === 'anthropic') {
-        if (normalized.includes('/v1/')) endpoint = normalized;
-        else endpoint = normalized ? `${normalized}/v1/messages` : 'https://api.anthropic.com/v1/messages';
-    } else {
-        if (normalized.includes('/v1/') || normalized.includes('/chat/')) endpoint = normalized;
-        else endpoint = normalized ? `${normalized}/v1/chat/completions` : 'https://api.openai.com/v1/chat/completions';
-    }
-
-    const body = {
-        model: aiSettings.model || (aiSettings.provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4'),
-        messages: messages
-    };
-
-    if (aiSettings.provider !== 'anthropic') {
-        body.temperature = 0.7;
-    } else {
-        body.system = '你是一个助手。';
-    }
-
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-        let errorDetail = '';
-        try {
-            const errData = await response.json();
-            errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
-        } catch {
-            errorDetail = await response.text();
+        if (!response.ok) {
+            let errorDetail = '';
+            try {
+                const errData = await response.json();
+                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
+            } catch {
+                errorDetail = await response.text();
+            }
+            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
         }
-        throw new Error(`HTTP ${response.status}: ${errorDetail}`);
-    }
 
-    const data = await response.json();
+        const data = await response.json();
 
-    if (aiSettings.provider === 'anthropic') {
-        return data.content?.[0]?.text || '';
-    } else {
-        return data.choices?.[0]?.message?.content || '';
+        if (provider === 'anthropic') {
+            return data.content?.[0]?.text || '';
+        } else {
+            return data.choices?.[0]?.message?.content || '';
+        }
+    } catch (error) {
+        if (error.message.includes('fetch') || error.message.includes('CORS')) {
+            throw new Error('网络请求失败，可能是 CORS 跨域问题。请确认 API 端点支持跨域访问。');
+        }
+        throw error;
     }
 }
 

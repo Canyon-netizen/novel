@@ -626,10 +626,11 @@ async function testApiConnection() {
     }
 
     try {
-        const profile = inferApiProfile(baseUrl, model);
-        const endpoint = buildApiEndpoint(baseUrl, provider, model);
-        const headers = buildApiHeaders(provider, apiKey);
-        const body = buildApiBody(provider, model, '你是一个助手。', [{ role: 'user', content: '你好' }], 0.7);
+        // 自动检测 provider 类型（根据 URL 和 model）
+        const detectedProvider = inferApiProfile(baseUrl, model) || provider;
+        const endpoint = buildApiEndpoint(baseUrl, detectedProvider, model);
+        const headers = buildApiHeaders(detectedProvider, apiKey);
+        const body = buildApiBody(detectedProvider, model, '你是一个助手。', [{ role: 'user', content: '你好' }], 0.7);
 
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -650,7 +651,8 @@ async function testApiConnection() {
 
         const data = await response.json();
         let reply = '';
-        if (provider === 'anthropic') {
+        // 根据实际检测到的 provider 解析响应
+        if (detectedProvider === 'anthropic') {
             reply = data.content?.[0]?.text || JSON.stringify(data).slice(0, 100);
         } else {
             reply = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 100);
@@ -850,18 +852,26 @@ function inferApiProfile(baseUrl, model) {
     const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
     const normalizedModel = String(model || '').trim().toLowerCase();
 
-    // DeepSeek
-    if ((/api\.deepseek\.com/i.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-'))) {
-        return 'deepseek';
-    }
-    // MiniMax (用户反馈的 API)
-    if (/minimax|api\.minimax\.com/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-    // Anthropic
-    if (/api\.anthropic\.com/i.test(normalizedBaseUrl) || /claude/i.test(normalizedModel)) {
+    // 先检查是否有明确的 Anthropic 代理路径（如 /anthropic）
+    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
         return 'anthropic';
     }
+
+    // DeepSeek - 必须是 deepseek.com 域名
+    if (/^https?:\/\/api\.deepseek\.com\/?$/i.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-')) {
+        return 'deepseek';
+    }
+
+    // MiniMax - 必须是 minimax.chat 域名
+    if (/^https?:\/\/api\.minimax\.chat\/?$/i.test(normalizedBaseUrl)) {
+        return 'minimax';
+    }
+
+    // Anthropic - api.anthropic.com
+    if (/^https?:\/\/api\.anthropic\.com\/?$/i.test(normalizedBaseUrl)) {
+        return 'anthropic';
+    }
+
     // 通用的 OpenAI 兼容格式
     return 'openai';
 }
@@ -872,10 +882,9 @@ function buildApiEndpoint(baseUrl, provider, model) {
     if (!normalized) {
         // 使用默认值
         if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-        if (provider === 'openai' || provider === 'deepseek' || provider === 'minimax') {
-            return 'https://api.openai.com/v1/chat/completions';
-        }
-        return '';
+        if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
+        if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
+        return 'https://api.openai.com/v1/chat/completions';
     }
 
     // 如果已经是完整 URL（含路径），直接返回
@@ -883,14 +892,12 @@ function buildApiEndpoint(baseUrl, provider, model) {
         return normalized;
     }
 
-    // 根据 provider 追加合适的路径
+    // 如果 baseUrl 只包含主机部分（没有路径），追加合适路径
     if (provider === 'anthropic') {
-        if (/\/v\d+$/i.test(normalized)) return `${normalized}/messages`;
         return `${normalized}/v1/messages`;
     }
 
     // OpenAI / DeepSeek / MiniMax 都用 chat completions
-    if (/\/v\d+$/i.test(normalized)) return `${normalized}/chat/completions`;
     return `${normalized}/v1/chat/completions`;
 }
 
@@ -915,16 +922,16 @@ function buildApiBody(provider, model, systemPrompt, messages, temperature) {
             model: modelName,
             system: systemPrompt,
             messages: messages,
-            stream: true
+            max_tokens: 2048
         };
     }
 
-    // OpenAI / DeepSeek / MiniMax
+    // OpenAI / DeepSeek / MiniMax - 不使用流式响应，直接返回完整 JSON
     return {
         model: modelName,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        stream: true,
-        temperature: temperature
+        temperature: temperature,
+        max_tokens: 2048
     };
 }
 
@@ -934,10 +941,11 @@ async function callAI(messages, systemPrompt) {
         return callLocalAI(messages, systemPrompt);
     }
 
-    const profile = inferApiProfile(aiSettings.baseUrl, aiSettings.model);
-    const endpoint = buildApiEndpoint(aiSettings.baseUrl, aiSettings.provider, aiSettings.model);
-    const headers = buildApiHeaders(aiSettings.provider, aiSettings.apiKey);
-    const body = buildApiBody(aiSettings.provider, aiSettings.model, systemPrompt, messages, aiSettings.temperature);
+    // 使用 inferApiProfile 根据 baseUrl 和 model 自动检测 provider 类型
+    const detectedProvider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
+    const endpoint = buildApiEndpoint(aiSettings.baseUrl, detectedProvider, aiSettings.model);
+    const headers = buildApiHeaders(detectedProvider, aiSettings.apiKey);
+    const body = buildApiBody(detectedProvider, aiSettings.model, systemPrompt, messages, aiSettings.temperature);
 
     if (!endpoint) {
         throw new Error('未配置 API 端点');
@@ -963,7 +971,7 @@ async function callAI(messages, systemPrompt) {
 
         const data = await response.json();
 
-        if (aiSettings.provider === 'anthropic') {
+        if (detectedProvider === 'anthropic') {
             return data.content?.[0]?.text || '';
         } else {
             // OpenAI / DeepSeek / MiniMax
