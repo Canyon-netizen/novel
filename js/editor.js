@@ -404,17 +404,22 @@ function buildApiEndpoint(baseUrl, provider, model) {
         return 'https://api.openai.com/v1/chat/completions';
     }
 
-    // 如果已经是完整 URL，直接返回
-    if (normalized.includes('/v1/') || normalized.includes('/chat/')) {
-        return normalized;
+    // 如果用户提供了 baseUrl，直接追加 provider 对应的端点路径
+    if (normalized) {
+        if (provider === 'anthropic') {
+            return `${normalized}/v1/messages`;
+        }
+        // 默认使用 chat completions
+        return `${normalized}/v1/chat/completions`;
     }
 
-    // 根据 provider 追加合适路径
-    if (provider === 'anthropic') {
-        return `${normalized}/v1/messages`;
-    }
-
-    return `${normalized}/v1/chat/completions`;
+    // 如果没有提供 baseUrl，使用默认值
+    if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
+    if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
+    if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
+    if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat_completions';
+    if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
+    return 'https://api.openai.com/v1/chat/completions';
 }
 
 function buildApiHeaders(provider, apiKey) {
