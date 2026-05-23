@@ -688,31 +688,34 @@ async function callAI(messages) {
     }
 
     const headers = { 'Content-Type': 'application/json' };
-    let endpoint = aiSettings.baseUrl;
-    let body = {};
+    let endpoint = aiSettings.baseUrl || '';
 
     if (aiSettings.provider === 'anthropic') {
         headers['x-api-key'] = aiSettings.apiKey;
         headers['anthropic-version'] = '2023-06-01';
-        body = {
-            model: aiSettings.model,
-            max_tokens: aiSettings.maxTokens,
-            messages: messages
-        };
     } else {
         headers['Authorization'] = `Bearer ${aiSettings.apiKey}`;
-        body = {
-            model: aiSettings.model,
-            messages: messages
-        };
     }
 
-    if (!endpoint) {
-        if (aiSettings.provider === 'anthropic') {
-            endpoint = 'https://api.anthropic.com/v1/messages';
-        } else {
-            endpoint = 'https://api.openai.com/v1/chat/completions';
-        }
+    // 构建端点
+    const normalized = endpoint.replace(/\/+$/, '');
+    if (aiSettings.provider === 'anthropic') {
+        if (normalized.includes('/v1/')) endpoint = normalized;
+        else endpoint = normalized ? `${normalized}/v1/messages` : 'https://api.anthropic.com/v1/messages';
+    } else {
+        if (normalized.includes('/v1/') || normalized.includes('/chat/')) endpoint = normalized;
+        else endpoint = normalized ? `${normalized}/v1/chat/completions` : 'https://api.openai.com/v1/chat/completions';
+    }
+
+    const body = {
+        model: aiSettings.model || (aiSettings.provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4'),
+        messages: messages
+    };
+
+    if (aiSettings.provider !== 'anthropic') {
+        body.temperature = 0.7;
+    } else {
+        body.system = '你是一个助手。';
     }
 
     const response = await fetch(endpoint, {
@@ -721,14 +724,23 @@ async function callAI(messages) {
         body: JSON.stringify(body)
     });
 
-    if (!response.ok) throw new Error('API request failed');
+    if (!response.ok) {
+        let errorDetail = '';
+        try {
+            const errData = await response.json();
+            errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
+        } catch {
+            errorDetail = await response.text();
+        }
+        throw new Error(`HTTP ${response.status}: ${errorDetail}`);
+    }
 
     const data = await response.json();
 
     if (aiSettings.provider === 'anthropic') {
-        return data.content[0].text;
+        return data.content?.[0]?.text || '';
     } else {
-        return data.choices[0].message.content;
+        return data.choices?.[0]?.message?.content || '';
     }
 }
 
