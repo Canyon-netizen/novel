@@ -62,6 +62,7 @@ function setupAuthActions() {
     if (!menu) {
         menu = document.createElement('div');
         menu.className = 'user-menu';
+        menu.hidden = true;
 
         const user = document.createElement('div');
         user.className = 'user-menu-user';
@@ -77,23 +78,31 @@ function setupAuthActions() {
 
         menu.append(user, logoutBtn);
         userInfo.appendChild(menu);
+    } else {
+        menu.hidden = true;
     }
 
     userInfo.addEventListener('click', function(event) {
         event.stopPropagation();
-        userInfo.classList.toggle('open');
+        const open = !userInfo.classList.contains('open');
+        userInfo.classList.toggle('open', open);
+        menu.hidden = !open;
     });
     userInfo.addEventListener('keydown', function(event) {
         if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            userInfo.classList.toggle('open');
+            const open = !userInfo.classList.contains('open');
+            userInfo.classList.toggle('open', open);
+            menu.hidden = !open;
         }
         if (event.key === 'Escape') {
             userInfo.classList.remove('open');
+            menu.hidden = true;
         }
     });
     document.addEventListener('click', function() {
         userInfo.classList.remove('open');
+        menu.hidden = true;
     });
 }
 

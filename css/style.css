@@ -176,12 +176,12 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
-    display: none;
+    display: block;
     z-index: 1000;
 }
 
-.user-info.open .user-menu {
-    display: block;
+.user-menu[hidden] {
+    display: none !important;
 }
 
 .user-menu-user {
