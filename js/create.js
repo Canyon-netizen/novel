@@ -21,9 +21,10 @@
         mystery: '悬疑',
         wuxia: '武侠',
         game: '游戏',
-        apocalypse: '末世',
-        custom: '自定义'
+        apocalypse: '末世'
     };
+
+    const NOVEL_TYPES = ['fantasy', 'xianxia', 'urban', 'scifi', 'historical', 'romance', 'mystery', 'wuxia', 'game', 'apocalypse'];
 
     const DEFAULT_CONFIG = {
         novelName: '',
@@ -156,6 +157,16 @@
             desc: '星辰大海，文明战争、资源争夺与未知探索',
             tags: ['科幻', '星际', '升级流'],
             framework: '文明等级 + 战舰体系 + 星域资源'
+        },
+        {
+            id: 'game-system',
+            name: '游戏异界',
+            type: 'game',
+            icon: '🎮',
+            audience: '男频',
+            desc: '主角进入规则化副本世界，在职业、技能与公会竞争中寻找破局机会',
+            tags: ['游戏', '系统流', '升级流'],
+            framework: '职业体系 + 副本机制 + 公会势力 + 赛季目标'
         },
         {
             id: 'wuxia-jianghu',
@@ -454,7 +465,12 @@
     }
 
     function enhanceTemplateToolbar() {
-        // Reserved for non-destructive markup normalization.
+        const searchInput = $('templateSearchInput');
+        if (!searchInput) return;
+
+        searchInput.value = '';
+        searchInput.setAttribute('autocomplete', 'off');
+        searchInput.setAttribute('spellcheck', 'false');
     }
 
     function enhanceLogout() {
@@ -833,6 +849,7 @@
         await withButtonBusy(button, '测试中...', async () => {
             const provider = $('apiProvider')?.value || aiSettings.provider;
             const apiKey = $('apiKeyInput')?.value.trim() || '';
+            const baseUrlInput = $('baseUrlInput');
             const baseUrl = $('baseUrlInput')?.value.trim() || '';
             const model = $('modelInput')?.value.trim() || '';
             const maxTokens = clamp(Number($('maxTokensInput')?.value || 256), 256, 8192);
@@ -854,7 +871,14 @@
 
             try {
                 const detectedProvider = inferApiProfile(baseUrl, model) || provider;
-                const endpoint = buildApiEndpoint(baseUrl, detectedProvider);
+                let endpoint = '';
+                try {
+                    endpoint = buildApiEndpoint(baseUrl, detectedProvider);
+                } catch (error) {
+                    markInvalid(baseUrlInput, error.message);
+                    return;
+                }
+                console.info('[Moyun] Testing AI endpoint:', endpoint);
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: buildApiHeaders(detectedProvider, apiKey),
@@ -862,7 +886,7 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${await readError(response)}`);
+                    throw new Error(formatApiHttpError(response.status, endpoint, await readError(response)));
                 }
 
                 const data = await response.json();
@@ -1002,7 +1026,6 @@
     function countTemplates(filter) {
         const source = allTemplates();
         if (!filter || filter === 'all') return source.length;
-        if (filter === 'fantasy') return source.filter((item) => item.type === 'fantasy' || item.type === 'xianxia').length;
         return source.filter((item) => item.type === filter).length;
     }
 
@@ -1054,8 +1077,7 @@
     function getFilteredTemplates(filter, query) {
         return allTemplates().filter((template) => {
             const matchesFilter = filter === 'all'
-                || template.type === filter
-                || (filter === 'fantasy' && template.type === 'xianxia');
+                || template.type === filter;
             const searchable = [
                 template.name,
                 template.desc,
@@ -1098,7 +1120,7 @@
         }
 
         selectedTemplateId = id;
-        config.genre = template.type;
+        config.genre = normalizeNovelType(template.type, config.genre || 'fantasy');
         config.tropes = template.tropeValues || mapTagsToTropeValues(template.tags || []);
         setValue('novelName', template.name);
         setValue('direction', template.desc);
@@ -1136,13 +1158,17 @@
         return Array.isArray(saved) ? saved : [];
     }
 
+    function normalizeNovelType(type, fallback = 'fantasy') {
+        return NOVEL_TYPES.includes(type) ? type : fallback;
+    }
+
     function saveUserTemplates(list) {
         writeJson(STORAGE.userTemplates, list);
     }
 
     function openSaveTemplateModal() {
         syncConfigFromControls();
-        const type = config.genre || (currentTemplateFilter !== 'all' ? currentTemplateFilter : 'fantasy');
+        const type = normalizeNovelType(config.genre || (currentTemplateFilter !== 'all' ? currentTemplateFilter : ''), 'fantasy');
         setValue('templateNameInput', config.novelName || '');
         setValue('templateIconInput', '📚');
         setValue('templateTypeInput', type);
@@ -1161,10 +1187,10 @@
         syncConfigFromControls();
         const nameInput = $('templateNameInput');
         const name = nameInput?.value.trim();
-        const type = $('templateTypeInput')?.value || 'custom';
+        const type = normalizeNovelType($('templateTypeInput')?.value, 'fantasy');
         const audience = $('templateAudienceInput')?.value || 'universal';
         const tropeValues = getTemplateTropeValues();
-        const desc = $('templateDescInput')?.value.trim() || `${TYPE_LABELS[type] || '自定义'}创作模板`;
+        const desc = $('templateDescInput')?.value.trim() || `${TYPE_LABELS[type] || '模板'}创作模板`;
         if (!name) {
             markInvalid(nameInput, '请输入模板名称');
             return;
@@ -1180,7 +1206,7 @@
             desc,
             tags: tropeValues.map(tropeLabel),
             tropeValues,
-            framework: `${TYPE_LABELS[type] || '自定义'} · ${tropeValues.length ? tropeValues.map(tropeLabel).join(' + ') : '自由构建'}`
+            framework: `${TYPE_LABELS[type] || '模板'} · ${tropeValues.length ? tropeValues.map(tropeLabel).join(' + ') : '自由构建'}`
         };
         saved.push(template);
         saveUserTemplates(saved);
@@ -1487,6 +1513,7 @@
                 xianxia: ['《青云问道》', '《一念成仙》', '《长生劫》'],
                 urban: ['《重启黄金年代》', '《都市无双》', '《逆流人生》'],
                 scifi: ['《群星回声》', '《机械黎明》', '《深空边界》'],
+                game: ['《无限副本日志》', '《第九赛季》', '《异界玩家》'],
                 wuxia: ['《风雪照江湖》', '《一剑山河》', '《侠骨长歌》'],
                 historical: ['《山河旧梦》', '《长安策》', '《青史无名》'],
                 mystery: ['《第七封信》', '《雾中证词》', '《暗室回声》'],
@@ -1498,6 +1525,7 @@
                 xianxia: ['云澈', '谢长生', '沈问道'],
                 urban: ['陈远', '许归尘', '林川'],
                 scifi: ['陆星野', '许弦', '程砚'],
+                game: ['顾言', '林昼', '许星河'],
                 wuxia: ['谢寒舟', '顾行云', '江照夜'],
                 historical: ['裴景行', '沈砚之', '李怀瑾'],
                 mystery: ['季白', '韩疏影', '许未央'],
@@ -1518,6 +1546,7 @@
             xianxia: `${title}围绕${protagonist}求道破局展开。主角因一桩旧案或异宝卷入仙门纷争，在修炼、因果和人心试炼中逐步接近真相，故事看点是境界突破、师门恩怨与大道选择。`,
             urban: `${title}以${protagonist}重返关键人生节点为开端，通过商业、情感和现实压力交织推进。主线目标是弥补遗憾并重建秩序，冲突来自旧对手、资源竞争和身份变化后的选择。`,
             scifi: `${title}设定在技术剧变后的未来，${protagonist}因一次异常信号或系统事故发现文明危机。故事围绕探索真相、突破封锁和重新定义人类边界展开，突出科技悬念和群体抉择。`,
+            game: `${title}以${protagonist}进入规则化游戏世界为起点，通过职业选择、副本挑战和阵营竞争推进主线。故事重点放在成长路径、机制破解、团队协作和最终赛季目标上。`,
             wuxia: `${title}从${protagonist}卷入江湖旧怨开始，以门派、秘笈和侠义抉择推动主线。主角目标是查清真相或守住承诺，冲突来自正邪立场、师门规矩和个人情义。`,
             historical: `${title}让${protagonist}置身时代转折点，在权力夹缝中寻找生路。故事以一场政治危机或家族变故切入，卖点是谋略博弈、制度差异和人物命运与时代洪流的碰撞。`,
             mystery: `${title}以${protagonist}追查一桩看似普通的案件开始，线索逐步指向更深的关系网络。主线矛盾是事实、记忆和利益之间的冲突，重点营造反转、证据链和人物隐秘动机。`,
@@ -1694,7 +1723,7 @@
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${await readError(response)}`);
+            throw new Error(formatApiHttpError(response.status, endpoint, await readError(response)));
         }
         return extractAIText(await response.json(), provider);
     }
@@ -1714,13 +1743,21 @@
 
     function buildApiEndpoint(baseUrl, provider) {
         const preset = API_PRESETS[provider] || API_PRESETS.openai;
-        const normalized = String(baseUrl || preset.baseUrl || '').replace(/\/+$/, '');
-        if (!normalized) throw new Error('未配置 Base URL');
+        const normalized = normalizeApiBaseUrl(baseUrl || preset.baseUrl || '');
         if (/\/(messages|chat\/completions|chat_completions)$/i.test(normalized)) return normalized;
         if (/\/v1$/i.test(normalized) && preset.endpoint.startsWith('/v1/')) {
             return `${normalized}${preset.endpoint.replace(/^\/v1/, '')}`;
         }
         return `${normalized}${preset.endpoint}`;
+    }
+
+    function normalizeApiBaseUrl(baseUrl) {
+        const normalized = String(baseUrl || '').trim().replace(/\/+$/, '');
+        if (!normalized) throw new Error('请填写 Base URL，例如：https://api.openai.com');
+        if (!/^https?:\/\//i.test(normalized)) {
+            throw new Error('Base URL 必须是完整地址，并以 http:// 或 https:// 开头，不能只填 /v1 或 api.xxx.com');
+        }
+        return normalized;
     }
 
     function buildApiHeaders(provider, apiKey) {
@@ -1802,6 +1839,16 @@
         } catch {
             return text.slice(0, 220);
         }
+    }
+
+    function formatApiHttpError(status, endpoint, detail) {
+        if (status === 404) {
+            return `API 地址返回 404：${endpoint}。请检查 Provider 和 Base URL 是否匹配，OpenAI 兼容接口通常填 https://你的域名/v1 或 https://你的域名，不要填当前网页地址或相对路径。`;
+        }
+        if (status === 401 || status === 403) {
+            return `API 鉴权失败 HTTP ${status}：请检查 API Key、模型权限和 Provider。${detail}`;
+        }
+        return `HTTP ${status}: ${detail}`;
     }
 
     function normalizeNetworkError(error) {

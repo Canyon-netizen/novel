@@ -388,11 +388,14 @@
 
         .template-icon.romance { background: rgba(236, 72, 153, 0.2); }
         .template-icon.fantasy { background: rgba(139, 92, 246, 0.2); }
+        .template-icon.xianxia { background: rgba(16, 185, 129, 0.2); }
         .template-icon.scifi { background: rgba(20, 184, 166, 0.2); }
         .template-icon.wuxia { background: rgba(245, 158, 11, 0.2); }
         .template-icon.urban { background: rgba(59, 130, 246, 0.2); }
         .template-icon.mystery { background: rgba(168, 85, 247, 0.2); }
         .template-icon.historical { background: rgba(239, 68, 68, 0.2); }
+        .template-icon.game { background: rgba(34, 197, 94, 0.2); }
+        .template-icon.apocalypse { background: rgba(100, 116, 139, 0.2); }
 
         .template-info h4 {
             font-size: 1rem;
@@ -888,15 +891,17 @@
 
         .create-page .template-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(auto-fill, 320px);
             grid-auto-flow: row;
             grid-auto-rows: auto;
             gap: 1rem;
             padding: 1rem;
             align-content: start;
             align-items: stretch;
+            justify-content: start;
             justify-items: stretch;
             overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .create-page .template-card {
@@ -996,6 +1001,12 @@
 
         .create-page .create-action-status.success {
             color: var(--accent-teal);
+        }
+
+        @media (max-width: 720px) {
+            .create-page .template-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
 
         .create-page #tabContentImport {
@@ -1296,7 +1307,7 @@
 
                 <div class="template-toolbar">
                     <div class="template-search">
-                        <input type="text" class="search-input" id="templateSearchInput" placeholder="搜索模板..." oninput="searchTemplates()">
+                        <input type="search" class="search-input" id="templateSearchInput" placeholder="搜索模板..." autocomplete="off" spellcheck="false" value="" oninput="searchTemplates()">
                         <button class="template-create-btn" onclick="openSaveTemplateModal()">➕ 创建模板</button>
                     </div>
                 </div>
@@ -1306,15 +1317,16 @@
                     <div class="template-browser">
                         <nav class="template-filters" id="templateFilters" aria-label="模板类型">
                             <button class="filter-btn active" data-filter="all" onclick="filterTemplates('all')">全部</button>
-                            <button class="filter-btn" data-filter="fantasy" onclick="filterTemplates('fantasy')">玄幻仙侠</button>
-                            <button class="filter-btn" data-filter="urban" onclick="filterTemplates('urban')">都市现代</button>
-                            <button class="filter-btn" data-filter="scifi" onclick="filterTemplates('scifi')">科幻未来</button>
-                            <button class="filter-btn" data-filter="historical" onclick="filterTemplates('historical')">历史军事</button>
+                            <button class="filter-btn" data-filter="fantasy" onclick="filterTemplates('fantasy')">玄幻</button>
+                            <button class="filter-btn" data-filter="xianxia" onclick="filterTemplates('xianxia')">仙侠</button>
+                            <button class="filter-btn" data-filter="urban" onclick="filterTemplates('urban')">都市</button>
+                            <button class="filter-btn" data-filter="scifi" onclick="filterTemplates('scifi')">科幻</button>
+                            <button class="filter-btn" data-filter="historical" onclick="filterTemplates('historical')">历史</button>
                             <button class="filter-btn" data-filter="romance" onclick="filterTemplates('romance')">言情</button>
-                            <button class="filter-btn" data-filter="wuxia" onclick="filterTemplates('wuxia')">武侠</button>
                             <button class="filter-btn" data-filter="mystery" onclick="filterTemplates('mystery')">悬疑</button>
+                            <button class="filter-btn" data-filter="wuxia" onclick="filterTemplates('wuxia')">武侠</button>
+                            <button class="filter-btn" data-filter="game" onclick="filterTemplates('game')">游戏</button>
                             <button class="filter-btn" data-filter="apocalypse" onclick="filterTemplates('apocalypse')">末世</button>
-                            <button class="filter-btn" data-filter="custom" onclick="filterTemplates('custom')">自定义</button>
                         </nav>
                         <div class="template-grid" id="templateGrid">
                             <!-- Templates will be rendered here -->
@@ -1488,7 +1500,6 @@
                         <option value="wuxia">武侠</option>
                         <option value="game">游戏</option>
                         <option value="apocalypse">末世</option>
-                        <option value="custom">自定义</option>
                     </select>
                 </div>
                 <div class="form-group">
