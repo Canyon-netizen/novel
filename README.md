@@ -1,83 +1,113 @@
 # 墨韵AI - 智能小说创作平台
 
-一个基于AI辅助的小说创作网站，支持主题设置、世界观构建、大纲管理和AI续写功能。
+> 重构版（参考 daily-paper-reader 的模块化做法）：单页 + FastAPI 后端 + 公共模块
 
 ## 功能特点
 
-### 题材类型选择
-支持8种小说题材：言情、玄幻、悬疑、科幻、武侠、都市、历史、恐怖。每种题材配备专属的AI提示词系统。
+- 题材类型选择：8 种小说题材，每种配备专属 AI 提示词
+- 主题 / 世界观 / 大纲管理
+- AI 续写 / 润色 / 建议（多 provider 支持）
+- 数据持久化（后端 SQLite）
+- GitHub Gist 同步（备用）
 
-### 主题设定
-- 输入小说灵感和主题
-- AI分析并细化主题建议
-- 根据题材类型提供个性化建议
-
-### 世界观构建
-- **时代背景**：古代、中世纪、民国、现代、近未来、远未来、异世界等
-- **社会环境**：江湖门派、职场校园、都市社会等
-- **地理/空间**：繁华都市、深山古寺、宇宙飞船等
-- **特殊规则**：魔法体系、武林秘籍、科技设定、异能等级等
-
-### 故事大纲
-- AI根据题材和主题生成章节大纲
-- 支持拖拽排序、手动添加/编辑/删除章节
-- 不同题材配备不同的章节结构模板
-
-### AI写作助手
-- **AI续写**：根据当前内容续写150-300字
-- **AI润色**：优化文字表达
-- **AI建议**：提供写作改进建议
-- **实时对话**：与AI写作助手交流
-
-### AI配置
-- 支持 Anthropic (Claude)、OpenAI (GPT)、自定义 API、本地模拟
-- 可配置 API Key、Base URL、模型、温度等参数
-- 配置保存在浏览器本地
-
-### 其他功能
-- 自动保存到本地Storage
-- 导出为Markdown格式
-- 亮色/暗色主题切换
-- 字数统计
-
-## 技术架构
+## 目录结构
 
 ```
-/data/zju-130/zhourui/novel/
-├── index.html       # 主页面
+novel/
+├── index.html              # 唯一入口（轻量 wrapper）
+├── login.html              # 登录页
+├── AGENTS.md               # 仓库规则
+├── ARCHITECTURE.md         # 架构设计
+│
+├── app/                    # 前端模块（UMD 命名空间 NovelXxx）
+│   ├── common.js           # NovelCommon：auth/storage/settings/theme/utils
+│   ├── llm-client.js       # NovelLLMClient：多 provider LLM 客户端
+│   └── views/              # 后续可拆 dashboard/editor/create/chat
+│
 ├── css/
-│   └── style.css    # 样式文件
-├── js/
-│   └── app.js      # JavaScript逻辑
-├── server.py       # Flask后端服务（可选）
-├── requirements.txt # Python依赖
-├── SPEC.md         # 规格说明
-└── README.md        # 本文件
+│   └── style.css
+│
+├── js/                     # 旧版 view（逐步迁移到 app/views/）
+│   ├── app.js
+│   ├── editor.js
+│   ├── create.js
+│   └── chat.discussion.js
+│
+├── server.py               # 旧 Flask 后端（已废弃，新代码用 src/）
+│
+├── src/                    # 新 FastAPI 后端
+│   ├── main.py             # FastAPI 入口
+│   ├── llm.py              # 多 provider LLM 客户端
+│   ├── storage.py          # SQLite 项目存储
+│   └── routes/
+│       ├── auth.py         # 登录
+│       ├── projects.py     # 项目 CRUD
+│       ├── llm_chat.py     # LLM 代理
+│       └── gist_sync.py    # Gist 同步
+│
+├── tests/
+│   └── unit/               # 16 个测试（pytest + TestClient）
+│
+└── .github/workflows/
+    ├── deploy-pages.yml    # 部署到 GitHub Pages
+    └── test.yml            # push 触发 E2E
 ```
 
 ## 运行方式
 
-### 纯前端模式
-直接用浏览器打开 `index.html` 即可使用。
+### 纯前端模式（推荐，部署到 GitHub Pages）
 
-### 后端API模式（需要Claude API密钥）
+直接打开 `index.html`：
+- 数据存 localStorage
+- LLM 调用户配置的 provider
+- 旧 Flask server.py 不会部署
+
+### 全栈模式（后端 SQLite + LLM 代理）
+
 ```bash
+# 安装依赖
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY="your-key"
-python server.py
+
+# 启动 FastAPI
+uvicorn src.main:app --reload --port 8000
+
+# 前端调用时把 endpoint 改成 http://localhost:8000
 ```
 
-## 主题专属提示词系统
+## API 端点
 
-每种题材配备了专门优化的AI系统提示词：
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET  | /api/health | 健康检查 |
+| POST | /api/auth/login | 登录（演示模式任意账号） |
+| GET  | /api/projects | 列出我的项目 |
+| POST | /api/projects | 创建项目 |
+| GET  | /api/projects/{id} | 获取项目 |
+| PUT  | /api/projects/{id} | 更新项目 |
+| DELETE | /api/projects/{id} | 删除项目 |
+| POST | /api/llm/chat | LLM 对话（API Key 优先用后端 LLM_API_KEY） |
+| POST | /api/gist/sync | 同步到 Gist |
+| GET  | /api/gist/load/{id}?token= | 从 Gist 加载 |
 
-| 题材 | 核心特点 |
-|------|----------|
-| 言情 | 情感细腻描写、人物心理刻画 |
-| 玄幻 | 世界观构建、魔法体系、修炼等级 |
-| 悬疑 | 悬念铺设、线索埋设、逻辑推理 |
-| 科幻 | 科技设定、逻辑自洽、未来推演 |
-| 武侠 | 江湖规矩、武功招式、侠义精神 |
-| 都市 | 现代生活、人际关系、社会现实 |
-| 历史 | 时代还原、历史细节、人物风貌 |
-| 恐怖 | 氛围营造、心理恐惧、留白技巧 |
+## 测试
+
+```bash
+pytest tests/unit -v
+```
+
+## 部署
+
+- **前端**：GitHub Pages（`.github/workflows/deploy-pages.yml`）
+- **后端**：本地或 Vercel/Railway
+
+## 演进路线
+
+- [x] 抽 `app/llm-client.js`（4 处 LLM 重复）
+- [x] 抽 `app/common.js`（auth/storage/settings/theme）
+- [x] FastAPI 后端 + SQLite 存储
+- [x] LLM 代理（API Key 不下发前端）
+- [x] 单元 + 集成测试
+- [x] GitHub Actions 部署
+- [ ] 4 个 view JS 改用 NovelCommon / NovelLLMClient（逐步迁移）
+- [ ] 单页 + hash router
+- [ ] 真实认证（GitHub OAuth）

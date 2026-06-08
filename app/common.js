@@ -1,8 +1,17 @@
-// ==================== 墨韵AI 公共模块 ====================
-// 由 index.html / editor.html / create.html / chat.discussion 在 <script src> 中前置加载
-// 提供：auth、settings、storage、theme 等所有页面共用的函数
+// ==================== Novel Common Module ====================
+// 墨韵AI 公共模块：auth / storage / settings / theme / utils
+// 4 个 view（dashboard / create / editor / chat）共用
+// UMD 模式：暴露在 root.NovelCommon
 
-(function (root) {
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  }
+  if (root) {
+    root.NovelCommon = api;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
   // ==================== Auth ====================
@@ -90,8 +99,7 @@
     });
   }
 
-  // ==================== Settings ====================
-  // 默认设置（保证 localStorage 是旧版时也能兜底）
+  // ==================== AI Settings ====================
   const DEFAULT_AI_SETTINGS = {
     provider: 'anthropic',
     apiKey: '',
@@ -186,19 +194,32 @@
     }, 0);
   }
 
-  // 导出
-  const api = {
-    getAuthUser, requireAuth, handleLogout, setupAuthDisplay, setupAuthActions,
-    loadAISettings, saveAISettings, DEFAULT_AI_SETTINGS,
-    loadProjects, saveProjects, loadGistSettings, saveGistSettings,
-    loadTheme, toggleTheme, parseJson,
-    getTypeName, getProjectWordCount
+  // ==================== Theme Prompts ====================
+  const THEME_PROMPTS = {
+    romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
+    fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
+    mystery: '你是一位专业的悬疑小说写作助手，擅长铺设悬念和设计推理逻辑。请用中文回答。',
+    scifi: '你是一位专业的科幻小说写作助手，擅长设计科技设定和未来场景。请用中文回答。',
+    wuxia: '你是一位专业的武侠小说写作助手，擅长描绘江湖规矩和武功招式。请用中文回答。',
+    urban: '你是一位专业的都市小说写作助手，擅长描绘现代都市生活。请用中文回答。',
+    historical: '你是一位专业的历史小说写作助手，擅长还原时代背景和人物风貌。请用中文回答。',
+    horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。'
   };
 
-  if (typeof module === 'object' && module.exports) {
-    module.exports = api;
+  function getThemePrompt(themeType) {
+    return THEME_PROMPTS[themeType] || THEME_PROMPTS.romance;
   }
-  if (root) {
-    root.MoyunCommon = api;
-  }
-})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+  return {
+    // Auth
+    getAuthUser, requireAuth, handleLogout, setupAuthDisplay, setupAuthActions,
+    // AI Settings
+    loadAISettings, saveAISettings, DEFAULT_AI_SETTINGS,
+    // Storage
+    loadProjects, saveProjects, loadGistSettings, saveGistSettings,
+    // Theme
+    loadTheme, toggleTheme,
+    // Utils
+    parseJson, getTypeName, getProjectWordCount, getThemePrompt, THEME_PROMPTS
+  };
+});
