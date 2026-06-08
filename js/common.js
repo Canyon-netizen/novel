@@ -1,0 +1,204 @@
+// ==================== 墨韵AI 公共模块 ====================
+// 由 index.html / editor.html / create.html / chat.discussion 在 <script src> 中前置加载
+// 提供：auth、settings、storage、theme 等所有页面共用的函数
+
+(function (root) {
+  'use strict';
+
+  // ==================== Auth ====================
+  function getAuthUser() {
+    const auth = parseJson(sessionStorage.getItem('moyun_auth_user'));
+    return auth && auth.name ? auth : null;
+  }
+
+  function requireAuth() {
+    const user = getAuthUser();
+    if (!user) {
+      window.location.href = 'login.html';
+      return false;
+    }
+    localStorage.setItem('moyun_user_name', user.name);
+    return true;
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem('moyun_auth_user');
+    localStorage.removeItem('moyun_auth_user');
+    localStorage.removeItem('user');
+    window.location.href = 'login.html';
+  }
+
+  function setupAuthDisplay() {
+    const name = localStorage.getItem('moyun_user_name') || '用户';
+    const userNameEl = document.querySelector('.user-name');
+    const avatarEl = document.querySelector('.user-avatar');
+    if (userNameEl) userNameEl.textContent = name;
+    if (avatarEl) avatarEl.textContent = (name.charAt(0) || 'U').toUpperCase();
+  }
+
+  function setupAuthActions() {
+    const userInfo = document.querySelector('.user-info');
+    if (!userInfo) return;
+
+    userInfo.setAttribute('role', 'button');
+    userInfo.setAttribute('tabindex', '0');
+    userInfo.title = '用户菜单';
+
+    let menu = userInfo.querySelector('.user-menu');
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.className = 'user-menu';
+      menu.hidden = true;
+
+      const user = document.createElement('div');
+      user.className = 'user-menu-user';
+      user.textContent = localStorage.getItem('moyun_user_name') || '当前用户';
+
+      const logoutBtn = document.createElement('button');
+      logoutBtn.type = 'button';
+      logoutBtn.textContent = '退出登录';
+      logoutBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        handleLogout();
+      });
+
+      menu.append(user, logoutBtn);
+      userInfo.appendChild(menu);
+    } else {
+      menu.hidden = true;
+    }
+
+    const toggle = function (event) {
+      event.stopPropagation();
+      const open = !userInfo.classList.contains('open');
+      userInfo.classList.toggle('open', open);
+      menu.hidden = !open;
+    };
+    userInfo.addEventListener('click', toggle);
+    userInfo.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggle(event);
+      } else if (event.key === 'Escape') {
+        userInfo.classList.remove('open');
+        menu.hidden = true;
+      }
+    });
+    document.addEventListener('click', function () {
+      userInfo.classList.remove('open');
+      menu.hidden = true;
+    });
+  }
+
+  // ==================== Settings ====================
+  // 默认设置（保证 localStorage 是旧版时也能兜底）
+  const DEFAULT_AI_SETTINGS = {
+    provider: 'anthropic',
+    apiKey: '',
+    baseUrl: '',
+    model: '',
+    temperature: 0.7,
+    maxTokens: 2048
+  };
+
+  function loadAISettings(target) {
+    const saved = localStorage.getItem('moyun_ai_settings');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        Object.assign(target, DEFAULT_AI_SETTINGS, parsed);
+      } catch (e) {
+        Object.assign(target, DEFAULT_AI_SETTINGS);
+      }
+    } else {
+      Object.assign(target, DEFAULT_AI_SETTINGS);
+    }
+  }
+
+  function saveAISettings(settings) {
+    localStorage.setItem('moyun_ai_settings', JSON.stringify(settings));
+  }
+
+  // ==================== Storage ====================
+  function loadProjects() {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return [];
+    try { return JSON.parse(saved); } catch (e) { return []; }
+  }
+
+  function saveProjects(projects) {
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+  }
+
+  function loadGistSettings() {
+    const saved = localStorage.getItem('moyun_gist_settings');
+    if (!saved) return { token: '', gistId: '', lastSync: null };
+    try { return JSON.parse(saved); } catch (e) { return { token: '', gistId: '', lastSync: null }; }
+  }
+
+  function saveGistSettings(settings) {
+    localStorage.setItem('moyun_gist_settings', JSON.stringify(settings));
+  }
+
+  // ==================== Theme ====================
+  function loadTheme() {
+    const saved = localStorage.getItem('moyun_theme');
+    if (saved) {
+      document.documentElement.setAttribute('data-theme', saved);
+      const sel = document.querySelector('.theme-select');
+      if (sel) sel.value = saved;
+    }
+  }
+
+  function toggleTheme(theme) {
+    if (!theme) {
+      const sel = document.querySelector('.theme-select');
+      theme = sel ? sel.value : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('moyun_theme', theme);
+  }
+
+  // ==================== Utils ====================
+  function parseJson(raw) {
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function getTypeName(type) {
+    const types = {
+      romance: '言情',
+      fantasy: '玄幻',
+      mystery: '悬疑',
+      scifi: '科幻',
+      wuxia: '武侠',
+      urban: '都市',
+      historical: '历史',
+      horror: '恐怖'
+    };
+    return types[type] || '其他';
+  }
+
+  function getProjectWordCount(project) {
+    if (!project || !project.chapters) return 0;
+    return project.chapters.reduce(function (sum, ch) {
+      return sum + ((ch && ch.content) ? ch.content.length : 0);
+    }, 0);
+  }
+
+  // 导出
+  const api = {
+    getAuthUser, requireAuth, handleLogout, setupAuthDisplay, setupAuthActions,
+    loadAISettings, saveAISettings, DEFAULT_AI_SETTINGS,
+    loadProjects, saveProjects, loadGistSettings, saveGistSettings,
+    loadTheme, toggleTheme, parseJson,
+    getTypeName, getProjectWordCount
+  };
+
+  if (typeof module === 'object' && module.exports) {
+    module.exports = api;
+  }
+  if (root) {
+    root.MoyunCommon = api;
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this);

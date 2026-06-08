@@ -137,7 +137,9 @@ function loadSettings() {
     const saved = localStorage.getItem('moyun_ai_settings');
     if (saved) {
         try {
-            aiSettings = JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            // 合并而非替换，避免 localStorage 里是旧版缺字段导致运行时报错
+            aiSettings = { ...aiSettings, ...parsed };
         } catch (e) {}
     }
 }

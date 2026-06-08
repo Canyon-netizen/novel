@@ -117,7 +117,8 @@ function loadSettings() {
     const saved = localStorage.getItem('moyun_ai_settings');
     if (saved) {
         try {
-            aiSettings = JSON.parse(saved);
+            const parsed = JSON.parse(saved);
+            aiSettings = { ...aiSettings, ...parsed };
         } catch (e) {}
     }
 }
@@ -195,8 +196,9 @@ function selectChapterByIndex(index) {
     renderChapters(project, index);
     updateWordCount();
 
-    // Store current indices
+    // Store current indices (修 bug：之前漏存 chapter)
     localStorage.setItem('moyun_current_project', projectIndex);
+    chapterIndex = index;
     localStorage.setItem('moyun_current_chapter', index);
 }
 
@@ -270,6 +272,10 @@ function addChapter() {
     });
 
     localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    // 记住当前章节（防止整页刷新丢状态）
+    localStorage.setItem('moyun_current_project', projectIndex);
+    localStorage.setItem('moyun_current_chapter', projects[projectIndex].chapters.length - 1);
 
     // Reload with new chapter selected
     const newIndex = projects[projectIndex].chapters.length - 1;
@@ -626,6 +632,12 @@ async function aiWrite() {
         document.getElementById('contentEditor').value = content + continuation;
         saveCurrentChapterLocal();
         updateWordCount();
+        // 提示用户已完成续写
+        const aiStatus = document.getElementById('aiStatus');
+        if (aiStatus) {
+            aiStatus.textContent = '✅ AI续写完成';
+            setTimeout(() => updateAIStatus(), 3000);
+        }
     } catch (error) {
         alert('AI调用失败，请检查API设置');
     }

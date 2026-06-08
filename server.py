@@ -718,4 +718,9 @@ def chat():
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
+    # 默认纯前端模式：前端 JS 直接调用户配置的 LLM（OpenAI/Anthropic 兼容端点）。
+    # 本 Flask 服务是可选后端 — 若需使用，export ANTHROPIC_API_KEY 后启动，
+    # 并在前端代码里把 endpoint 指向 http://localhost:5000/api/...
+    print(f"墨韵AI Flask 后端已启动: http://localhost:{port}")
+    print("提示: 当前为可选服务，前端默认走用户配置的 LLM 端点。")
     app.run(host='0.0.0.0', port=port, debug=True)
