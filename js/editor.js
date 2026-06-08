@@ -9,39 +9,35 @@ const chapterIndex = Number.isNaN(parsedChapterIndex) ? 0 : parsedChapterIndex;
 
 // ==================== Initialize ====================
 function init() {
-    if (!requireAuth()) return;
-    loadSettings();
-    loadTheme();
+    if (!NovelCommon.requireAuth()) return;
+    NovelCommon.loadAISettings(aiSettings);
+    NovelCommon.loadTheme();
     setupAuthDisplay();
     setupAuthActions();
     loadProject();
     updateAIStatus();
 }
 
-function requireAuth() {
-    const user = getAuthUser();
-    if (!user) {
-        window.location.href = 'login.html';
-        return false;
-    }
-    localStorage.setItem('moyun_user_name', user.name);
-    return true;
+// auth 委托
+function requireAuth() { return NovelCommon.requireAuth(); }
+function getAuthUser() { return NovelCommon.getAuthUser(); }
+function handleLogout() { NovelCommon.logout(); }
+function parseJson(raw) { return NovelCommon.parseJson(raw); }
+
+// storage 委托
+function loadSettings() { NovelCommon.loadAISettings(aiSettings); }
+function saveSettingsToStorage() { NovelCommon.saveAISettings(aiSettings); }
+function loadTheme() {
+    NovelCommon.loadTheme();
+    const sel = document.querySelector('.theme-select');
+    if (sel) sel.value = NovelCommon.getTheme();
+}
+function toggleTheme() {
+    const theme = document.querySelector('.theme-select').value;
+    NovelCommon.setTheme(theme);
 }
 
-function getAuthUser() {
-    const auth = parseJson(sessionStorage.getItem('moyun_auth_user'));
-    return auth?.name ? auth : null;
-}
-
-function parseJson(raw) {
-    if (!raw) return null;
-    try {
-        return JSON.parse(raw);
-    } catch (e) {
-        return null;
-    }
-}
-
+// editor.js 独有的设置显示
 function setupAuthDisplay() {
     const name = localStorage.getItem('moyun_user_name') || 'yyy';
     const userNameEl = document.querySelector('.user-name');
@@ -50,91 +46,9 @@ function setupAuthDisplay() {
     if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
 }
 
+// user-menu 委托
 function setupAuthActions() {
-    const userInfo = document.querySelector('.user-info');
-    if (!userInfo) return;
-
-    userInfo.setAttribute('role', 'button');
-    userInfo.setAttribute('tabindex', '0');
-    userInfo.title = '用户菜单';
-
-    let menu = userInfo.querySelector('.user-menu');
-    if (!menu) {
-        menu = document.createElement('div');
-        menu.className = 'user-menu';
-        menu.hidden = true;
-
-        const user = document.createElement('div');
-        user.className = 'user-menu-user';
-        user.textContent = localStorage.getItem('moyun_user_name') || '当前用户';
-
-        const logoutBtn = document.createElement('button');
-        logoutBtn.type = 'button';
-        logoutBtn.textContent = '退出登录';
-        logoutBtn.addEventListener('click', function(event) {
-            event.stopPropagation();
-            handleLogout();
-        });
-
-        menu.append(user, logoutBtn);
-        userInfo.appendChild(menu);
-    } else {
-        menu.hidden = true;
-    }
-
-    userInfo.addEventListener('click', function(event) {
-        event.stopPropagation();
-        const open = !userInfo.classList.contains('open');
-        userInfo.classList.toggle('open', open);
-        menu.hidden = !open;
-    });
-    userInfo.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            const open = !userInfo.classList.contains('open');
-            userInfo.classList.toggle('open', open);
-            menu.hidden = !open;
-        }
-        if (event.key === 'Escape') {
-            userInfo.classList.remove('open');
-            menu.hidden = true;
-        }
-    });
-    document.addEventListener('click', function() {
-        userInfo.classList.remove('open');
-        menu.hidden = true;
-    });
-}
-
-function handleLogout() {
-    sessionStorage.removeItem('moyun_auth_user');
-    localStorage.removeItem('moyun_auth_user');
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
-}
-
-function loadSettings() {
-    const saved = localStorage.getItem('moyun_ai_settings');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            aiSettings = { ...aiSettings, ...parsed };
-        } catch (e) {}
-    }
-}
-
-function loadTheme() {
-    const saved = localStorage.getItem('moyun_theme');
-    if (saved) {
-        document.documentElement.setAttribute('data-theme', saved);
-        document.querySelector('.theme-select').value = saved;
-    }
-}
-
-function toggleTheme() {
-    const theme = document.querySelector('.theme-select').value;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('moyun_theme', theme);
+    NovelCommon.setupAuthActions();
 }
 
 // ==================== Load Project ====================
@@ -405,206 +319,18 @@ function getThemePrompt(themeType) {
     return prompts[themeType] || prompts.romance;
 }
 
-// ==================== API Presets ====================
-const API_PRESETS = {
-    anthropic: {
-        name: 'Anthropic (Claude)',
-        baseUrl: 'https://api.anthropic.com/v1',
-        authHeader: 'x-api-key',
-        modelPrefix: ''
-    },
-    openai: {
-        name: 'OpenAI (GPT)',
-        baseUrl: 'https://api.openai.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: ''
-    },
-    deepseek: {
-        name: 'DeepSeek',
-        baseUrl: 'https://api.deepseek.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'deepseek-'
-    },
-    minimax: {
-        name: 'MiniMax',
-        baseUrl: 'https://api.minimax.chat/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'MiniMax-'
-    },
-    kimi: {
-        name: 'Kimi (Moonshot)',
-        baseUrl: 'https://api.moonshot.cn/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'moonshot-'
-    },
-    glm: {
-        name: 'GLM (智谱)',
-        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        authHeader: 'bearer',
-        modelPrefix: 'glm-'
-    }
-};
-
-// ==================== API Helpers ====================
-function inferApiProfile(baseUrl, model) {
-    const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
-    const normalizedModel = String(model || '').trim().toLowerCase();
-
-    // 检查是否有明确的代理路径
-    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-
-    // 按域名精确匹配
-    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
-        return 'deepseek';
-    }
-    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
-        return 'kimi';
-    }
-    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
-        return 'glm';
-    }
-    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
-
-    // 按 model 前缀匹配
-    if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
-    if (normalizedModel.startsWith('minimax-')) return 'minimax';
-    if (normalizedModel.startsWith('glm-')) return 'glm';
-    if (normalizedModel.startsWith('moonshot-')) return 'kimi';
-    if (/claude/i.test(normalizedModel)) return 'anthropic';
-
-    // 默认
-    return 'openai';
-}
-
-function buildConnectivityTestPayload(provider, model) {
-    return {
-        model: model,
-        messages: [
-            { role: 'system', content: 'Reply with exactly: hello world' },
-            { role: 'user', content: 'hello world' }
-        ],
-        temperature: 0,
-        max_tokens: 256
-    };
-}
-
-function buildApiEndpoint(baseUrl, provider, model) {
-    const normalized = (baseUrl || '').replace(/\/+$/, '');
-
-    if (!normalized) {
-        if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-        if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-        if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-        if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat/completions';
-        if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-        return 'https://api.openai.com/v1/chat/completions';
-    }
-
-    // 如果用户提供了 baseUrl，直接追加 provider 对应的端点路径
-    if (normalized) {
-        if (provider === 'anthropic') {
-            return `${normalized}/v1/messages`;
-        }
-        // 默认使用 chat completions
-        return `${normalized}/v1/chat/completions`;
-    }
-
-    // 如果没有提供 baseUrl，使用默认值
-    if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-    if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-    if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-    if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat_completions';
-    if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-    return 'https://api.openai.com/v1/chat/completions';
-}
-
-function buildApiHeaders(provider, apiKey) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (provider === 'anthropic') {
-        headers['x-api-key'] = apiKey;
-        headers['anthropic-version'] = '2023-06-01';
-    } else {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    return headers;
-}
-
-function buildApiBody(provider, model, systemPrompt, messages, temperature, maxTokens) {
-    const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
-
-    if (provider === 'anthropic') {
-        return {
-            model: modelName,
-            system: systemPrompt,
-            messages: messages,
-            max_tokens: maxTokens || 2048
-        };
-    }
-
-    // OpenAI / DeepSeek / MiniMax
-    return {
-        model: modelName,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: temperature || 0.7,
-        max_tokens: maxTokens || 2048
-    };
-}
-
+// ==================== LLM Client（委托到 app/llm-client.js）====================
+// 4 个 view 共用，定义在 app/llm-client.js，暴露在 window.NovelLLMClient
+const API_PRESETS = NovelLLMClient.API_PRESETS;
+const buildApiEndpoint = NovelLLMClient.buildApiEndpoint;
+const buildApiHeaders = NovelLLMClient.buildApiHeaders;
+const buildApiBody = NovelLLMClient.buildApiBody;
+const inferApiProfile = NovelLLMClient.inferApiProfile;
+const callLocalAI = NovelLLMClient.callLocalAI;
+// editor.js 旧代码用 callAI(messages, systemPrompt)，llm-client.js 签名是 callAI(aiSettings, messages, systemPrompt)
+// 包装一层以保持调用语法不变
 async function callAI(messages, systemPrompt) {
-    if (aiSettings.provider === 'local') {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。');
-            }, 1000);
-        });
-    }
-
-    const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
-    const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider, aiSettings.model);
-    const headers = buildApiHeaders(provider, aiSettings.apiKey);
-    const body = buildApiBody(provider, aiSettings.model, systemPrompt, messages, aiSettings.temperature, aiSettings.maxTokens);
-
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-            let errorDetail = '';
-            try {
-                const errData = await response.json();
-                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
-            } catch {
-                errorDetail = await response.text();
-            }
-            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
-        }
-
-        const data = await response.json();
-
-        if (provider === 'anthropic') {
-            return data.content?.[0]?.text || '';
-        } else {
-            return data.choices?.[0]?.message?.content || '';
-        }
-    } catch (error) {
-        if (error.message.includes('fetch') || error.message.includes('CORS')) {
-            throw new Error('网络请求失败，可能是 CORS 跨域问题。请确认 API 端点支持跨域访问。');
-        }
-        throw error;
-    }
+    return NovelLLMClient.callAI(aiSettings, messages, systemPrompt);
 }
 
 async function aiWrite() {

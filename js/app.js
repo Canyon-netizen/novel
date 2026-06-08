@@ -1,32 +1,22 @@
 // ==================== Data ====================
+// 委托到 app/common.js（NovelCommon）— 消除 4 个 view 的重复
 let projects = [];
 let currentProjectIndex = -1;
 let currentChapterIndex = -1;
 
-let aiSettings = {
-    provider: 'anthropic',
-    apiKey: '',
-    baseUrl: '',
-    model: '',
-    temperature: 0.7
-};
+let aiSettings = NovelCommon.DEFAULT_AI_SETTINGS;
 
-// Gist sync
-let gistSettings = {
-    token: '',
-    gistId: '',
-    lastSync: null
-};
+let gistSettings = NovelCommon.getDefaultGistSettings();
 
 const GIST_FILENAME = 'moyun_data.json';
 
 // ==================== Initialize ====================
 function init() {
-    if (!requireAuth()) return;
+    if (!NovelCommon.requireAuth()) return;
     loadProjects();
-    loadSettings();
-    loadTheme();
-    loadGistSettings();
+    NovelCommon.loadAISettings(aiSettings);
+    NovelCommon.loadTheme();
+    gistSettings = NovelCommon.loadGistSettings();
     setupAuthActions();
     updateGreeting();
     renderProjects();
@@ -34,132 +24,37 @@ function init() {
     updateAIStatus();
 }
 
-function requireAuth() {
-    const user = getAuthUser();
-    if (!user) {
-        window.location.href = 'login.html';
-        return false;
-    }
-    localStorage.setItem('moyun_user_name', user.name);
-    return true;
-}
+// auth 委托
+function requireAuth() { return NovelCommon.requireAuth(); }
+function getAuthUser() { return NovelCommon.getAuthUser(); }
+function handleLogout() { NovelCommon.handleLogout(); }
+function setupAuthActions() { NovelCommon.setupAuthActions(); }
 
-function getAuthUser() {
-    const auth = parseJson(sessionStorage.getItem('moyun_auth_user'));
-    return auth?.name ? auth : null;
-}
-
-function parseJson(raw) {
-    if (!raw) return null;
-    try {
-        return JSON.parse(raw);
-    } catch (e) {
-        return null;
-    }
-}
-
-function setupAuthActions() {
-    const userInfo = document.querySelector('.user-info');
-    if (!userInfo) return;
-
-    userInfo.setAttribute('role', 'button');
-    userInfo.setAttribute('tabindex', '0');
-    userInfo.title = '用户菜单';
-
-    let menu = userInfo.querySelector('.user-menu');
-    if (!menu) {
-        menu = document.createElement('div');
-        menu.className = 'user-menu';
-        menu.hidden = true;
-
-        const user = document.createElement('div');
-        user.className = 'user-menu-user';
-        user.textContent = localStorage.getItem('moyun_user_name') || '当前用户';
-
-        const logoutBtn = document.createElement('button');
-        logoutBtn.type = 'button';
-        logoutBtn.textContent = '退出登录';
-        logoutBtn.addEventListener('click', function(event) {
-            event.stopPropagation();
-            handleLogout();
-        });
-
-        menu.append(user, logoutBtn);
-        userInfo.appendChild(menu);
-    } else {
-        menu.hidden = true;
-    }
-
-    userInfo.addEventListener('click', function(event) {
-        event.stopPropagation();
-        const open = !userInfo.classList.contains('open');
-        userInfo.classList.toggle('open', open);
-        menu.hidden = !open;
-    });
-    userInfo.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            const open = !userInfo.classList.contains('open');
-            userInfo.classList.toggle('open', open);
-            menu.hidden = !open;
-        }
-        if (event.key === 'Escape') {
-            userInfo.classList.remove('open');
-            menu.hidden = true;
-        }
-    });
-    document.addEventListener('click', function() {
-        userInfo.classList.remove('open');
-        menu.hidden = true;
-    });
-}
-
-function handleLogout() {
-    sessionStorage.removeItem('moyun_auth_user');
-    localStorage.removeItem('moyun_auth_user');
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
-}
-
-// ==================== Storage ====================
+// storage 委托
 function loadProjects() {
-    const saved = localStorage.getItem('moyun_projects');
-    if (saved) {
-        projects = JSON.parse(saved);
-    }
+    projects = NovelCommon.loadProjects();
 }
-
 function saveProjects() {
-    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+    NovelCommon.saveProjects(projects);
 }
 
+// settings 委托
 function loadSettings() {
-    const saved = localStorage.getItem('moyun_ai_settings');
-    if (saved) {
-        try {
-            const parsed = JSON.parse(saved);
-            // 合并而非替换，避免 localStorage 里是旧版缺字段导致运行时报错
-            aiSettings = { ...aiSettings, ...parsed };
-        } catch (e) {}
-    }
+    NovelCommon.loadAISettings(aiSettings);
 }
-
 function saveSettingsToStorage() {
-    localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
+    NovelCommon.saveAISettings(aiSettings);
 }
 
+// theme 委托
 function loadTheme() {
-    const saved = localStorage.getItem('moyun_theme');
-    if (saved) {
-        document.documentElement.setAttribute('data-theme', saved);
-        document.querySelector('.theme-select').value = saved;
-    }
+    NovelCommon.loadTheme();
+    const sel = document.querySelector('.theme-select');
+    if (sel) sel.value = NovelCommon.getTheme();
 }
-
 function toggleTheme() {
     const theme = document.querySelector('.theme-select').value;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('moyun_theme', theme);
+    NovelCommon.setTheme(theme);
 }
 
 function updateGreeting() {
@@ -461,21 +356,18 @@ function saveSettings() {
 }
 
 // ==================== Gist Sync ====================
+// init() 已经在 NovelCommon.loadGistSettings() 时把 token 反序列化到 gistSettings 变量
+// 此函数只做 UI 填充和状态刷新
 function loadGistSettings() {
-    const saved = localStorage.getItem('moyun_gist_settings');
-    if (saved) {
-        try {
-            gistSettings = JSON.parse(saved);
-        } catch (e) {}
-    }
     if (gistSettings.token) {
-        document.getElementById('githubTokenInput').value = gistSettings.token;
+        const input = document.getElementById('githubTokenInput');
+        if (input) input.value = gistSettings.token;
     }
     updateGistStatus();
 }
 
 function saveGistSettings() {
-    localStorage.setItem('moyun_gist_settings', JSON.stringify(gistSettings));
+    NovelCommon.saveGistSettings(gistSettings);
 }
 
 function updateGistStatus() {
@@ -987,222 +879,18 @@ function getThemePrompt(themeType) {
     return prompts[themeType] || prompts.romance;
 }
 
-// ==================== API Presets ====================
-const API_PRESETS = {
-    anthropic: {
-        name: 'Anthropic (Claude)',
-        baseUrl: 'https://api.anthropic.com/v1',
-        authHeader: 'x-api-key',
-        modelPrefix: ''
-    },
-    openai: {
-        name: 'OpenAI (GPT)',
-        baseUrl: 'https://api.openai.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: ''
-    },
-    deepseek: {
-        name: 'DeepSeek',
-        baseUrl: 'https://api.deepseek.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'deepseek-'
-    },
-    minimax: {
-        name: 'MiniMax',
-        baseUrl: 'https://api.minimax.chat/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'MiniMax-'
-    },
-    kimi: {
-        name: 'Kimi (Moonshot)',
-        baseUrl: 'https://api.moonshot.cn/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'moonshot-'
-    },
-    glm: {
-        name: 'GLM (智谱)',
-        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        authHeader: 'bearer',
-        modelPrefix: 'glm-'
-    }
-};
-
-// ==================== API Profile Detection ====================
-function inferApiProfile(baseUrl, model) {
-    const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
-    const normalizedModel = String(model || '').trim().toLowerCase();
-
-    // 检查是否有明确的代理路径（如 /anthropic）
-    // 这表示使用第三方代理，需要根据路径判断
-    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/\/openai\b/i.test(normalizedBaseUrl) || /\/chat\/completions/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
-
-    // 按域名精确匹配官方 API
-    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
-        return 'deepseek';
-    }
-    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
-        return 'kimi';
-    }
-    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
-        return 'glm';
-    }
-    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
-
-    // 按 model 前缀匹配
-    if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
-    if (normalizedModel.startsWith('minimax-')) return 'minimax';
-    if (normalizedModel.startsWith('glm-')) return 'glm';
-    if (normalizedModel.startsWith('moonshot-')) return 'kimi';
-    if (/claude/i.test(normalizedModel)) return 'anthropic';
-
-    // 如果 baseUrl 有值但不在上面的列表中（第三方代理），返回 null 让调用方使用 provider 参数
-    if (normalizedBaseUrl) {
-        return null;
-    }
-
-    // 默认
-    return 'openai';
-}
-
-function buildConnectivityTestPayload(provider, model) {
-    return {
-        model: model,
-        messages: [
-            { role: 'system', content: 'Reply with exactly: hello world' },
-            { role: 'user', content: 'hello world' }
-        ],
-        temperature: 0,
-        max_tokens: 256
-    };
-}
-
-function buildApiEndpoint(baseUrl, provider, model) {
-    const normalized = (baseUrl || '').replace(/\/+$/, '');
-
-    // 如果用户提供了 baseUrl，直接追加 provider 对应的端点路径
-    if (normalized) {
-        if (provider === 'anthropic') {
-            return `${normalized}/v1/messages`;
-        }
-        // 默认使用 chat completions
-        return `${normalized}/v1/chat/completions`;
-    }
-
-    // 如果没有提供 baseUrl，使用默认值
-    if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-    if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-    if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-    if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat/completions';
-    if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-    return 'https://api.openai.com/v1/chat/completions';
-}
-
-function buildApiHeaders(provider, apiKey) {
-    const headers = { 'Content-Type': 'application/json' };
-
-    if (provider === 'anthropic') {
-        headers['x-api-key'] = apiKey;
-        headers['anthropic-version'] = '2023-06-01';
-    } else {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-
-    return headers;
-}
-
-function buildApiBody(provider, model, systemPrompt, messages, temperature) {
-    const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
-
-    if (provider === 'anthropic') {
-        return {
-            model: modelName,
-            system: systemPrompt,
-            messages: messages,
-            max_tokens: 2048
-        };
-    }
-
-    // OpenAI / DeepSeek / MiniMax - 不使用流式响应，直接返回完整 JSON
-    return {
-        model: modelName,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: temperature,
-        max_tokens: 2048
-    };
-}
-
-// ==================== API Call ====================
+// ==================== LLM Client（委托到 app/llm-client.js）====================
+// 4 个 view 共用，定义在 app/llm-client.js，暴露在 window.NovelLLMClient
+const API_PRESETS = NovelLLMClient.API_PRESETS;
+const buildApiEndpoint = NovelLLMClient.buildApiEndpoint;
+const buildApiHeaders = NovelLLMClient.buildApiHeaders;
+const buildApiBody = NovelLLMClient.buildApiBody;
+const inferApiProfile = NovelLLMClient.inferApiProfile;
+const callLocalAI = NovelLLMClient.callLocalAI;
+// app.js 旧代码用 callAI(messages, systemPrompt)，llm-client.js 签名是 callAI(aiSettings, messages, systemPrompt)
+// 包装一层以保持调用语法不变（app.js 内部使用全局 aiSettings）
 async function callAI(messages, systemPrompt) {
-    if (aiSettings.provider === 'local') {
-        return callLocalAI(messages, systemPrompt);
-    }
-
-    // 使用 inferApiProfile 根据 baseUrl 和 model 自动检测 provider 类型
-    const detectedProvider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
-    const endpoint = buildApiEndpoint(aiSettings.baseUrl, detectedProvider, aiSettings.model);
-    const headers = buildApiHeaders(detectedProvider, aiSettings.apiKey);
-    const body = buildApiBody(detectedProvider, aiSettings.model, systemPrompt, messages, aiSettings.temperature);
-
-    if (!endpoint) {
-        throw new Error('未配置 API 端点');
-    }
-
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
-        });
-
-        if (!response.ok) {
-            let errorDetail = '';
-            try {
-                const errData = await response.json();
-                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
-            } catch {
-                errorDetail = await response.text();
-            }
-            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
-        }
-
-        const data = await response.json();
-
-        if (detectedProvider === 'anthropic') {
-            return data.content?.[0]?.text || '';
-        } else {
-            // OpenAI / DeepSeek / MiniMax
-            let result = data.choices?.[0]?.message?.content || '';
-            // 移除思考过程标签
-            result = result.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-            return result;
-        }
-    } catch (error) {
-        if (error.message.includes('fetch') || error.message.includes('CORS')) {
-            throw new Error('网络请求失败，可能是 CORS 跨域问题。请确认 API 端点支持跨域访问。');
-        }
-        throw error;
-    }
-}
-
-function callLocalAI(messages, systemPrompt) {
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve('【本地模拟】这是一段模拟的AI续写内容。夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。');
-        }, 1000);
-    });
+    return NovelLLMClient.callAI(aiSettings, messages, systemPrompt);
 }
 
 async function aiWrite() {
