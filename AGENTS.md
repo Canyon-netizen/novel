@@ -1,15 +1,17 @@
+Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such file or directory.
 # 仓库级 Agent 规则
 
-## 提交共同作者规则
+## 提交作者规则
 
-- 本仓库内由 Agent 创建、提交或推送的 commit，提交信息末尾必须追加以下共同作者 trailer：
+- 本仓库为单人维护项目，所有 commit 的 author / committer 必须统一为 `Canyon-netizen <1327107233@qq.com>`，**不再追加 `Co-Authored-By` trailer**。
+- 在本仓库做提交前必须确认 git 身份已配置正确：
 
-```text
-Co-Authored-By: canyon <canyon@users.noreply.github.com>
-Co-Authored-By: yyy <3495302215@qq.com>
-```
+  ```bash
+  git config user.name  "Canyon-netizen"
+  git config user.email "1327107233@qq.com"
+  ```
 
-- 以上规则仅用于 Git commit message，不代表需要修改 `README.md` 或其它项目元数据。
+  临时切回默认身份可用 `git config --local` 只改当前仓库。
 
 ## 目录规范
 
