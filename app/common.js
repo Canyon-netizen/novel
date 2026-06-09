@@ -210,11 +210,36 @@
     return THEME_PROMPTS[themeType] || THEME_PROMPTS.romance;
   }
 
+  // ==================== 测试连接包装 ====================
+  // 4 个 view 共用：调用 NovelLLMClient.testConnection 并在 UI 里显示结果
+  // 调用方需要提供：aiSettings 对象 + 状态更新函数
+  async function testAISettings(aiSettings, onProgress) {
+    if (typeof NovelLLMClient === 'undefined' || !NovelLLMClient.testConnection) {
+      throw new Error('NovelLLMClient 未加载');
+    }
+    if (onProgress) onProgress({ status: 'testing', message: '正在测试连接...' });
+    try {
+      const result = await NovelLLMClient.testConnection(aiSettings, { timeoutMs: 15000 });
+      if (onProgress) onProgress({ status: 'success', result: result });
+      return result;
+    } catch (err) {
+      const e = {
+        status: 'error',
+        code: err.code || 'unknown',
+        message: err.message || String(err),
+        detail: err.detail || '',
+        name: err.name
+      };
+      if (onProgress) onProgress(e);
+      throw err;
+    }
+  }
+
   return {
     // Auth
     getAuthUser, requireAuth, handleLogout, setupAuthDisplay, setupAuthActions,
     // AI Settings
-    loadAISettings, saveAISettings, DEFAULT_AI_SETTINGS,
+    loadAISettings, saveAISettings, DEFAULT_AI_SETTINGS, testAISettings,
     // Storage
     loadProjects, saveProjects, loadGistSettings, saveGistSettings,
     // Theme

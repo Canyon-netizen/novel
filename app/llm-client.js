@@ -211,37 +211,130 @@
   }
 
   // ==================== Connectivity Test ====================
-  async function testConnection(aiSettings) {
+  // 用 AbortController + timeout 避免无限等待
+  // 区分错误类型（配置错误 / 网络错误 / 鉴权错误 / CORS / 模型错误）
+  async function testConnection(aiSettings, options) {
     const settings = aiSettings || {};
+    const opts = options || {};
+    const timeoutMs = opts.timeoutMs || 15000;
+    const signal = opts.signal;
+
     if (settings.provider === 'local') {
-      return { ok: true, message: '本地模拟模式无需测试' };
+      return { ok: true, code: 'local', message: '本地模拟模式无需测试' };
+    }
+
+    // 1. 校验必填字段
+    if (!settings.apiKey && settings.provider !== 'custom') {
+      throw new ConnectionError('missing-key', 'API Key 未配置', '请在设置中填写 API Key');
     }
 
     const detectedProvider = inferApiProfile(settings.baseUrl, settings.model) || settings.provider || 'openai';
     const endpoint = buildApiEndpoint(settings.baseUrl, detectedProvider, settings.model);
-    const headers = buildApiHeaders(detectedProvider, settings.apiKey);
-    const body = buildConnectivityTestPayload(settings.model);
 
-    if (!endpoint) throw new Error('未配置 API 端点');
-
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error('HTTP ' + response.status + ': ' + text.slice(0, 200));
+    if (!endpoint) {
+      throw new ConnectionError('no-endpoint', '未配置 API 端点', '请填写 Base URL 或选择一个内置 provider');
     }
+
+    // 2. 优先用 model，否则用 provider 默认 model
+    const testModel = settings.model || (API_PRESETS[detectedProvider] && API_PRESETS[detectedProvider].model) || 'gpt-4o-mini';
+    const headers = buildApiHeaders(detectedProvider, settings.apiKey);
+    const body = buildConnectivityTestPayload(testModel);
+
+    // 3. 用 AbortController 做超时
+    const controller = new AbortController();
+    const combinedSignal = signal
+      ? composeSignals([signal, controller.signal])
+      : controller.signal;
+    const timer = setTimeout(function () { controller.abort('timeout'); }, timeoutMs);
+
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+        signal: combinedSignal
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      const msg = String(err && err.message || err);
+      if (err && err.name === 'AbortError' || msg.indexOf('aborted') >= 0 || msg.indexOf('abort') >= 0) {
+        throw new ConnectionError('timeout', '请求超时（' + (timeoutMs / 1000) + ' 秒）', '请检查网络连接和 API 端点是否可访问');
+      }
+      if (msg.indexOf('Failed to fetch') >= 0 || msg.indexOf('NetworkError') >= 0 || msg.indexOf('CORS') >= 0) {
+        throw new ConnectionError('network', '网络请求失败', '可能是 CORS 跨域问题或网络不通。请确认 API 端点支持跨域访问。');
+      }
+      throw new ConnectionError('network', '网络错误: ' + msg, '请检查网络和 API 端点');
+    }
+    clearTimeout(timer);
+
+    // 4. 状态码分类
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const errData = await response.json();
+        detail = (errData.error && (errData.error.message || errData.error)) || JSON.stringify(errData);
+      } catch (e) {
+        try { detail = await response.text(); } catch (e2) { detail = ''; }
+      }
+      detail = String(detail).slice(0, 300);
+
+      if (response.status === 401 || response.status === 403) {
+        throw new ConnectionError('auth', '鉴权失败（HTTP ' + response.status + '）', 'API Key 无效或已过期。详情: ' + detail);
+      }
+      if (response.status === 404) {
+        throw new ConnectionError('not-found', '端点不存在（HTTP 404）', 'Base URL 路径不正确，请检查是否需要加 /v1 后缀。详情: ' + detail);
+      }
+      if (response.status === 429) {
+        throw new ConnectionError('rate-limit', '请求过于频繁（HTTP 429）', '触发了限流，请稍后重试。详情: ' + detail);
+      }
+      if (response.status >= 500) {
+        throw new ConnectionError('server', '服务器错误（HTTP ' + response.status + '）', 'LLM 服务端异常，请稍后重试。详情: ' + detail);
+      }
+      throw new ConnectionError('http-' + response.status, 'HTTP ' + response.status, detail || '请检查 API 配置');
+    }
+
+    // 5. 解析成功响应
     const data = await response.json();
     let result = '';
+    let usage = null;
     if (detectedProvider === 'anthropic') {
       result = (data.content && data.content[0] && data.content[0].text) || '';
+      usage = data.usage;
     } else {
       result = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+      usage = data.usage;
     }
-    return { ok: true, message: '连接成功：' + result.slice(0, 100) };
+
+    return {
+      ok: true,
+      code: 'success',
+      message: '连接成功：' + String(result).slice(0, 100),
+      provider: detectedProvider,
+      endpoint: endpoint,
+      model: testModel,
+      sample: String(result).slice(0, 200),
+      usage: usage
+    };
+  }
+
+  // 组合多个 AbortSignal（任一 abort 则整个 abort）
+  function composeSignals(signals) {
+    const controller = new AbortController();
+    signals.forEach(function (s) {
+      if (s.aborted) controller.abort(s.reason);
+      else s.addEventListener('abort', function () { controller.abort(s.reason); }, { once: true });
+    });
+    return controller.signal;
+  }
+
+  // 自定义错误类型，带 code 字段
+  function ConnectionError(code, message, detail) {
+    const err = new Error(message);
+    err.name = 'ConnectionError';
+    err.code = code;
+    err.detail = detail || '';
+    return err;
   }
 
   return {
