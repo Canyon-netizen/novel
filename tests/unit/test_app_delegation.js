@@ -81,6 +81,21 @@ check('inferApiProfile(Anthropic path) === anthropic',
 check("inferApiProfile(custom baseUrl no match) === null",
     sandbox.NovelLLMClient.inferApiProfile('https://my-proxy.example.com', 'gpt-4') === null);
 
+// buildApiEndpoint — 防止双 /v1 bug
+const ep = sandbox.NovelLLMClient.buildApiEndpoint;
+check('buildApiEndpoint(minimax /v1) 不重复 /v1',
+    ep('https://api.minimaxi.com/v1', 'minimax') === 'https://api.minimaxi.com/v1/chat/completions');
+check('buildApiEndpoint(minimax /v1/) 不重复 /v1（去尾斜杠后）',
+    ep('https://api.minimaxi.com/v1/', 'minimax') === 'https://api.minimaxi.com/v1/chat/completions');
+check('buildApiEndpoint(openai 裸域) 追加 /v1',
+    ep('https://api.openai.com', 'openai') === 'https://api.openai.com/v1/chat/completions');
+check('buildApiEndpoint(anthropic /v1) 不重复 /v1',
+    ep('https://api.anthropic.com/v1', 'anthropic') === 'https://api.anthropic.com/v1/messages');
+check('buildApiEndpoint(deepseek /v1) 不重复 /v1',
+    ep('https://api.deepseek.com/v1', 'deepseek') === 'https://api.deepseek.com/v1/chat/completions');
+check('buildApiEndpoint(空 baseUrl) 走 provider 默认',
+    ep('', 'openai') === 'https://api.openai.com/v1/chat/completions');
+
 // callLocalAI 返回模拟内容
 sandbox.NovelLLMClient.callLocalAI([], 'system').then(text => {
     check('callLocalAI 返回非空字符串', typeof text === 'string' && text.length > 0);

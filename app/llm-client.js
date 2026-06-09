@@ -86,10 +86,15 @@
 
   // ==================== Endpoint / Headers / Body ====================
   function buildApiEndpoint(baseUrl, provider, model) {
-    const normalized = (baseUrl || '').replace(/\/+$/, '');
+    let normalized = (baseUrl || '').replace(/\/+$/, '');
     if (normalized) {
-      if (provider === 'anthropic') return `${normalized}/v1/messages`;
-      return `${normalized}/v1/chat/completions`;
+      // 如果 baseUrl 已经以 /v1 结尾（OpenAI 兼容 / Anthropic / DeepSeek / MiniMax / Moonshot 官方都是
+      // https://<host>/v1），就不再叠加 /v1，避免拼出 /v1/v1/chat/completions 这种 404 路径。
+      // 仅当 baseUrl 是裸域名（如 https://api.openai.com）时才追加 /v1。
+      const hasV1 = /\/v1(?:\/.*)?$/i.test(normalized);
+      const v1Suffix = hasV1 ? '' : '/v1';
+      if (provider === 'anthropic') return `${normalized}${v1Suffix}/messages`;
+      return `${normalized}${v1Suffix}/chat/completions`;
     }
     if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
     if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';

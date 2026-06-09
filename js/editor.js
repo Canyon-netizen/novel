@@ -321,12 +321,9 @@ function getThemePrompt(themeType) {
 
 // ==================== LLM Client（委托到 app/llm-client.js）====================
 // 4 个 view 共用，定义在 app/llm-client.js，暴露在 window.NovelLLMClient
-const API_PRESETS = NovelLLMClient.API_PRESETS;
-const buildApiEndpoint = NovelLLMClient.buildApiEndpoint;
-const buildApiHeaders = NovelLLMClient.buildApiHeaders;
-const buildApiBody = NovelLLMClient.buildApiBody;
-const inferApiProfile = NovelLLMClient.inferApiProfile;
-const callLocalAI = NovelLLMClient.callLocalAI;
+// 一次性解构（替代逐行 const）：避免顶层 const 块在 V8 严格 TDZ 下因多标识符交叉引用触发
+// "Cannot access 'inferApiProfile' before initialization"。
+const { API_PRESETS, buildApiEndpoint, buildApiHeaders, buildApiBody, inferApiProfile, callLocalAI } = NovelLLMClient;
 // editor.js 旧代码用 callAI(messages, systemPrompt)，llm-client.js 签名是 callAI(aiSettings, messages, systemPrompt)
 // 包装一层以保持调用语法不变
 async function callAI(messages, systemPrompt) {
