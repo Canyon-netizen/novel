@@ -790,7 +790,7 @@ const API_PRESETS = {
     anthropic: { name: 'Anthropic (Claude)', baseUrl: 'https://api.anthropic.com/v1', authHeader: 'x-api-key', modelPrefix: '' },
     openai: { name: 'OpenAI (GPT)', baseUrl: 'https://api.openai.com/v1', authHeader: 'bearer', modelPrefix: '' },
     deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', authHeader: 'bearer', modelPrefix: 'deepseek-' },
-    minimax: { name: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', authHeader: 'bearer', modelPrefix: 'MiniMax-' },
+    minimax: { name: 'MiniMax', baseUrl: 'https://api.minimaxi.com/v1', authHeader: 'bearer', modelPrefix: 'MiniMax-' },
     kimi: { name: 'Kimi (Moonshot)', baseUrl: 'https://api.moonshot.cn/v1', authHeader: 'bearer', modelPrefix: 'moonshot-' },
     glm: { name: 'GLM (智谱)', baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4', authHeader: 'bearer', modelPrefix: 'glm-' }
 };
@@ -839,7 +839,7 @@ function buildApiEndpoint(baseUrl, provider, model) {
     const endpoints = {
         anthropic: 'https://api.anthropic.com/v1/messages',
         deepseek: 'https://api.deepseek.com/v1/chat/completions',
-        minimax: 'https://api.minimax.chat/v1/chat_completions',
+        minimax: 'https://api.minimaxi.com/v1/chat_completions',
         kimi: 'https://api.moonshot.cn/v1/chat/completions',
         glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
     };

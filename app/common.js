@@ -167,6 +167,14 @@
     localStorage.setItem('moyun_theme', theme);
   }
 
+  // setTheme: 直接设置主题（不需要从 select 读取），供 view 层调用
+  // 之前 view 层调用 NovelCommon.setTheme() 但这个函数不存在，所以主题切换静默失败
+  function setTheme(theme) {
+    if (!theme) return;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('moyun_theme', theme);
+  }
+
   // ==================== Utils ====================
   function parseJson(raw) {
     if (!raw) return null;
@@ -243,7 +251,7 @@
     // Storage
     loadProjects, saveProjects, loadGistSettings, saveGistSettings,
     // Theme
-    loadTheme, toggleTheme,
+    loadTheme, toggleTheme, setTheme,
     // Utils
     parseJson, getTypeName, getProjectWordCount, getThemePrompt, THEME_PROMPTS
   };

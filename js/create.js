@@ -67,8 +67,8 @@
         },
         minimax: {
             label: 'MiniMax',
-            baseUrl: 'https://api.minimax.chat',
-            endpoint: '/v1/chat_completions',
+            baseUrl: 'https://api.minimaxi.com',
+            endpoint: '/v1/chat/completions',
             model: 'MiniMax-Text-01'
         },
         kimi: {
