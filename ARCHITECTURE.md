@@ -13,29 +13,35 @@
 
 ```
 novel/
-├── index.html                # 唯一入口（SPA 启动）
-├── login.html                # 登录（独立页，因为是入口拦截）
+├── index.html                # 首页（项目列表）
+├── create.html               # 创建页（模板选择/配置）
+├── editor.html               # 编辑页（章节撰写）
+├── login.html                # 登录页
 ├── AGENTS.md                 # 仓库规则
 ├── ARCHITECTURE.md           # 本文档
 │
 ├── app/                      # 前端模块（UMD 命名空间 NovelXxx）
-│   ├── app.css               # 共享样式
 │   ├── common.js             # NovelCommon：auth/storage/settings/theme
 │   ├── llm-client.js         # NovelLLMClient：多 provider LLM 客户端
-│   ├── gist-share.js         # NovelGistShare：Gist 同步
-│   ├── router.js             # NovelRouter：hash router
-│   └── views/
-│       ├── dashboard.js      # NovelViews.dashboard
-│       ├── create-novel.js
-│       ├── editor.js
-│       └── chat.js
+│   ├── autosave.js           # NovelAutosave：自动保存与草稿恢复
+│   ├── undo-stack.js         # NovelUndoStack：撤销/重做
+│   ├── writing-stats.js      # NovelStats：写作统计（字数/目标/连击）
+│   ├── inspiration.js        # NovelInspiration：AI 灵感/讨论
+│   ├── exporter.js           # NovelExporter：多格式导出（md/html/txt/json/pdf）
+│   └── settings-test.js      # 连接测试与基础 URL 校验
+│
+├── js/                       # view 层逻辑（按页面拆分）
+│   ├── app.js                # 首页
+│   ├── create.js             # 创建页
+│   ├── editor.js             # 编辑页
+│   ├── create-integration.js # 接入 app/ 模块
+│   └── editor-integration.js # 接入 app/ 模块
 │
 ├── src/                      # Python 后端（FastAPI）
 │   ├── __init__.py
 │   ├── main.py               # FastAPI 入口
 │   ├── llm.py                # 多 provider LLM 客户端
 │   ├── storage.py            # 项目 CRUD（SQLite）
-│   ├── auth.py               # 简单账号 / GitHub OAuth
 │   └── routes/
 │       ├── __init__.py
 │       ├── projects.py
@@ -50,6 +56,8 @@ novel/
     ├── deploy-pages.yml      # push → 部署
     └── test.yml              # push → E2E
 ```
+
+> **当前状态**：前端仍走 `js/*.js` + `app/` 模块组合，FastAPI 后端尚未被前端调用。`app/views/` 已合并进 `js/`，不再单独存在。
 
 ## 数据流
 

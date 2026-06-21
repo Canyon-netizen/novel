@@ -8,7 +8,7 @@
 
 ## 技术架构
 - **前端**: HTML5 + CSS3 + Vanilla JavaScript
-- **后端**: Python Flask (可选，本地模拟模式可用)
+- **后端**: Python FastAPI（src/，可选，未被前端调用）
 - **数据存储**: LocalStorage + IndexedDB
 - **AI接口**: 支持多Provider (Anthropic Claude, OpenAI GPT, DeepSeek, MiniMax, Kimi, GLM, 自定义)
 
@@ -160,7 +160,6 @@ novel/
 │   ├── app.js          # 首页逻辑
 │   ├── create.js       # 创建页逻辑
 │   └── editor.js       # 编辑页逻辑
-├── server.py           # Flask后端（可选）
 ├── requirements.txt    # Python依赖
 ├── README.md           # 项目说明
 └── SPEC.md             # 规格说明

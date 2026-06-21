@@ -1246,6 +1246,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: var(--accent-gold);
 }
 
+.save-status {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.save-status.status-dirty { color: var(--accent-gold); }
+.save-status.status-saving { color: var(--accent-blue); }
+.save-status.status-saved { color: var(--accent-green); }
+.save-status.status-error { color: var(--accent-red); }
+.save-status.status-restored { color: var(--accent-purple); }
+
 /* ==================== Footer ==================== */
 .footer {
     text-align: center;

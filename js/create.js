@@ -914,6 +914,8 @@
         config.plotStructure = $('plotStructure')?.value || DEFAULT_CONFIG.plotStructure;
         const sliderValue = Number($('wordCountSlider')?.value || 75);
         config.wordCount = sliderValue * 10000;
+        // 暴露给集成层（create-integration.js 等）读取当前 genre
+        window.__currentGenre = config.genre || '';
     }
 
     function handleGenreClick(event) {

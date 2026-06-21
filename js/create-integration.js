@@ -4,15 +4,21 @@
   'use strict';
 
   function getCurrentDraft() {
-    // 读 IIFE 写出去的 draft（如果存在）；否则从 localStorage 取
-    if (typeof window.__createDraft === 'function') {
-      return window.__createDraft();
-    }
-    try {
-      return JSON.parse(localStorage.getItem('moyun_create_draft') || '{}');
-    } catch (e) {
-      return {};
-    }
+    // 从 DOM 实时读取 create.js 的表单状态（IIFE 闭包，无法访问内部变量）
+    var nameEl = document.getElementById('novelName');
+    var directionEl = document.getElementById('direction');
+    var audienceEl = document.getElementById('audience');
+    var plotEl = document.getElementById('plotStructure');
+    var protagonistEl = document.getElementById('protagonistName');
+
+    return {
+      novelName: nameEl ? nameEl.value.trim() : '',
+      direction: directionEl ? directionEl.value.trim() : '',
+      audience: audienceEl ? audienceEl.value : '',
+      plotStructure: plotEl ? plotEl.value : '',
+      protagonistName: protagonistEl ? protagonistEl.value.trim() : '',
+      genre: window.__currentGenre || ''
+    };
   }
 
   // ==================== 灵感快照按钮 ====================
@@ -86,26 +92,14 @@
     var synopsisEl = document.querySelector('textarea[name="synopsis"], #synopsis, [data-field="synopsis"]');
     var descEl = document.querySelector('textarea[name="description"], #description, [data-field="description"]');
 
-    if (directionEl) {
-      directionEl.value = (directionEl.value || '') + (directionEl.value ? '\n\n' : '') + '【AI 灵感】' + opt.title + '：' + opt.content;
-      directionEl.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (synopsisEl) {
-      synopsisEl.value = opt.content;
-      synopsisEl.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (descEl) {
-      descEl.value = opt.content;
-      descEl.dispatchEvent(new Event('input', { bubbles: true }));
-    } else {
-      // 没找到字段，存到 localStorage 草稿
-      try {
-        var draft = JSON.parse(localStorage.getItem('moyun_create_draft') || '{}');
-        draft.direction = (draft.direction || '') + (draft.direction ? '\n\n' : '') + '【AI 灵感】' + opt.title + '：' + opt.content;
-        localStorage.setItem('moyun_create_draft', JSON.stringify(draft));
-        alert('未找到方向字段，已存到 localStorage 草稿');
-      } catch (e) {
-        alert('应用失败: 未找到方向字段');
-      }
+    var target = directionEl || synopsisEl || descEl;
+    if (!target) {
+      alert('应用失败：未找到方向字段');
+      return;
     }
+
+    target.value = (target.value || '') + (target.value ? '\n\n' : '') + '【AI 灵感】' + opt.title + '：' + opt.content;
+    target.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   // ==================== 多格式导出按钮 ====================
@@ -160,13 +154,16 @@
     var tries = 0;
     var timer = setInterval(function () {
       tries++;
-      // 找 create.js 页面工具栏
-      var toolbar = document.querySelector('.toolbar, [data-toolbar="create"], .actions');
+      // 找 create.html 实际的工具栏容器（create.html 用 .template-toolbar，不是 .toolbar/.actions）
+      var toolbar = document.querySelector('.template-toolbar, [data-toolbar="create"], .toolbar, .actions');
       if (!toolbar) {
         if (tries > 30) clearInterval(timer);
         return;
       }
       clearInterval(timer);
+
+      // 避免重复注入
+      if (document.getElementById('inspirationBtn')) return;
 
       var insBtn = document.createElement('button');
       insBtn.type = 'button';

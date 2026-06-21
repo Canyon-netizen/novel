@@ -1,5 +1,27 @@
 // ==================== MoYun AI - 编辑页逻辑 ====================
 
+// ==================== 工具函数 ====================
+// 安全的 localStorage 读取 + JSON.parse，损坏的存储会回到空数组/默认值，不会崩页面
+function safeLoadProjects() {
+    try {
+        const saved = localStorage.getItem('moyun_projects');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        console.error('加载项目失败（localStorage 可能损坏）:', e);
+        return [];
+    }
+}
+
+function safeLoadAISettings() {
+    try {
+        const saved = localStorage.getItem('moyun_ai_settings');
+        return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+        console.error('加载 AI 设置失败:', e);
+        return null;
+    }
+}
+
 // ==================== 全局状态 ====================
 let aiSettings = {
     provider: 'anthropic',
@@ -17,6 +39,7 @@ const parsedChapterIndex = parseInt(urlParams.get('chapter'), 10);
 const projectIndex = Number.isNaN(parsedProjectIndex) ? -1 : parsedProjectIndex;
 let chapterIndex = Number.isNaN(parsedChapterIndex) ? 0 : parsedChapterIndex;
 let currentEditingCharacter = null;
+let currentEditingTimeline = null;
 
 // ==================== Initialize ====================
 function init() {
@@ -139,7 +162,7 @@ function loadProject() {
         return;
     }
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     if (projectIndex < 0 || projectIndex >= projects.length) {
         showToast('项目不存在', 'error');
         window.location.href = 'index.html';
@@ -204,7 +227,7 @@ function selectChapterByIndex(index) {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const project = projects[projectIndex];
     const chapter = project.chapters[index];
 
@@ -266,7 +289,7 @@ function addChapter() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
 
     if (!projects[projectIndex].chapters) {
         projects[projectIndex].chapters = [];
@@ -314,9 +337,12 @@ function openAddCharacterModal() {
     if (!modal) return;
 
     modal.classList.add('show');
-    document.getElementById('characterNameInput').value = '';
-    document.getElementById('characterRoleInput').value = '';
-    document.getElementById('characterDescInput').value = '';
+    const nameInput = document.getElementById('characterNameInput');
+    const roleInput = document.getElementById('characterRoleInput');
+    const descInput = document.getElementById('characterDescInput');
+    if (nameInput) nameInput.value = '';
+    if (roleInput) roleInput.value = '';
+    if (descInput) descInput.value = '';
     currentEditingCharacter = null;
 }
 
@@ -338,7 +364,7 @@ function addCharacter() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
 
     if (!projects[projectIndex].characters) {
         projects[projectIndex].characters = [];
@@ -364,7 +390,7 @@ function editCharacter(index) {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const character = projects[projectIndex].characters[index];
     if (!character) return;
 
@@ -400,7 +426,7 @@ function saveCharacter() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     projects[projectIndex].characters[currentEditingCharacter] = {
         name,
         role: role || '配角',
@@ -436,7 +462,7 @@ function saveWorldSetting() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     projects[projectIndex].worldSetting = {
         era: era || '',
         society: society || '',
@@ -483,6 +509,15 @@ function openAddTimelineEventModal() {
 function closeAddTimelineEventModal() {
     const modal = document.getElementById('addTimelineEventModal');
     if (modal) modal.classList.remove('show');
+
+    // 无论保存/取消，关闭时都重置按钮回 "添加" 状态
+    // 防止 editTimelineEvent 修改了 confirmBtn.onclick 后被下次 "新增" 误用
+    const confirmBtn = modal?.querySelector('.modal-btn.confirm');
+    if (confirmBtn) {
+        confirmBtn.textContent = '添加';
+        confirmBtn.onclick = addTimelineEvent;
+    }
+    currentEditingTimeline = null;
 }
 
 function addTimelineEvent() {
@@ -498,7 +533,7 @@ function addTimelineEvent() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
 
     if (!projects[projectIndex].timeline) {
         projects[projectIndex].timeline = [];
@@ -521,7 +556,7 @@ function editTimelineEvent(index) {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const event = projects[projectIndex].timeline[index];
     if (!event) return;
 
@@ -534,10 +569,10 @@ function editTimelineEvent(index) {
     document.getElementById('eventTimeInput').value = event.time || '';
     document.getElementById('eventDescInput').value = event.description || '';
 
-    // 保存当前编辑的索引
-    currentEditingCharacter = index;
+    // 使用独立变量，不要污染 currentEditingCharacter
+    currentEditingTimeline = index;
 
-    // 修改确认按钮
+    // 修改确认按钮（关闭时由 closeAddTimelineEventModal 恢复）
     const confirmBtn = modal.querySelector('.modal-btn.confirm');
     if (confirmBtn) {
         confirmBtn.textContent = '保存';
@@ -558,7 +593,7 @@ function saveTimelineEvent(index) {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     projects[projectIndex].timeline[index] = {
         title,
         time: time || '',
@@ -570,14 +605,7 @@ function saveTimelineEvent(index) {
     closeAddTimelineEventModal();
     renderTimeline(projects[projectIndex]);
     showToast('时间节点已保存', 'success');
-
-    // 恢复添加按钮
-    const modal = document.getElementById('addTimelineEventModal');
-    const confirmBtn = modal?.querySelector('.modal-btn.confirm');
-    if (confirmBtn) {
-        confirmBtn.textContent = '添加';
-        confirmBtn.onclick = addTimelineEvent;
-    }
+    // 按钮恢复由 closeAddTimelineEventModal 统一处理
 }
 
 // ==================== 阅读模式 ====================
@@ -585,7 +613,7 @@ function openReadingMode() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const project = projects[projectIndex];
     const chapter = project.chapters[chapterIndex];
 
@@ -613,7 +641,7 @@ function saveCurrentChapterLocal() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
     if (chapter) {
         const contentEditor = document.getElementById('contentEditor');
@@ -646,7 +674,7 @@ function exportCurrentProject() {
     const saved = localStorage.getItem('moyun_projects');
     if (!saved) return;
 
-    const projects = JSON.parse(saved);
+    const projects = safeLoadProjects();
     const project = projects[projectIndex];
 
     if (!project.chapters || project.chapters.length === 0) {
@@ -730,7 +758,7 @@ function updateParentStats() {
         try {
             const saved = localStorage.getItem('moyun_projects');
             if (saved) {
-                const projects = JSON.parse(saved);
+                const projects = safeLoadProjects();
                 const totalChars = projects.reduce((sum, p) => sum + (p.characters?.length || 0), 0);
                 window.opener.postMessage({ type: 'statsUpdate', charCount: totalChars }, '*');
             }
@@ -771,10 +799,14 @@ function openSettingsModal() {
     if (!modal) return;
 
     modal.classList.add('show');
-    document.getElementById('apiProvider').value = aiSettings.provider;
-    document.getElementById('apiKeyInput').value = aiSettings.apiKey;
-    document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
-    document.getElementById('modelInput').value = aiSettings.model;
+    const providerEl = document.getElementById('apiProvider');
+    const apiKeyEl = document.getElementById('apiKeyInput');
+    const baseUrlEl = document.getElementById('baseUrlInput');
+    const modelEl = document.getElementById('modelInput');
+    if (providerEl) providerEl.value = aiSettings.provider;
+    if (apiKeyEl) apiKeyEl.value = aiSettings.apiKey;
+    if (baseUrlEl) baseUrlEl.value = aiSettings.baseUrl;
+    if (modelEl) modelEl.value = aiSettings.model;
     const maxTokensInput = document.getElementById('maxTokensInput');
     if (maxTokensInput) maxTokensInput.value = aiSettings.maxTokens;
     const temperatureInput = document.getElementById('temperatureInput');
@@ -958,7 +990,7 @@ async function aiWrite() {
 
     try {
         const saved = localStorage.getItem('moyun_projects');
-        const projects = JSON.parse(saved);
+        const projects = safeLoadProjects();
         const project = projects[projectIndex];
         const continuation = await callAI([{ role: 'user', content: `续写150-300字：\n\n${content}` }], getThemePrompt(project?.type));
         const editor = document.getElementById('contentEditor');
@@ -1007,7 +1039,7 @@ async function aiImprove() {
 
     try {
         const saved = localStorage.getItem('moyun_projects');
-        const projects = JSON.parse(saved);
+        const projects = safeLoadProjects();
         const project = projects[projectIndex];
         const suggestion = await callAI([{ role: 'user', content: `提供改进建议：\n\n${content.slice(0, 500)}` }], getThemePrompt(project?.type));
         showToast('💡 改进建议：\n\n' + suggestion, 'info');

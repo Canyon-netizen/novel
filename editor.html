@@ -51,9 +51,8 @@
             <div class="editor-container">
                 <aside class="chapter-sidebar">
                     <h3>章节目录</h3>
-                    </div>
 
-                <!-- Tab Navigation for Sidebar -->
+                    <!-- Tab Navigation for Sidebar -->
                 <div class="sidebar-tabs">
                     <button class="sidebar-tab active" data-tab="chapters" onclick="switchSidebarTab('chapters')">📖 章节</button>
                     <button class="sidebar-tab" data-tab="characters" onclick="switchSidebarTab('characters')">👥 角色</button>
@@ -133,6 +132,7 @@
                     <div class="word-count-bar">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <span id="currentWordCount">0 字</span>
+                            <span id="saveStatus" class="save-status"></span>
                             <span class="ai-status" id="aiStatus"></span>
                         </div>
                         <span>自动保存已开启</span>

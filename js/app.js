@@ -1,12 +1,34 @@
 // ==================== MoYun AI - 首页应用逻辑 ====================
 
+// ==================== 工具函数 ====================
+// 安全的 localStorage 读取 + JSON.parse，损坏的存储会回到空数组
+function safeLoadProjects() {
+    try {
+        const saved = localStorage.getItem('moyun_projects');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        console.error('加载项目失败（localStorage 可能损坏）:', e);
+        return [];
+    }
+}
+
+function safeLoadUserTemplates() {
+    try {
+        const saved = localStorage.getItem('moyun_user_templates');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        console.error('加载用户模板失败:', e);
+        return [];
+    }
+}
+
 // ==================== 全局状态 ====================
 let projects = [];
 let currentProjectIndex = -1;
 let currentChapterIndex = -1;
 
 let aiSettings = NovelCommon.DEFAULT_AI_SETTINGS;
-let gistSettings = NovelCommon.getDefaultGistSettings();
+let gistSettings = { token: '', gistId: '', lastSync: null };
 
 const GIST_FILENAME = 'moyun_data.json';
 let currentFilter = { type: null, search: '', timeSort: 'desc' };
@@ -295,13 +317,20 @@ function openSettingsModal() {
     if (!modal) return;
 
     modal.classList.add('show');
-    document.getElementById('apiProvider').value = aiSettings.provider;
-    document.getElementById('apiKeyInput').value = aiSettings.apiKey;
-    document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
-    document.getElementById('modelInput').value = aiSettings.model;
-    document.getElementById('temperatureInput').value = aiSettings.temperature;
-    document.getElementById('temperatureValue').textContent = aiSettings.temperature;
-    document.getElementById('githubTokenInput').value = gistSettings.token || '';
+    const providerEl = document.getElementById('apiProvider');
+    const apiKeyEl = document.getElementById('apiKeyInput');
+    const baseUrlEl = document.getElementById('baseUrlInput');
+    const modelEl = document.getElementById('modelInput');
+    const tempInput = document.getElementById('temperatureInput');
+    const tempVal = document.getElementById('temperatureValue');
+    const tokenEl = document.getElementById('githubTokenInput');
+    if (providerEl) providerEl.value = aiSettings.provider;
+    if (apiKeyEl) apiKeyEl.value = aiSettings.apiKey;
+    if (baseUrlEl) baseUrlEl.value = aiSettings.baseUrl;
+    if (modelEl) modelEl.value = aiSettings.model;
+    if (tempInput) tempInput.value = aiSettings.temperature;
+    if (tempVal) tempVal.textContent = aiSettings.temperature;
+    if (tokenEl) tokenEl.value = gistSettings.token || '';
     onApiProviderChange();
     updateGistStatus();
 }
@@ -412,7 +441,7 @@ function getSyncData() {
     return {
         projects: projects,
         aiSettings: aiSettings,
-        userTemplates: JSON.parse(localStorage.getItem('moyun_user_templates') || '[]'),
+        userTemplates: safeLoadUserTemplates(),
         userName: localStorage.getItem('moyun_user_name') || 'yyy',
         theme: localStorage.getItem('moyun_theme') || 'dark',
         syncTime: new Date().toISOString()
@@ -918,7 +947,7 @@ async function aiWrite() {
     showLoading(true);
 
     try {
-        const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+        const currentProject = safeLoadProjects();
         const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
         const chapterIndex = parseInt(localStorage.getItem('moyun_current_chapter') || '0');
         const project = currentProject[projectIndex];
@@ -962,7 +991,7 @@ async function aiPolish() {
         const editor = document.getElementById('contentEditor');
         if (editor) {
             editor.value = polished;
-            const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+            const currentProject = safeLoadProjects();
             const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
             const chapterIndex = parseInt(localStorage.getItem('moyun_current_chapter') || '0');
             currentProject[projectIndex].chapters[chapterIndex].content = polished;
@@ -986,7 +1015,7 @@ async function aiImprove() {
     showLoading(true);
 
     try {
-        const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+        const currentProject = safeLoadProjects();
         const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
         const project = currentProject[projectIndex];
 
