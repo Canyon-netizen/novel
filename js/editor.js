@@ -12,14 +12,25 @@ let aiSettings = {
 
 // URL 参数
 const urlParams = new URLSearchParams(window.location.search);
-const projectIndex = parseInt(urlParams.get('project')) || -1;
-let chapterIndex = parseInt(urlParams.get('chapter')) || 0;
+const parsedProjectIndex = parseInt(urlParams.get('project'), 10);
+const parsedChapterIndex = parseInt(urlParams.get('chapter'), 10);
+const projectIndex = Number.isNaN(parsedProjectIndex) ? -1 : parsedProjectIndex;
+let chapterIndex = Number.isNaN(parsedChapterIndex) ? 0 : parsedChapterIndex;
 let currentEditingCharacter = null;
 
-// ==================== 初始化 ====================
+// ==================== Initialize ====================
 function init() {
-    loadSettings();
-    loadTheme();
+    // Auth 委托到 NovelCommon（如果可用），否则使用本地后备
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.requireAuth) {
+        if (!NovelCommon.requireAuth()) return;
+        if (NovelCommon.loadAISettings) NovelCommon.loadAISettings(aiSettings);
+        if (NovelCommon.loadTheme) NovelCommon.loadTheme();
+    } else {
+        loadSettings();
+        loadTheme();
+    }
+    setupAuthDisplay();
+    setupAuthActions();
     loadProject();
     updateAIStatus();
     setupEventListeners();
@@ -43,8 +54,12 @@ function setupEventListeners() {
     }
 }
 
-// ==================== 设置加载 ====================
+// ==================== 设置加载（NovelCommon 委托 + 本地后备）====================
 function loadSettings() {
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.loadAISettings) {
+        NovelCommon.loadAISettings(aiSettings);
+        return;
+    }
     const saved = localStorage.getItem('moyun_ai_settings');
     if (saved) {
         try {
@@ -56,6 +71,12 @@ function loadSettings() {
 }
 
 function loadTheme() {
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.loadTheme) {
+        NovelCommon.loadTheme();
+        const sel = document.querySelector('.theme-select');
+        if (sel && NovelCommon.getTheme) sel.value = NovelCommon.getTheme();
+        return;
+    }
     const saved = localStorage.getItem('moyun_theme');
     if (saved) {
         document.documentElement.setAttribute('data-theme', saved);
@@ -66,8 +87,47 @@ function loadTheme() {
 
 function toggleTheme() {
     const theme = document.querySelector('.theme-select').value;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('moyun_theme', theme);
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.setTheme) {
+        NovelCommon.setTheme(theme);
+    } else {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('moyun_theme', theme);
+    }
+}
+
+// auth 委托（包装 NovelCommon）
+function requireAuth() {
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.requireAuth) {
+        return NovelCommon.requireAuth();
+    }
+    return true;
+}
+
+function handleLogout() {
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.handleLogout) {
+        NovelCommon.handleLogout();
+    }
+}
+
+// editor.js 独有的设置显示（user name/avatar）
+function setupAuthDisplay() {
+    // 优先使用 NovelCommon 的实现
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.setupAuthDisplay) {
+        NovelCommon.setupAuthDisplay();
+        return;
+    }
+    const name = localStorage.getItem('moyun_user_name') || 'yyy';
+    const userNameEl = document.querySelector('.user-name');
+    const avatarEl = document.querySelector('.user-avatar');
+    if (userNameEl) userNameEl.textContent = name;
+    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+}
+
+// user-menu 委托
+function setupAuthActions() {
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.setupAuthActions) {
+        NovelCommon.setupAuthActions();
+    }
 }
 
 // ==================== 项目加载 ====================
@@ -651,6 +711,10 @@ function exportCurrentProject() {
 }
 
 function getTypeName(type) {
+    // 优先使用 NovelCommon 的实现
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.getTypeName) {
+        return NovelCommon.getTypeName(type);
+    }
     const types = {
         romance: '言情', fantasy: '玄幻', xianxia: '仙侠',
         mystery: '悬疑', scifi: '科幻', wuxia: '武侠',
@@ -762,8 +826,12 @@ function updateAIStatus() {
     }
 }
 
-// ==================== AI 提示词 ====================
+// ==================== AI 提示词（11 种类型完整支持）====================
 function getThemePrompt(themeType) {
+    // 优先使用 NovelCommon 的实现（如果存在）
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.getThemePrompt) {
+        return NovelCommon.getThemePrompt(themeType);
+    }
     const prompts = {
         romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
         fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
@@ -780,7 +848,7 @@ function getThemePrompt(themeType) {
     return prompts[themeType] || prompts.romance;
 }
 
-// ==================== API 调用 ====================
+// ==================== API 调用（本地完整实现 + NovelLLMClient 委托后备）====================
 const API_PRESETS = {
     anthropic: { name: 'Anthropic (Claude)', baseUrl: 'https://api.anthropic.com/v1', authHeader: 'x-api-key' },
     openai: { name: 'OpenAI (GPT)', baseUrl: 'https://api.openai.com/v1', authHeader: 'bearer' },
@@ -851,6 +919,15 @@ function buildApiBody(provider, model, systemPrompt, messages, temperature, maxT
 }
 
 async function callAI(messages, systemPrompt) {
+    // 优先委托到 NovelLLMClient（如果可用），签名差异：llm-client 签名 callAI(aiSettings, messages, systemPrompt)
+    if (typeof NovelLLMClient !== 'undefined' && NovelLLMClient.callAI) {
+        try {
+            return await NovelLLMClient.callAI(aiSettings, messages, systemPrompt);
+        } catch (e) {
+            console.warn('NovelLLMClient.callAI 失败，回落到本地实现:', e);
+        }
+    }
+
     if (aiSettings.provider === 'local') {
         return new Promise(r => setTimeout(() => r('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。'), 1000));
     }

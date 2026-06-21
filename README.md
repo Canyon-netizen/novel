@@ -1,6 +1,6 @@
 # 墨韵AI - 智能小说创作平台
 
-一个基于AI辅助的小说创作网站，支持主题设置、世界观构建、大纲管理和AI续写功能。
+> 智能小说创作平台，支持多种题材、模板市场、AI写作助手、数据同步
 
 ## 功能特点
 
@@ -54,40 +54,71 @@
 
 ```
 novel/
-├── index.html          # 首页（项目列表）
-├── create.html         # 创建页（模板选择/配置）
-├── editor.html         # 编辑页（章节撰写）
-├── login.html          # 登录页（占位）
+├── index.html              # 首页（项目列表）
+├── create.html             # 创建页（模板选择/配置）
+├── editor.html             # 编辑页（章节撰写）
+├── login.html              # 登录页
+│
+├── app/                    # 前端模块（UMD 命名空间 NovelXxx）
+│   ├── common.js           # NovelCommon：auth/storage/settings/theme/utils
+│   ├── llm-client.js       # NovelLLMClient：多 provider LLM 客户端
+│   └── autosave.js         # 自动保存
+│
 ├── css/
-│   └── style.css       # 样式文件
-├── js/
-│   ├── app.js          # 首页逻辑
-│   ├── create.js       # 创建页逻辑
-│   └── editor.js       # 编辑页逻辑
-├── server.py           # Flask后端服务（可选）
-├── requirements.txt     # Python依赖
-├── SPEC.md             # 规格说明
-└── README.md           # 本文件
+│   └── style.css
+│
+├── js/                     # view 层逻辑
+│   ├── app.js              # 首页逻辑
+│   ├── editor.js           # 编辑页逻辑
+│   └── create.js           # 创建页逻辑
+│
+├── src/                    # FastAPI 后端
+│   ├── main.py             # FastAPI 入口
+│   ├── llm.py              # 多 provider LLM 客户端
+│   ├── storage.py          # SQLite 项目存储
+│   └── routes/             # API 路由
+│
+├── tests/                  # 测试
+│
+└── .github/workflows/      # CI/CD
 ```
 
 ## 运行方式
 
-### 纯前端模式
-直接用浏览器打开 `index.html` 即可使用。无需任何服务器配置。
+### 纯前端模式（推荐，部署到 GitHub Pages）
 
-### 后端API模式（可选）
-需要Claude API密钥以获得更好的AI体验：
+直接打开 `index.html`：
+- 数据存 localStorage
+- LLM 调用户配置的 provider
+
+### 全栈模式（后端 SQLite + LLM 代理）
+
 ```bash
+# 安装依赖
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY="your-key"
-python server.py
+
+# 启动 FastAPI
+uvicorn src.main:app --reload --port 8000
+
+# 前端调用时把 endpoint 改成 http://localhost:8000
 ```
 
-访问 http://localhost:5000 查看后端状态。
+## API 端点
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET  | /api/health | 健康检查 |
+| POST | /api/auth/login | 登录（演示模式任意账号） |
+| GET  | /api/projects | 列出我的项目 |
+| POST | /api/projects | 创建项目 |
+| GET  | /api/projects/{id} | 获取项目 |
+| PUT  | /api/projects/{id} | 更新项目 |
+| DELETE | /api/projects/{id} | 删除项目 |
+| POST | /api/llm/chat | LLM 对话 |
+| POST | /api/gist/sync | 同步到 Gist |
+| GET  | /api/gist/load/{id}?token= | 从 Gist 加载 |
 
 ## 主题专属提示词系统
-
-每种题材配备了专门优化的AI系统提示词：
 
 | 题材 | 核心特点 |
 |------|----------|
@@ -111,6 +142,17 @@ python server.py
 4. 从模板市场选择参考
 5. 开始章节撰写
 6. 使用AI辅助续写/润色
+
+## 测试
+
+```bash
+pytest tests/unit -v
+```
+
+## 部署
+
+- **前端**：GitHub Pages（`.github/workflows/deploy-pages.yml`）
+- **后端**：本地或 Vercel/Railway
 
 ## 许可证
 

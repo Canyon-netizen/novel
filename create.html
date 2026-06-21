@@ -1,3 +1,4 @@
+Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such file or directory.
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -330,7 +331,7 @@
             border-color: var(--accent-blue);
         }
 
-        .my-templates-btn {
+        .template-create-btn {
             padding: 0.5rem 1rem;
             background: var(--bg-secondary);
             border: 1px solid var(--border-color);
@@ -342,7 +343,7 @@
             transition: all 0.3s;
         }
 
-        .my-templates-btn:hover {
+        .template-create-btn:hover {
             border-color: var(--accent-blue);
         }
 
@@ -388,11 +389,14 @@
 
         .template-icon.romance { background: rgba(236, 72, 153, 0.2); }
         .template-icon.fantasy { background: rgba(139, 92, 246, 0.2); }
+        .template-icon.xianxia { background: rgba(16, 185, 129, 0.2); }
         .template-icon.scifi { background: rgba(20, 184, 166, 0.2); }
         .template-icon.wuxia { background: rgba(245, 158, 11, 0.2); }
         .template-icon.urban { background: rgba(59, 130, 246, 0.2); }
         .template-icon.mystery { background: rgba(168, 85, 247, 0.2); }
         .template-icon.historical { background: rgba(239, 68, 68, 0.2); }
+        .template-icon.game { background: rgba(34, 197, 94, 0.2); }
+        .template-icon.apocalypse { background: rgba(100, 116, 139, 0.2); }
 
         .template-info h4 {
             font-size: 1rem;
@@ -481,9 +485,684 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Discuss Mode */
+        .discuss-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 280px);
+            min-height: 400px;
+        }
+
+        .discuss-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .discuss-avatar {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .discuss-info h4 {
+            font-size: 1rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .discuss-info p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .discuss-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .message {
+            display: flex;
+            gap: 0.8rem;
+            max-width: 80%;
+        }
+
+        .message.user-message {
+            flex-direction: row-reverse;
+            align-self: flex-end;
+        }
+
+        .message.bot-message {
+            align-self: flex-start;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .user-message .message-avatar {
+            background: linear-gradient(135deg, var(--accent-purple), #a78bfa);
+        }
+
+        .bot-message .message-avatar {
+            background: linear-gradient(135deg, var(--accent-blue), #60a5fa);
+        }
+
+        .message-content {
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .user-message .message-content {
+            background: linear-gradient(135deg, var(--accent-purple), #8b5cf6);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message .message-content {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .discuss-input-area {
+            display: flex;
+            gap: 0.8rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .discuss-input {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .discuss-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+
+        .discuss-send-btn {
+            padding: 0.8rem 1.5rem;
+            background: linear-gradient(135deg, var(--accent-blue), #3b82f6);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .discuss-send-btn:hover {
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .discuss-loading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .discuss-loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Create Workspace Polish */
+        .create-page {
+            background:
+                linear-gradient(180deg, rgba(20, 184, 166, 0.04), transparent 260px),
+                var(--bg-primary);
+        }
+
+        .create-page .header {
+            height: 60px;
+            padding: 0 1.5rem;
+        }
+
+        .create-page .brand-sub {
+            color: var(--text-muted);
+        }
+
+        .create-page .main-container {
+            max-width: 1520px;
+            padding: 1.25rem 1.5rem 1.5rem;
+        }
+
+        .create-page .page-container {
+            grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+            gap: 1rem;
+            min-height: calc(100vh - 154px);
+            align-items: stretch;
+        }
+
+        .create-page .build-panel,
+        .create-page .template-panel {
+            border-radius: 8px;
+            border-color: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+        }
+
+        [data-theme="light"] .create-page .build-panel,
+        [data-theme="light"] .create-page .template-panel {
+            border-color: rgba(17, 24, 39, 0.08);
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+        }
+
+        .create-page .build-panel {
+            position: sticky;
+            top: 76px;
+            max-height: calc(100vh - 96px);
+            padding: 1rem;
+            scrollbar-width: thin;
+        }
+
+        .create-page .panel-header {
+            margin-bottom: 1rem;
+            padding-bottom: 0.8rem;
+        }
+
+        .create-page .panel-title {
+            font-size: 1.05rem;
+        }
+
+        .create-page .form-row {
+            margin-bottom: 0.95rem;
+        }
+
+        .create-page .form-row label {
+            margin-bottom: 0.38rem;
+            font-size: 0.82rem;
+            letter-spacing: 0;
+        }
+
+        .create-page .form-row-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.38rem;
+        }
+
+        .create-page .form-row-header label {
+            margin-bottom: 0;
+        }
+
+        .create-page .mini-ai-btn {
+            padding: 0.34rem 0.62rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.76rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .create-page .mini-ai-btn:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+
+        .create-page .form-input,
+        .create-page .form-select,
+        .create-page .search-input,
+        .create-page .discuss-input {
+            border-radius: 8px;
+            min-height: 42px;
+        }
+
+        .create-page textarea.form-input {
+            min-height: 88px;
+            resize: vertical;
+        }
+
+        .create-page .input-with-btn {
+            align-items: stretch;
+        }
+
+        .create-page .ai-btn,
+        .create-page .reset-btn,
+        .create-page .template-create-btn,
+        .create-page .toolbar-btn,
+        .create-page .filter-btn,
+        .create-page .preset-btn {
+            border-radius: 8px;
+        }
+
+        .create-page .ai-btn {
+            min-width: 68px;
+            padding: 0 0.8rem;
+        }
+
+        .create-page .tag-group {
+            gap: 0.45rem;
+            margin-bottom: 0;
+        }
+
+        .create-page .tag-btn {
+            border-radius: 8px;
+            padding: 0.42rem 0.62rem;
+            line-height: 1.2;
+        }
+
+        .create-page .collapsible {
+            border-radius: 8px;
+            margin-bottom: 0.95rem;
+        }
+
+        .create-page .collapsible-header {
+            padding: 0.7rem 0.85rem;
+        }
+
+        .create-page .collapsible-content {
+            padding: 0.85rem;
+        }
+
+        .create-page .slider-group {
+            padding: 0.85rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+        }
+
+        .create-page .preset-btns {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .create-page .template-panel {
+            min-width: 0;
+            max-height: calc(100vh - 96px);
+            overflow: hidden;
+        }
+
+        .create-page .template-tabs {
+            padding: 0.45rem;
+            gap: 0.35rem;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+        }
+
+        .create-page .template-tab {
+            flex: 0 0 auto;
+            padding: 0.68rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .create-page .template-tab.active {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .create-page .template-tab.active::after {
+            display: none;
+        }
+
+        .create-page .template-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 0.85rem;
+            align-items: center;
+            padding: 0.85rem 1rem;
+        }
+
+        .create-page .template-browser {
+            display: grid;
+            grid-template-columns: 164px minmax(0, 1fr);
+            min-height: 0;
+            height: 100%;
+            flex: 1;
+        }
+
+        .create-page #tabContentBuild {
+            flex: 1;
+            min-height: 0;
+        }
+
+        .create-page .template-filters {
+            flex-direction: column;
+            gap: 0.35rem;
+            padding: 1rem;
+            border-right: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        .create-page .filter-btn {
+            width: 100%;
+            padding: 0.58rem 0.7rem;
+            font-size: 0.78rem;
+            border-radius: 8px;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .create-page .template-search {
+            align-items: center;
+            min-width: 0;
+            justify-content: flex-end;
+        }
+
+        .create-page .search-input {
+            width: clamp(180px, 18vw, 260px);
+        }
+
+        .create-page .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 320px);
+            grid-auto-flow: row;
+            grid-auto-rows: auto;
+            gap: 1rem;
+            padding: 1rem;
+            align-content: start;
+            align-items: stretch;
+            justify-content: start;
+            justify-items: stretch;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .create-page .template-card {
+            position: relative;
+            width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+            border-radius: 8px;
+            padding: 1.05rem;
+            min-height: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .create-page .template-card:hover {
+            transform: none;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+        }
+
+        .create-page .template-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+        }
+
+        .create-page .template-info h4 {
+            font-size: 0.98rem;
+        }
+
+        .create-page .template-desc {
+            min-height: 0;
+            display: block;
+            overflow: visible;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        .create-page .template-tags {
+            width: 100%;
+            min-width: 0;
+        }
+
+        .create-page .template-tag {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .create-page .template-framework {
+            margin-top: auto;
+            width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            line-height: 1.55;
+        }
+
+        .create-page .bottom-actions {
+            position: sticky;
+            bottom: 0;
+            z-index: 50;
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            background: rgba(26, 26, 26, 0.94);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            backdrop-filter: blur(14px);
+        }
+
+        [data-theme="light"] .create-page .bottom-actions {
+            background: rgba(255, 255, 255, 0.94);
+        }
+
+        .create-page .action-cancel,
+        .create-page .action-create {
+            border-radius: 8px;
+            min-height: 42px;
+        }
+
+        .create-page .action-create {
+            min-width: 148px;
+        }
+
+        .create-page .create-action-status {
+            margin-right: auto;
+            align-self: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .create-page .create-action-status.error {
+            color: #EF4444;
+        }
+
+        .create-page .create-action-status.success {
+            color: var(--accent-teal);
+        }
+
+        @media (max-width: 720px) {
+            .create-page .template-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
+        }
+
+        .create-page #tabContentImport {
+            height: 100%;
+        }
+
+        .create-page #tabContentImport > div:first-child {
+            min-height: calc(100vh - 252px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            margin: 1rem;
+            background: var(--bg-secondary);
+        }
+
+        .create-page .discuss-container {
+            height: calc(100vh - 184px);
+            min-height: 520px;
+        }
+
+        .create-page .discuss-header,
+        .create-page .discuss-input-area {
+            padding: 0.9rem 1rem;
+        }
+
+        .create-page .message-content {
+            border-radius: 8px;
+        }
+
+        .create-page .template-save-modal {
+            max-width: 760px;
+        }
+
+        .create-page .template-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .create-page .template-form-grid .wide {
+            grid-column: 1 / -1;
+        }
+
+        .create-page .template-tag-picker {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+            gap: 0.5rem;
+        }
+
+        .create-page .template-tag-option {
+            display: flex;
+            align-items: center;
+            gap: 0.42rem;
+            padding: 0.55rem 0.65rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            cursor: pointer;
+        }
+
+        .create-page .template-tag-option input {
+            accent-color: var(--accent-blue);
+        }
+
+        .create-page .footer {
+            display: none;
+        }
+
+        @media (max-width: 1180px) {
+            .create-page .page-container {
+                grid-template-columns: 1fr;
+            }
+
+            .create-page .build-panel {
+                position: static;
+                max-height: none;
+            }
+
+            .create-page .template-panel {
+                max-height: none;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .create-page .header {
+                padding: 0 1rem;
+            }
+
+            .create-page .brand-sub,
+            .create-page .user-name {
+                display: none;
+            }
+
+            .create-page .main-container {
+                padding: 0.85rem;
+            }
+
+            .create-page .template-toolbar,
+            .create-page .template-search {
+                grid-template-columns: 1fr;
+                display: grid;
+            }
+
+            .create-page .template-browser {
+                grid-template-columns: 1fr;
+            }
+
+            .create-page .template-filters {
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+
+            .create-page .filter-btn {
+                width: auto;
+                white-space: nowrap;
+            }
+
+            .create-page .search-input,
+            .create-page .template-create-btn {
+                width: 100%;
+            }
+
+            .create-page .template-grid {
+                grid-template-columns: 1fr;
+                align-items: stretch;
+            }
+
+            .create-page .preset-btns {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .create-page .bottom-actions {
+                display: grid;
+                grid-template-columns: 1fr;
+            }
+
+            .create-page .template-form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
-<body>
+<body class="create-page">
     <!-- Header -->
     <header class="header">
         <div class="header-left" onclick="window.location.href='index.html'" style="cursor:pointer;">
@@ -498,10 +1177,9 @@
                 <option value="light">亮色系</option>
             </select>
             <div class="user-info">
-                <div class="user-avatar">Y</div>
-                <span class="user-name" id="userName" onclick="editUserName()">yyy</span>
+                <div class="user-avatar" id="userAvatar"></div>
+                <span class="user-name" id="userName" onclick="editUserName()"></span>
             </div>
-            <span class="logout-icon">↩</span>
         </div>
     </header>
 
@@ -532,7 +1210,10 @@
                 </div>
 
                 <div class="form-row">
-                    <label>创作方向</label>
+                    <div class="form-row-header">
+                        <label>创作方向</label>
+                        <button class="mini-ai-btn" onclick="aiGenerateDirection()">✨ AI生成方向</button>
+                    </div>
                     <textarea class="form-input" id="direction" placeholder="简要描述故事方向或核心创意..." rows="3"></textarea>
                 </div>
 
@@ -620,27 +1301,79 @@
             <!-- Right Panel - Templates -->
             <section class="template-panel">
                 <div class="template-tabs">
-                    <button class="template-tab active">模板构建</button>
-                    <button class="template-tab">导入大纲</button>
-                    <button class="template-tab">探讨模式</button>
+                    <button class="template-tab active" id="tabBuild" onclick="switchTab('build')">模板构建</button>
+                    <button class="template-tab" id="tabImport" onclick="switchTab('import')">导入大纲</button>
+                    <button class="template-tab" id="tabDiscuss" onclick="switchTab('discuss')">探讨模式</button>
                 </div>
 
                 <div class="template-toolbar">
-                    <div class="template-filters" id="templateFilters">
-                        <button class="filter-btn active" data-filter="all">全部</button>
-                        <button class="filter-btn" data-filter="fantasy-xianxia">玄幻仙侠</button>
-                        <button class="filter-btn" data-filter="urban">都市现代</button>
-                        <button class="filter-btn" data-filter="scifi">科幻未来</button>
-                        <button class="filter-btn" data-filter="historical">历史军事</button>
-                    </div>
                     <div class="template-search">
-                        <input type="text" class="search-input" placeholder="搜索模板...">
-                        <button class="my-templates-btn">📁 我的模板</button>
+                        <input type="search" class="search-input" id="templateSearchInput" placeholder="搜索模板..." autocomplete="off" spellcheck="false" value="" oninput="searchTemplates()">
+                        <button class="template-create-btn" onclick="openSaveTemplateModal()">➕ 创建模板</button>
                     </div>
                 </div>
 
-                <div class="template-grid" id="templateGrid">
-                    <!-- Templates will be rendered here -->
+                <!-- Tab Content: Build -->
+                <div id="tabContentBuild" class="tab-content">
+                    <div class="template-browser">
+                        <nav class="template-filters" id="templateFilters" aria-label="模板类型">
+                            <button class="filter-btn active" data-filter="all" onclick="filterTemplates('all')">全部</button>
+                            <button class="filter-btn" data-filter="fantasy" onclick="filterTemplates('fantasy')">玄幻</button>
+                            <button class="filter-btn" data-filter="xianxia" onclick="filterTemplates('xianxia')">仙侠</button>
+                            <button class="filter-btn" data-filter="urban" onclick="filterTemplates('urban')">都市</button>
+                            <button class="filter-btn" data-filter="scifi" onclick="filterTemplates('scifi')">科幻</button>
+                            <button class="filter-btn" data-filter="historical" onclick="filterTemplates('historical')">历史</button>
+                            <button class="filter-btn" data-filter="romance" onclick="filterTemplates('romance')">言情</button>
+                            <button class="filter-btn" data-filter="mystery" onclick="filterTemplates('mystery')">悬疑</button>
+                            <button class="filter-btn" data-filter="wuxia" onclick="filterTemplates('wuxia')">武侠</button>
+                            <button class="filter-btn" data-filter="game" onclick="filterTemplates('game')">游戏</button>
+                            <button class="filter-btn" data-filter="apocalypse" onclick="filterTemplates('apocalypse')">末世</button>
+                        </nav>
+                        <div class="template-grid" id="templateGrid">
+                            <!-- Templates will be rendered here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Import -->
+                <div id="tabContentImport" class="tab-content" style="display:none;">
+                    <div style="padding:2rem;text-align:center;color:var(--text-secondary);">
+                        <p style="font-size:1.2rem;margin-bottom:1rem;color:var(--text-primary);">📄 导入章节大纲</p>
+                        <p style="color:var(--text-muted);">支持 Markdown、JSON 或纯文本大纲，创建后会自动生成章节目录</p>
+                        <div style="margin-top:1.5rem;">
+                            <button class="toolbar-btn" onclick="selectOutlineFile()">选择大纲文件</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content: Discuss -->
+                <div id="tabContentDiscuss" class="tab-content" style="display:none;">
+                    <div class="discuss-container">
+                        <div class="discuss-header">
+                            <div class="discuss-avatar">🤖</div>
+                            <div class="discuss-info">
+                                <h4>AI 创作助手</h4>
+                                <p>随时为你解答小说创作中的问题</p>
+                            </div>
+                        </div>
+                        <div class="discuss-messages" id="discussMessages">
+                            <div class="message bot-message">
+                                <div class="message-avatar">🤖</div>
+                                <div class="message-content">
+                                    你好！我是你的AI创作助手。有什么关于小说创作的问题想和我探讨吗？比如：<br><br>
+                                    • 世界观设定<br>
+                                    • 人物塑造<br>
+                                    • 情节发展<br>
+                                    • 题材选择<br>
+                                    • 写作技巧
+                                </div>
+                            </div>
+                        </div>
+                        <div class="discuss-input-area">
+                            <input type="text" class="discuss-input" id="discussInput" placeholder="输入你的问题..." onkeypress="if(event.key==='Enter')sendDiscussMessage()">
+                            <button class="discuss-send-btn" onclick="sendDiscussMessage()">发送</button>
+                        </div>
+                    </div>
                 </div>
             </section>
         </div>
@@ -648,7 +1381,7 @@
         <!-- Bottom Actions -->
         <div class="bottom-actions">
             <button class="action-cancel" onclick="goBack()">取消</button>
-            <button class="action-create" onclick="createNovel()">开始创作</button>
+            <button class="action-create" id="createNovelBtn">开始创作</button>
         </div>
     </main>
 
@@ -658,39 +1391,72 @@
     </footer>
 
     <!-- Settings Modal -->
-    <div class="modal-overlay" id="settingsModal">
-        <div class="modal">
-            <h3 class="modal-title">⚙️ AI设置</h3>
-            <div class="form-group">
-                <label class="form-label">API Provider</label>
-                <select class="form-select" id="apiProvider" onchange="onApiProviderChange()">
-                    <option value="anthropic">Anthropic (Claude)</option>
-                    <option value="openai">OpenAI (GPT)</option>
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="minimax">MiniMax</option>
-                    <option value="custom">自定义 API</option>
-                    <option value="local">本地模拟</option>
-                </select>
+    <div class="modal-overlay" id="settingsModal" onclick="closeSettingsModalOnOverlay(event)">
+        <div class="modal settings-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">⚙️ AI设置</h3>
+                <button class="modal-close" onclick="closeSettingsModal()">&times;</button>
             </div>
-            <div class="form-group" id="apiKeyGroup">
-                <label class="form-label">API Key</label>
-                <input type="password" class="form-input" id="apiKeyInput" placeholder="请输入API Key">
+
+            <div class="settings-content">
+                <div class="settings-main">
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <span class="settings-section-icon">🔑</span>
+                            API 配置
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Provider</label>
+                            <select class="form-select" id="apiProvider" onchange="onApiProviderChange()">
+                                <option value="anthropic">Anthropic (Claude)</option>
+                                <option value="openai">OpenAI (GPT)</option>
+                                <option value="deepseek">DeepSeek</option>
+                                <option value="minimax">MiniMax</option>
+                                <option value="custom">自定义 API</option>
+                                <option value="local">本地模拟</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="apiKeyGroup">
+                            <label class="form-label">API Key</label>
+                            <input type="password" class="form-input" id="apiKeyInput" placeholder="请输入API Key">
+                        </div>
+                        <div class="form-group" id="baseUrlGroup">
+                            <label class="form-label">Base URL</label>
+                            <input type="text" class="form-input" id="baseUrlInput" placeholder="https://api.anthropic.com">
+                        </div>
+                        <div class="form-group" id="modelGroup">
+                            <label class="form-label">Model</label>
+                            <input type="text" class="form-input" id="modelInput" placeholder="输入模型名称，如：claude-sonnet-4-20250514">
+                        </div>
+                    </div>
+                </div>
+                <div class="settings-side">
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <span class="settings-section-icon">🎛️</span>
+                            生成参数
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Max Tokens</label>
+                            <input type="number" class="form-input" id="maxTokensInput" value="2048" style="text-align: center;">
+                        </div>
+                    </div>
+                    <div class="settings-section">
+                        <div class="settings-section-title">
+                            <span class="settings-section-icon">⚡</span>
+                            连接测试
+                        </div>
+                        <button class="btn-test" id="testBtn" onclick="testApiConnection()">
+                            <span class="btn-icon">🔗</span>
+                            测试连接
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="form-group" id="baseUrlGroup">
-                <label class="form-label">Base URL</label>
-                <input type="text" class="form-input" id="baseUrlInput" placeholder="https://api.anthropic.com">
-            </div>
-            <div class="form-group" id="modelGroup">
-                <label class="form-label">Model</label>
-                <input type="text" class="form-input" id="modelInput" placeholder="输入模型名称，如：claude-sonnet-4-20250514">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Max Tokens</label>
-                <input type="number" class="form-input" id="maxTokensInput" value="2048">
-            </div>
+
             <div class="modal-actions">
                 <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
-                <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
+                <button class="modal-btn confirm" onclick="saveSettings()">保存设置</button>
             </div>
         </div>
     </div>
@@ -709,82 +1475,83 @@
         </div>
     </div>
 
-    <!-- My Templates Modal -->
-    <div class="modal-overlay" id="myTemplatesModal">
-        <div class="modal" style="max-width: 700px;">
-            <h3 class="modal-title">📁 我的模板</h3>
-
-            <!-- My Templates Toolbar -->
-            <div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
-                <button class="toolbar-btn active" id="myTemplateAllBtn" onclick="filterMyTemplates('all')">全部</button>
-                <button class="toolbar-btn" id="myTemplateFantasyBtn" onclick="filterMyTemplates('fantasy')">玄幻</button>
-                <button class="toolbar-btn" id="myTemplateUrbanBtn" onclick="filterMyTemplates('urban')">都市</button>
-                <button class="toolbar-btn" id="myTemplateScifiBtn" onclick="filterMyTemplates('scifi')">科幻</button>
-                <button class="toolbar-btn" id="myTemplateRomanceBtn" onclick="filterMyTemplates('romance')">言情</button>
-                <button class="toolbar-btn" id="myTemplateWuxiaBtn" onclick="filterMyTemplates('wuxia')">武侠</button>
-                <button class="toolbar-btn" id="myTemplateMysteryBtn" onclick="filterMyTemplates('mystery')">悬疑</button>
-                <button class="toolbar-btn" id="myTemplateHistoricalBtn" onclick="filterMyTemplates('historical')">历史</button>
-            </div>
-
-            <!-- Custom Type Input -->
-            <div style="margin-bottom:1rem;">
-                <label class="form-label">自定义类型</label>
-                <div style="display:flex;gap:0.5rem;">
-                    <input type="text" class="form-input" id="customTypeInput" placeholder="输入自定义类型名称" style="flex:1;">
-                    <button class="toolbar-btn" onclick="addCustomType()">添加类型</button>
-                </div>
-            </div>
-
-            <!-- Custom Tags Input -->
-            <div style="margin-bottom:1rem;">
-                <label class="form-label">自定义标签</label>
-                <div style="display:flex;gap:0.5rem;">
-                    <input type="text" class="form-input" id="customTagInput" placeholder="输入自定义标签" style="flex:1;">
-                    <button class="toolbar-btn" onclick="addCustomTag()">添加标签</button>
-                </div>
-            </div>
-
-            <!-- Current Filters Display -->
-            <div id="myTemplateFiltersDisplay" style="margin-bottom:1rem;padding:0.8rem;background:var(--bg-secondary);border-radius:8px;font-size:0.85rem;color:var(--text-secondary);">
-                当前筛选：全部
-            </div>
-
-            <!-- My Templates List -->
-            <div id="myTemplatesList" style="max-height:300px;overflow-y:auto;">
-                <!-- Templates will be rendered here -->
-            </div>
-
-            <!-- Empty State -->
-            <div id="myTemplatesEmpty" style="text-align:center;padding:2rem;color:var(--text-muted);">
-                暂无保存的模板
-            </div>
-
-            <div class="modal-actions">
-                <button class="modal-btn cancel" onclick="closeMyTemplatesModal()">关闭</button>
-                <button class="modal-btn confirm" onclick="applyMyTemplate()">应用选中模板</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Save Template Modal -->
     <div class="modal-overlay" id="saveTemplateModal">
-        <div class="modal">
-            <h3 class="modal-title">💾 保存当前配置为模板</h3>
-            <div class="form-group">
-                <label class="form-label">模板名称</label>
-                <input type="text" class="form-input" id="templateNameInput" placeholder="输入模板名称">
-            </div>
-            <div class="form-group">
-                <label class="form-label">模板图标</label>
-                <input type="text" class="form-input" id="templateIconInput" placeholder="输入图标，如：📚" value="📚">
+        <div class="modal template-save-modal">
+            <h3 class="modal-title">💾 创建模板</h3>
+            <div class="template-form-grid">
+                <div class="form-group">
+                    <label class="form-label">模板名称</label>
+                    <input type="text" class="form-input" id="templateNameInput" placeholder="例如：废土重建">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">模板图标</label>
+                    <input type="text" class="form-input" id="templateIconInput" placeholder="输入图标，如：📚" value="📚">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">小说类型</label>
+                    <select class="form-select" id="templateTypeInput">
+                        <option value="fantasy">玄幻</option>
+                        <option value="xianxia">仙侠</option>
+                        <option value="urban">都市</option>
+                        <option value="scifi">科幻</option>
+                        <option value="historical">历史</option>
+                        <option value="romance">言情</option>
+                        <option value="mystery">悬疑</option>
+                        <option value="wuxia">武侠</option>
+                        <option value="game">游戏</option>
+                        <option value="apocalypse">末世</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">受众定位</label>
+                    <select class="form-select" id="templateAudienceInput">
+                        <option value="male-youth">男频 · 青年向</option>
+                        <option value="male-teen">男频 · 青少年</option>
+                        <option value="female-youth">女频 · 青年向</option>
+                        <option value="female-teen">女频 · 青少年</option>
+                        <option value="universal">通用</option>
+                    </select>
+                </div>
+                <div class="form-group wide">
+                    <label class="form-label">模板描述</label>
+                    <textarea class="form-input" id="templateDescInput" rows="3" placeholder="说明这个模板适合写什么故事、核心卖点是什么"></textarea>
+                </div>
+                <div class="form-group wide">
+                    <label class="form-label">叙事套路</label>
+                    <div class="template-tag-picker" id="templateTropePicker">
+                        <label class="template-tag-option"><input type="checkbox" value="system"> 系统流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="levelup"> 升级流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="invincible"> 无敌流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="farming"> 种田流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="cultivation"> 炼功流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="tech"> 技术流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="rebirth"> 重生</label>
+                        <label class="template-tag-option"><input type="checkbox" value="transmigration"> 穿越</label>
+                        <label class="template-tag-option"><input type="checkbox" value="comprehension"> 悟道流</label>
+                        <label class="template-tag-option"><input type="checkbox" value="brainwar"> 脑子战</label>
+                        <label class="template-tag-option"><input type="checkbox" value="beast"> 御兽</label>
+                        <label class="template-tag-option"><input type="checkbox" value="alchemy"> 炼丹</label>
+                    </div>
+                </div>
             </div>
             <div class="modal-actions">
                 <button class="modal-btn cancel" onclick="closeSaveTemplateModal()">取消</button>
-                <button class="modal-btn confirm" onclick="confirmSaveTemplate()">保存</button>
+                <button class="modal-btn confirm" onclick="confirmSaveTemplate()">创建模板</button>
             </div>
         </div>
     </div>
 
+    <script src="app/common.js"></script>
+    <script src="app/llm-client.js"></script>
+    <script src="app/autosave.js"></script>
+    <script src="app/undo-stack.js"></script>
+    <script src="app/writing-stats.js"></script>
+    <script src="app/inspiration.js"></script>
+    <script src="app/exporter.js"></script>
+    <script src="app/settings-test.js"></script>
+
     <script src="js/create.js"></script>
+    <script src="js/create-integration.js"></script>
 </body>
 </html>

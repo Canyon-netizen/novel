@@ -5,19 +5,8 @@ let projects = [];
 let currentProjectIndex = -1;
 let currentChapterIndex = -1;
 
-let aiSettings = {
-    provider: 'anthropic',
-    apiKey: '',
-    baseUrl: '',
-    model: '',
-    temperature: 0.7
-};
-
-let gistSettings = {
-    token: '',
-    gistId: '',
-    lastSync: null
-};
+let aiSettings = NovelCommon.DEFAULT_AI_SETTINGS;
+let gistSettings = NovelCommon.getDefaultGistSettings();
 
 const GIST_FILENAME = 'moyun_data.json';
 let currentFilter = { type: null, search: '', timeSort: 'desc' };
@@ -25,10 +14,12 @@ let currentView = 'grid';
 
 // ==================== 初始化 ====================
 function init() {
+    if (!NovelCommon.requireAuth()) return;
     loadProjects();
-    loadSettings();
-    loadTheme();
-    loadGistSettings();
+    NovelCommon.loadAISettings(aiSettings);
+    NovelCommon.loadTheme();
+    gistSettings = NovelCommon.loadGistSettings();
+    setupAuthActions();
     updateGreeting();
     renderProjects();
     updateStats();
@@ -46,51 +37,40 @@ function setupEventListeners() {
     }
 }
 
-// ==================== 存储操作 ====================
+// auth 委托
+function requireAuth() { return NovelCommon.requireAuth(); }
+function getAuthUser() { return NovelCommon.getAuthUser(); }
+function handleLogout() { NovelCommon.handleLogout(); }
+function setupAuthActions() { NovelCommon.setupAuthActions(); }
+
+// storage 委托
 function loadProjects() {
-    const saved = localStorage.getItem('moyun_projects');
-    if (saved) {
-        try {
-            projects = JSON.parse(saved);
-        } catch (e) {
-            console.error('加载项目失败:', e);
-            projects = [];
-        }
-    }
+    projects = NovelCommon.loadProjects();
 }
 
 function saveProjects() {
-    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+    NovelCommon.saveProjects(projects);
 }
 
+// settings 委托
 function loadSettings() {
-    const saved = localStorage.getItem('moyun_ai_settings');
-    if (saved) {
-        try {
-            aiSettings = JSON.parse(saved);
-        } catch (e) {
-            console.error('加载设置失败:', e);
-        }
-    }
+    NovelCommon.loadAISettings(aiSettings);
 }
 
 function saveSettingsToStorage() {
-    localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
+    NovelCommon.saveAISettings(aiSettings);
 }
 
+// theme 委托
 function loadTheme() {
-    const saved = localStorage.getItem('moyun_theme');
-    if (saved) {
-        document.documentElement.setAttribute('data-theme', saved);
-        const select = document.querySelector('.theme-select');
-        if (select) select.value = saved;
-    }
+    NovelCommon.loadTheme();
+    const sel = document.querySelector('.theme-select');
+    if (sel) sel.value = NovelCommon.getTheme();
 }
 
 function toggleTheme() {
     const theme = document.querySelector('.theme-select').value;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('moyun_theme', theme);
+    NovelCommon.setTheme(theme);
 }
 
 // ==================== 问候语 ====================
@@ -105,6 +85,12 @@ function updateGreeting() {
 
     const greetingEl = document.getElementById('greetingText');
     if (greetingEl) greetingEl.textContent = `${greeting}，${name}`;
+
+    // Also update header user name
+    const userNameEl = document.querySelector('.user-name');
+    const userAvatarEl = document.querySelector('.user-avatar');
+    if (userNameEl) userNameEl.textContent = name;
+    if (userAvatarEl) userAvatarEl.textContent = name.charAt(0).toUpperCase();
 }
 
 // ==================== 渲染函数 ====================
@@ -325,6 +311,22 @@ function closeSettingsModal() {
     if (modal) modal.classList.remove('show');
 }
 
+function closeSettingsModalOnOverlay(event) {
+    if (event.target.id === 'settingsModal') {
+        closeSettingsModal();
+    }
+}
+
+// ESC key to close modals
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('settingsModal');
+        if (modal && modal.classList.contains('show')) {
+            closeSettingsModal();
+        }
+    }
+});
+
 function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
     const fields = ['apiKeyGroup', 'baseUrlGroup', 'modelGroup'];
@@ -369,12 +371,6 @@ function showToast(message, type = 'info') {
 
 // ==================== Gist 同步 ====================
 function loadGistSettings() {
-    const saved = localStorage.getItem('moyun_gist_settings');
-    if (saved) {
-        try {
-            gistSettings = JSON.parse(saved);
-        } catch (e) {}
-    }
     if (gistSettings.token) {
         const input = document.getElementById('githubTokenInput');
         if (input) input.value = gistSettings.token;
@@ -383,7 +379,7 @@ function loadGistSettings() {
 }
 
 function saveGistSettings() {
-    localStorage.setItem('moyun_gist_settings', JSON.stringify(gistSettings));
+    NovelCommon.saveGistSettings(gistSettings);
 }
 
 function updateGistStatus() {
@@ -893,6 +889,7 @@ function callLocalAI(messages, systemPrompt) {
     });
 }
 
+// ==================== AI Functions ====================
 function getThemePrompt(themeType) {
     const prompts = {
         romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
