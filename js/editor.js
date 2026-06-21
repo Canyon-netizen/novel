@@ -1,218 +1,6 @@
-// ==================== Editor Page Logic ====================
+// ==================== MoYun AI - 编辑页逻辑 ====================
 
-// Get project index from URL params
-const urlParams = new URLSearchParams(window.location.search);
-const projectIndex = parseInt(urlParams.get('project')) || -1;
-const chapterIndex = parseInt(urlParams.get('chapter')) || 0;
-
-// ==================== Initialize ====================
-function init() {
-    loadSettings();
-    loadTheme();
-    loadProject();
-    updateAIStatus();
-}
-
-function loadSettings() {
-    const saved = localStorage.getItem('moyun_ai_settings');
-    if (saved) {
-        try {
-            aiSettings = JSON.parse(saved);
-        } catch (e) {}
-    }
-}
-
-function loadTheme() {
-    const saved = localStorage.getItem('moyun_theme');
-    if (saved) {
-        document.documentElement.setAttribute('data-theme', saved);
-        document.querySelector('.theme-select').value = saved;
-    }
-}
-
-function toggleTheme() {
-    const theme = document.querySelector('.theme-select').value;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('moyun_theme', theme);
-}
-
-// ==================== Load Project ====================
-function loadProject() {
-    const saved = localStorage.getItem('moyun_projects');
-    if (!saved) {
-        alert('没有找到项目');
-        window.location.href = 'index.html';
-        return;
-    }
-
-    const projects = JSON.parse(saved);
-    if (projectIndex < 0 || projectIndex >= projects.length) {
-        alert('项目不存在');
-        window.location.href = 'index.html';
-        return;
-    }
-
-    const project = projects[projectIndex];
-    renderChapters(project, chapterIndex);
-
-    if (chapterIndex >= 0 && chapterIndex < project.chapters.length) {
-        selectChapter(project, chapterIndex);
-    }
-}
-
-// ==================== Render Functions ====================
-function renderChapters(project, activeIndex) {
-    const list = document.getElementById('chapterList');
-
-    if (!project.chapters || project.chapters.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">暂无章节</p>';
-        return;
-    }
-
-    list.innerHTML = project.chapters.map((ch, i) => `
-        <div class="chapter-item ${i === activeIndex ? 'active' : ''}" onclick="selectChapterByIndex(${i})">
-            第${i + 1}章 · ${ch.title}
-        </div>
-    `).join('');
-}
-
-function selectChapterByIndex(index) {
-    const saved = localStorage.getItem('moyun_projects');
-    if (!saved) return;
-
-    const projects = JSON.parse(saved);
-    const project = projects[projectIndex];
-    const chapter = project.chapters[index];
-
-    document.getElementById('editorTitle').textContent = `第${index + 1}章 · ${chapter.title}`;
-    document.getElementById('contentEditor').value = chapter.content || '';
-
-    // Update URL
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('chapter', index);
-    window.history.pushState({}, '', newUrl);
-
-    renderChapters(project, index);
-    updateWordCount();
-
-    // Store current indices
-    localStorage.setItem('moyun_current_project', projectIndex);
-    localStorage.setItem('moyun_current_chapter', index);
-}
-
-function selectChapter(project, index) {
-    const chapter = project.chapters[index];
-    document.getElementById('editorTitle').textContent = `第${index + 1}章 · ${chapter.title}`;
-    document.getElementById('contentEditor').value = chapter.content || '';
-    updateWordCount();
-}
-
-// ==================== Content Editor ====================
-document.getElementById('contentEditor').addEventListener('input', function() {
-    saveCurrentChapterLocal();
-    updateWordCount();
-});
-
-function saveCurrentChapterLocal() {
-    const saved = localStorage.getItem('moyun_projects');
-    if (!saved) return;
-
-    const projects = JSON.parse(saved);
-    const chapter = projects[projectIndex].chapters[chapterIndex];
-    if (chapter) {
-        chapter.content = document.getElementById('contentEditor').value;
-        localStorage.setItem('moyun_projects', JSON.stringify(projects));
-    }
-}
-
-function saveCurrentChapter() {
-    saveCurrentChapterLocal();
-    alert('保存成功！');
-}
-
-function updateWordCount() {
-    const content = document.getElementById('contentEditor').value;
-    document.getElementById('currentWordCount').textContent = `${content.length} 字`;
-}
-
-function goBack() {
-    window.location.href = 'index.html';
-}
-
-// ==================== Add Chapter ====================
-function openAddChapterModal() {
-    document.getElementById('addChapterModal').classList.add('show');
-    document.getElementById('chapterTitleInput').value = '';
-    document.getElementById('chapterDescInput').value = '';
-}
-
-function closeAddChapterModal() {
-    document.getElementById('addChapterModal').classList.remove('show');
-}
-
-function addChapter() {
-    const title = document.getElementById('chapterTitleInput').value.trim();
-    const summary = document.getElementById('chapterDescInput').value.trim();
-
-    if (!title) {
-        alert('请输入章节标题');
-        return;
-    }
-
-    const saved = localStorage.getItem('moyun_projects');
-    if (!saved) return;
-
-    const projects = JSON.parse(saved);
-    projects[projectIndex].chapters.push({
-        title,
-        summary,
-        content: ''
-    });
-
-    localStorage.setItem('moyun_projects', JSON.stringify(projects));
-
-    // Reload with new chapter selected
-    const newIndex = projects[projectIndex].chapters.length - 1;
-    const newUrl = new URL(window.location);
-    newUrl.searchParams.set('chapter', newIndex);
-    window.location.href = newUrl.toString();
-}
-
-// ==================== Export ====================
-function exportCurrentProject() {
-    const saved = localStorage.getItem('moyun_projects');
-    if (!saved) return;
-
-    const projects = JSON.parse(saved);
-    const project = projects[projectIndex];
-
-    if (project.chapters.length === 0) {
-        alert('没有可导出的内容');
-        return;
-    }
-
-    let content = `# ${project.title}\n\n`;
-    content += `${project.description || ''}\n\n`;
-    content += `---\n\n## 章节内容\n\n`;
-
-    project.chapters.forEach((chapter, i) => {
-        content += `### 第${i + 1}章 · ${chapter.title}\n\n`;
-        if (chapter.summary) {
-            content += `> ${chapter.summary}\n\n`;
-        }
-        content += `${chapter.content || '（待撰写）'}\n\n---\n\n`;
-    });
-
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${project.title}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-}
-
-// ==================== AI Settings (Shared) ====================
+// ==================== 全局状态 ====================
 let aiSettings = {
     provider: 'anthropic',
     apiKey: '',
@@ -222,204 +10,820 @@ let aiSettings = {
     temperature: 0.7
 };
 
+// URL 参数
+const urlParams = new URLSearchParams(window.location.search);
+const projectIndex = parseInt(urlParams.get('project')) || -1;
+let chapterIndex = parseInt(urlParams.get('chapter')) || 0;
+let currentEditingCharacter = null;
+
+// ==================== 初始化 ====================
+function init() {
+    loadSettings();
+    loadTheme();
+    loadProject();
+    updateAIStatus();
+    setupEventListeners();
+}
+
+function setupEventListeners() {
+    const contentEditor = document.getElementById('contentEditor');
+    if (contentEditor) {
+        contentEditor.addEventListener('input', function() {
+            saveCurrentChapterLocal();
+            updateWordCount();
+        });
+    }
+
+    const temperatureInput = document.getElementById('temperatureInput');
+    if (temperatureInput) {
+        temperatureInput.addEventListener('input', function() {
+            const valueEl = document.getElementById('temperatureValue');
+            if (valueEl) valueEl.textContent = this.value;
+        });
+    }
+}
+
+// ==================== 设置加载 ====================
+function loadSettings() {
+    const saved = localStorage.getItem('moyun_ai_settings');
+    if (saved) {
+        try {
+            aiSettings = JSON.parse(saved);
+        } catch (e) {
+            console.error('加载设置失败:', e);
+        }
+    }
+}
+
+function loadTheme() {
+    const saved = localStorage.getItem('moyun_theme');
+    if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        const select = document.querySelector('.theme-select');
+        if (select) select.value = saved;
+    }
+}
+
+function toggleTheme() {
+    const theme = document.querySelector('.theme-select').value;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('moyun_theme', theme);
+}
+
+// ==================== 项目加载 ====================
+function loadProject() {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) {
+        showToast('没有找到项目', 'error');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const projects = JSON.parse(saved);
+    if (projectIndex < 0 || projectIndex >= projects.length) {
+        showToast('项目不存在', 'error');
+        window.location.href = 'index.html';
+        return;
+    }
+
+    const project = projects[projectIndex];
+
+    // 初始化项目数据结构
+    if (!project.characters) project.characters = [];
+    if (!project.worldSetting) project.worldSetting = {};
+    if (!project.timeline) project.timeline = [];
+
+    // 渲染所有侧边栏内容
+    renderChapters(project, chapterIndex);
+    renderCharacters(project);
+    renderWorldSetting(project);
+    renderTimeline(project);
+
+    if (chapterIndex >= 0 && chapterIndex < project.chapters.length) {
+        selectChapter(project, chapterIndex);
+    } else if (project.chapters && project.chapters.length > 0) {
+        selectChapter(project, 0);
+    }
+}
+
+// ==================== 侧边栏切换 ====================
+function switchSidebarTab(tabName) {
+    // 切换tab按钮状态
+    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabName);
+    });
+
+    // 切换内容显示
+    document.querySelectorAll('.sidebar-content').forEach(content => {
+        content.classList.toggle('active', content.id === tabName + 'Tab');
+    });
+}
+
+// ==================== 章节管理 ====================
+function renderChapters(project, activeIndex) {
+    const list = document.getElementById('chapterList');
+    if (!list) return;
+
+    const chapters = project.chapters || [];
+
+    if (chapters.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">暂无章节</p>';
+        return;
+    }
+
+    list.innerHTML = chapters.map((ch, i) => `
+        <div class="chapter-item ${i === activeIndex ? 'active' : ''}" onclick="selectChapterByIndex(${i})">
+            <span>第${i + 1}章</span>
+            <span class="chapter-title">${escapeHtml(ch.title || '')}</span>
+        </div>
+    `).join('');
+}
+
+function selectChapterByIndex(index) {
+    chapterIndex = index;
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const project = projects[projectIndex];
+    const chapter = project.chapters[index];
+
+    const editorTitle = document.getElementById('editorTitle');
+    const contentEditor = document.getElementById('contentEditor');
+    if (editorTitle) editorTitle.textContent = `第${index + 1}章 · ${chapter.title}`;
+    if (contentEditor) contentEditor.value = chapter.content || '';
+
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('chapter', index);
+    window.history.pushState({}, '', newUrl);
+
+    localStorage.setItem('moyun_current_project', projectIndex);
+    localStorage.setItem('moyun_current_chapter', index);
+
+    renderChapters(project, index);
+    updateWordCount();
+}
+
+function selectChapter(project, index) {
+    chapterIndex = index;
+    const chapter = project.chapters[index];
+    const editorTitle = document.getElementById('editorTitle');
+    const contentEditor = document.getElementById('contentEditor');
+
+    if (editorTitle) editorTitle.textContent = `第${index + 1}章 · ${chapter.title}`;
+    if (contentEditor) contentEditor.value = chapter.content || '';
+    updateWordCount();
+}
+
+function openAddChapterModal() {
+    const modal = document.getElementById('addChapterModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
+    const titleInput = document.getElementById('chapterTitleInput');
+    const descInput = document.getElementById('chapterDescInput');
+    if (titleInput) titleInput.value = '';
+    if (descInput) descInput.value = '';
+}
+
+function closeAddChapterModal() {
+    const modal = document.getElementById('addChapterModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function addChapter() {
+    const titleInput = document.getElementById('chapterTitleInput');
+    const descInput = document.getElementById('chapterDescInput');
+
+    const title = titleInput?.value.trim();
+    if (!title) {
+        showToast('请输入章节标题', 'error');
+        return;
+    }
+
+    const summary = descInput?.value.trim() || '';
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+
+    if (!projects[projectIndex].chapters) {
+        projects[projectIndex].chapters = [];
+    }
+
+    projects[projectIndex].chapters.push({
+        title,
+        summary,
+        content: ''
+    });
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    const newIndex = projects[projectIndex].chapters.length - 1;
+    closeAddChapterModal();
+
+    const newUrl = new URL(window.location);
+    newUrl.searchParams.set('chapter', newIndex);
+    window.location.href = newUrl.toString();
+}
+
+// ==================== 角色管理 ====================
+function renderCharacters(project) {
+    const list = document.getElementById('characterList');
+    if (!list) return;
+
+    const characters = project.characters || [];
+
+    if (characters.length === 0) {
+        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">暂无角色</p>';
+        return;
+    }
+
+    list.innerHTML = characters.map((char, i) => `
+        <div class="character-item" onclick="editCharacter(${i})">
+            <div class="character-name">${escapeHtml(char.name || '未命名')}</div>
+            <div class="character-role">${escapeHtml(char.role || '未知身份')}</div>
+            <div class="character-desc">${escapeHtml(char.description || '暂无描述')}</div>
+        </div>
+    `).join('');
+}
+
+function openAddCharacterModal() {
+    const modal = document.getElementById('addCharacterModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
+    document.getElementById('characterNameInput').value = '';
+    document.getElementById('characterRoleInput').value = '';
+    document.getElementById('characterDescInput').value = '';
+    currentEditingCharacter = null;
+}
+
+function closeAddCharacterModal() {
+    const modal = document.getElementById('addCharacterModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function addCharacter() {
+    const name = document.getElementById('characterNameInput')?.value.trim();
+    const role = document.getElementById('characterRoleInput')?.value.trim();
+    const description = document.getElementById('characterDescInput')?.value.trim();
+
+    if (!name) {
+        showToast('请输入角色名称', 'error');
+        return;
+    }
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+
+    if (!projects[projectIndex].characters) {
+        projects[projectIndex].characters = [];
+    }
+
+    projects[projectIndex].characters.push({
+        name,
+        role: role || '配角',
+        description: description || ''
+    });
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    closeAddCharacterModal();
+    renderCharacters(projects[projectIndex]);
+    showToast('角色已添加', 'success');
+
+    // 更新首页统计
+    updateParentStats();
+}
+
+function editCharacter(index) {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const character = projects[projectIndex].characters[index];
+    if (!character) return;
+
+    currentEditingCharacter = index;
+
+    const modal = document.getElementById('editCharacterModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
+    document.getElementById('editCharacterNameInput').value = character.name || '';
+    document.getElementById('editCharacterRoleInput').value = character.role || '';
+    document.getElementById('editCharacterDescInput').value = character.description || '';
+}
+
+function closeEditCharacterModal() {
+    const modal = document.getElementById('editCharacterModal');
+    if (modal) modal.classList.remove('show');
+    currentEditingCharacter = null;
+}
+
+function saveCharacter() {
+    if (currentEditingCharacter === null) return;
+
+    const name = document.getElementById('editCharacterNameInput')?.value.trim();
+    const role = document.getElementById('editCharacterRoleInput')?.value.trim();
+    const description = document.getElementById('editCharacterDescInput')?.value.trim();
+
+    if (!name) {
+        showToast('请输入角色名称', 'error');
+        return;
+    }
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    projects[projectIndex].characters[currentEditingCharacter] = {
+        name,
+        role: role || '配角',
+        description: description || ''
+    };
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    closeEditCharacterModal();
+    renderCharacters(projects[projectIndex]);
+    showToast('角色已保存', 'success');
+}
+
+// ==================== 世界观设定 ====================
+function renderWorldSetting(project) {
+    const world = project.worldSetting || {};
+
+    const fields = ['worldEra', 'worldSociety', 'worldGeography', 'worldRules'];
+    const values = [world.era, world.society, world.geography, world.rules];
+
+    fields.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el) el.value = values[i] || '';
+    });
+}
+
+function saveWorldSetting() {
+    const era = document.getElementById('worldEra')?.value.trim();
+    const society = document.getElementById('worldSociety')?.value.trim();
+    const geography = document.getElementById('worldGeography')?.value.trim();
+    const rules = document.getElementById('worldRules')?.value.trim();
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    projects[projectIndex].worldSetting = {
+        era: era || '',
+        society: society || '',
+        geography: geography || '',
+        rules: rules || ''
+    };
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+    showToast('世界观已保存', 'success');
+}
+
+// ==================== 时间线 ====================
+function renderTimeline(project) {
+    const container = document.getElementById('timelineEvents');
+    if (!container) return;
+
+    const events = project.timeline || [];
+
+    if (events.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">暂无时间节点</p>';
+        return;
+    }
+
+    container.innerHTML = events.map((event, i) => `
+        <div class="timeline-event" onclick="editTimelineEvent(${i})">
+            <div class="timeline-event-title">${escapeHtml(event.title || '未命名')}</div>
+            <div class="timeline-event-time">${escapeHtml(event.time || '')}</div>
+            <div class="timeline-event-desc">${escapeHtml(event.description || '')}</div>
+        </div>
+    `).join('');
+}
+
+function openAddTimelineEventModal() {
+    const modal = document.getElementById('addTimelineEventModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
+    document.getElementById('eventTitleInput').value = '';
+    document.getElementById('eventTimeInput').value = '';
+    document.getElementById('eventDescInput').value = '';
+    currentEditingCharacter = null;
+}
+
+function closeAddTimelineEventModal() {
+    const modal = document.getElementById('addTimelineEventModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function addTimelineEvent() {
+    const title = document.getElementById('eventTitleInput')?.value.trim();
+    const time = document.getElementById('eventTimeInput')?.value.trim();
+    const description = document.getElementById('eventDescInput')?.value.trim();
+
+    if (!title) {
+        showToast('请输入事件名称', 'error');
+        return;
+    }
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+
+    if (!projects[projectIndex].timeline) {
+        projects[projectIndex].timeline = [];
+    }
+
+    projects[projectIndex].timeline.push({
+        title,
+        time: time || '',
+        description: description || ''
+    });
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    closeAddTimelineEventModal();
+    renderTimeline(projects[projectIndex]);
+    showToast('时间节点已添加', 'success');
+}
+
+function editTimelineEvent(index) {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const event = projects[projectIndex].timeline[index];
+    if (!event) return;
+
+    // 复用添加模态框但修改标题
+    const modal = document.getElementById('addTimelineEventModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
+    document.getElementById('eventTitleInput').value = event.title || '';
+    document.getElementById('eventTimeInput').value = event.time || '';
+    document.getElementById('eventDescInput').value = event.description || '';
+
+    // 保存当前编辑的索引
+    currentEditingCharacter = index;
+
+    // 修改确认按钮
+    const confirmBtn = modal.querySelector('.modal-btn.confirm');
+    if (confirmBtn) {
+        confirmBtn.textContent = '保存';
+        confirmBtn.onclick = () => saveTimelineEvent(index);
+    }
+}
+
+function saveTimelineEvent(index) {
+    const title = document.getElementById('eventTitleInput')?.value.trim();
+    const time = document.getElementById('eventTimeInput')?.value.trim();
+    const description = document.getElementById('eventDescInput')?.value.trim();
+
+    if (!title) {
+        showToast('请输入事件名称', 'error');
+        return;
+    }
+
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    projects[projectIndex].timeline[index] = {
+        title,
+        time: time || '',
+        description: description || ''
+    };
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+
+    closeAddTimelineEventModal();
+    renderTimeline(projects[projectIndex]);
+    showToast('时间节点已保存', 'success');
+
+    // 恢复添加按钮
+    const modal = document.getElementById('addTimelineEventModal');
+    const confirmBtn = modal?.querySelector('.modal-btn.confirm');
+    if (confirmBtn) {
+        confirmBtn.textContent = '添加';
+        confirmBtn.onclick = addTimelineEvent;
+    }
+}
+
+// ==================== 阅读模式 ====================
+function openReadingMode() {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const project = projects[projectIndex];
+    const chapter = project.chapters[chapterIndex];
+
+    if (!chapter || !chapter.content) {
+        showToast('当前章节暂无内容', 'error');
+        return;
+    }
+
+    const modal = document.getElementById('readingModeModal');
+    if (!modal) return;
+
+    document.getElementById('readingModeTitle').textContent = `第${chapterIndex + 1}章 · ${chapter.title}`;
+    document.getElementById('readingModeBody').textContent = chapter.content;
+
+    modal.classList.add('show');
+}
+
+function closeReadingMode() {
+    const modal = document.getElementById('readingModeModal');
+    if (modal) modal.classList.remove('show');
+}
+
+// ==================== 内容编辑 ====================
+function saveCurrentChapterLocal() {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
+    if (chapter) {
+        const contentEditor = document.getElementById('contentEditor');
+        if (contentEditor) {
+            chapter.content = contentEditor.value;
+            localStorage.setItem('moyun_projects', JSON.stringify(projects));
+        }
+    }
+}
+
+function saveCurrentChapter() {
+    saveCurrentChapterLocal();
+    showToast('保存成功！', 'success');
+}
+
+function updateWordCount() {
+    const contentEditor = document.getElementById('contentEditor');
+    const countEl = document.getElementById('currentWordCount');
+    if (contentEditor && countEl) {
+        countEl.textContent = `${contentEditor.value.length} 字`;
+    }
+}
+
+function goBack() {
+    window.location.href = 'index.html';
+}
+
+// ==================== 导出 ====================
+function exportCurrentProject() {
+    const saved = localStorage.getItem('moyun_projects');
+    if (!saved) return;
+
+    const projects = JSON.parse(saved);
+    const project = projects[projectIndex];
+
+    if (!project.chapters || project.chapters.length === 0) {
+        showToast('没有可导出的内容', 'error');
+        return;
+    }
+
+    let content = `# ${project.title}\n\n`;
+    content += `> **类型**: ${getTypeName(project.type)}\n\n`;
+    content += `${project.description || ''}\n\n`;
+
+    // 角色信息
+    if (project.characters && project.characters.length > 0) {
+        content += `---\n\n## 角色\n\n`;
+        project.characters.forEach(char => {
+            content += `- **${char.name}** (${char.role}): ${char.description || '暂无描述'}\n`;
+        });
+        content += '\n';
+    }
+
+    // 世界观设定
+    if (project.worldSetting) {
+        const ws = project.worldSetting;
+        if (ws.era || ws.society || ws.geography || ws.rules) {
+            content += `---\n\n## 世界观设定\n\n`;
+            if (ws.era) content += `- **时代背景**: ${ws.era}\n`;
+            if (ws.society) content += `- **社会环境**: ${ws.society}\n`;
+            if (ws.geography) content += `- **地理设定**: ${ws.geography}\n`;
+            if (ws.rules) content += `- **特殊规则**: ${ws.rules}\n`;
+            content += '\n';
+        }
+    }
+
+    // 时间线
+    if (project.timeline && project.timeline.length > 0) {
+        content += `---\n\n## 时间线\n\n`;
+        project.timeline.forEach((event, i) => {
+            content += `### ${i + 1}. ${event.title}\n`;
+            if (event.time) content += `> ${event.time}\n`;
+            if (event.description) content += `${event.description}\n`;
+        });
+        content += '\n';
+    }
+
+    // 章节内容
+    content += `---\n\n## 章节内容\n\n`;
+    project.chapters.forEach((chapter, i) => {
+        content += `### 第${i + 1}章 · ${chapter.title}\n\n`;
+        if (chapter.summary) {
+            content += `> ${chapter.summary}\n\n`;
+        }
+        content += `${chapter.content || '（待撰写）'}\n\n---\n\n`;
+    });
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${project.title}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function getTypeName(type) {
+    const types = {
+        romance: '言情', fantasy: '玄幻', xianxia: '仙侠',
+        mystery: '悬疑', scifi: '科幻', wuxia: '武侠',
+        urban: '都市', historical: '历史', horror: '恐怖',
+        game: '游戏', apocalypse: '末世'
+    };
+    return types[type] || '其他';
+}
+
+function updateParentStats() {
+    // 更新父窗口的统计数据（如果存在）
+    if (window.opener) {
+        try {
+            const saved = localStorage.getItem('moyun_projects');
+            if (saved) {
+                const projects = JSON.parse(saved);
+                const totalChars = projects.reduce((sum, p) => sum + (p.characters?.length || 0), 0);
+                window.opener.postMessage({ type: 'statsUpdate', charCount: totalChars }, '*');
+            }
+        } catch (e) {}
+    }
+}
+
+// ==================== Toast 通知 ====================
+function showToast(message, type = 'info') {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'toastIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ==================== 工具函数 ====================
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+}
+
+// ==================== 设置模态框 ====================
 function openSettingsModal() {
-    document.getElementById('settingsModal').classList.add('show');
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
     document.getElementById('apiProvider').value = aiSettings.provider;
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
     document.getElementById('modelInput').value = aiSettings.model;
-    document.getElementById('maxTokensInput').value = aiSettings.maxTokens;
-    document.getElementById('temperatureInput').value = aiSettings.temperature;
-    document.getElementById('temperatureValue').textContent = aiSettings.temperature;
+    const maxTokensInput = document.getElementById('maxTokensInput');
+    if (maxTokensInput) maxTokensInput.value = aiSettings.maxTokens;
+    const temperatureInput = document.getElementById('temperatureInput');
+    if (temperatureInput) temperatureInput.value = aiSettings.temperature;
+    const temperatureValue = document.getElementById('temperatureValue');
+    if (temperatureValue) temperatureValue.textContent = aiSettings.temperature;
     onApiProviderChange();
 }
 
 function closeSettingsModal() {
-    document.getElementById('settingsModal').classList.remove('show');
+    const modal = document.getElementById('settingsModal');
+    if (modal) modal.classList.remove('show');
 }
 
 function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
-    const keyGroup = document.getElementById('apiKeyGroup');
-    const urlGroup = document.getElementById('baseUrlGroup');
-    const modelGroup = document.getElementById('modelGroup');
-
-    if (provider === 'local') {
-        keyGroup.style.display = 'none';
-        urlGroup.style.display = 'none';
-        modelGroup.style.display = 'none';
-    } else {
-        keyGroup.style.display = 'block';
-        urlGroup.style.display = 'block';
-        modelGroup.style.display = 'block';
-    }
+    ['apiKeyGroup', 'baseUrlGroup', 'modelGroup'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = provider === 'local' ? 'none' : 'block';
+    });
 }
-
-document.getElementById('temperatureInput').addEventListener('input', function() {
-    document.getElementById('temperatureValue').textContent = this.value;
-});
 
 function saveSettings() {
     aiSettings.provider = document.getElementById('apiProvider').value;
     aiSettings.apiKey = document.getElementById('apiKeyInput').value;
     aiSettings.baseUrl = document.getElementById('baseUrlInput').value;
     aiSettings.model = document.getElementById('modelInput').value;
-    aiSettings.maxTokens = parseInt(document.getElementById('maxTokensInput').value);
-    aiSettings.temperature = parseFloat(document.getElementById('temperatureInput').value);
+    const maxTokensInput = document.getElementById('maxTokensInput');
+    if (maxTokensInput) aiSettings.maxTokens = parseInt(maxTokensInput.value);
+    const temperatureInput = document.getElementById('temperatureInput');
+    if (temperatureInput) aiSettings.temperature = parseFloat(temperatureInput.value);
 
     localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
     closeSettingsModal();
     updateAIStatus();
-    alert('设置已保存！');
+    showToast('设置已保存！', 'success');
 }
 
 function updateAIStatus() {
     const status = document.getElementById('aiStatus');
+    if (!status) return;
+
     if (aiSettings.provider === 'local') {
         status.textContent = '📍 本地模式';
     } else if (aiSettings.apiKey) {
-        status.textContent = '✅ ' + aiSettings.provider.toUpperCase();
+        status.textContent = '✅ ' + (aiSettings.model || aiSettings.provider.toUpperCase());
     } else {
         status.textContent = '⚠️ 未配置API';
     }
 }
 
-// ==================== AI Functions ====================
+// ==================== AI 提示词 ====================
 function getThemePrompt(themeType) {
     const prompts = {
         romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
         fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
+        xianxia: '你是一位专业的仙侠小说写作助手，擅长描绘修仙之路和仙魔之争。请用中文回答。',
         mystery: '你是一位专业的悬疑小说写作助手，擅长铺设悬念和设计推理逻辑。请用中文回答。',
         scifi: '你是一位专业的科幻小说写作助手，擅长设计科技设定和未来场景。请用中文回答。',
         wuxia: '你是一位专业的武侠小说写作助手，擅长描绘江湖规矩和武功招式。请用中文回答。',
         urban: '你是一位专业的都市小说写作助手，擅长描绘现代都市生活。请用中文回答。',
         historical: '你是一位专业的历史小说写作助手，擅长还原时代背景和人物风貌。请用中文回答。',
-        horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。'
+        horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。',
+        game: '你是一位专业的游戏小说写作助手，擅长描绘游戏世界和副本冒险。请用中文回答。',
+        apocalypse: '你是一位专业的末世小说写作助手，擅长描绘末日生存和人性的挣扎。请用中文回答。'
     };
     return prompts[themeType] || prompts.romance;
 }
 
-// ==================== API Presets ====================
+// ==================== API 调用 ====================
 const API_PRESETS = {
-    anthropic: {
-        name: 'Anthropic (Claude)',
-        baseUrl: 'https://api.anthropic.com/v1',
-        authHeader: 'x-api-key',
-        modelPrefix: ''
-    },
-    openai: {
-        name: 'OpenAI (GPT)',
-        baseUrl: 'https://api.openai.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: ''
-    },
-    deepseek: {
-        name: 'DeepSeek',
-        baseUrl: 'https://api.deepseek.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'deepseek-'
-    },
-    minimax: {
-        name: 'MiniMax',
-        baseUrl: 'https://api.minimax.chat/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'MiniMax-'
-    },
-    kimi: {
-        name: 'Kimi (Moonshot)',
-        baseUrl: 'https://api.moonshot.cn/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'moonshot-'
-    },
-    glm: {
-        name: 'GLM (智谱)',
-        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        authHeader: 'bearer',
-        modelPrefix: 'glm-'
-    }
+    anthropic: { name: 'Anthropic (Claude)', baseUrl: 'https://api.anthropic.com/v1', authHeader: 'x-api-key' },
+    openai: { name: 'OpenAI (GPT)', baseUrl: 'https://api.openai.com/v1', authHeader: 'bearer' },
+    deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', authHeader: 'bearer' },
+    minimax: { name: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', authHeader: 'bearer' },
+    kimi: { name: 'Kimi', baseUrl: 'https://api.moonshot.cn/v1', authHeader: 'bearer' },
+    glm: { name: 'GLM', baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4', authHeader: 'bearer' }
 };
 
-// ==================== API Helpers ====================
 function inferApiProfile(baseUrl, model) {
-    const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
-    const normalizedModel = String(model || '').trim().toLowerCase();
+    const nb = String(baseUrl || '').trim().toLowerCase();
+    const nm = String(model || '').trim().toLowerCase();
 
-    // 检查是否有明确的代理路径
-    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
+    if (/\/anthropic\b/i.test(nb)) return 'anthropic';
+    if (/api\.anthropic\.com/i.test(nb)) return 'anthropic';
+    if (/api\.deepseek\.com/i.test(nb)) return 'deepseek';
+    if (/api\.minimax\.chat/i.test(nb)) return 'minimax';
+    if (/api\.moonshot\.cn/i.test(nb)) return 'kimi';
+    if (/bigmodel\.cn/i.test(nb)) return 'glm';
+    if (/api\.openai\.com/i.test(nb)) return 'openai';
 
-    // 按域名精确匹配
-    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
-        return 'deepseek';
-    }
-    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
-        return 'kimi';
-    }
-    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
-        return 'glm';
-    }
-    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
+    if (nm.startsWith('deepseek-')) return 'deepseek';
+    if (nm.startsWith('minimax-')) return 'minimax';
+    if (nm.startsWith('glm-')) return 'glm';
+    if (nm.startsWith('moonshot-')) return 'kimi';
+    if (/claude/i.test(nm)) return 'anthropic';
 
-    // 按 model 前缀匹配
-    if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
-    if (normalizedModel.startsWith('minimax-')) return 'minimax';
-    if (normalizedModel.startsWith('glm-')) return 'glm';
-    if (normalizedModel.startsWith('moonshot-')) return 'kimi';
-    if (/claude/i.test(normalizedModel)) return 'anthropic';
-
-    // 默认
-    return 'openai';
+    return null;
 }
 
-function buildConnectivityTestPayload(provider, model) {
-    return {
-        model: model,
-        messages: [
-            { role: 'system', content: 'Reply with exactly: hello world' },
-            { role: 'user', content: 'hello world' }
-        ],
-        temperature: 0,
-        max_tokens: 256
-    };
-}
-
-function buildApiEndpoint(baseUrl, provider, model) {
+function buildApiEndpoint(baseUrl, provider) {
     const normalized = (baseUrl || '').replace(/\/+$/, '');
-
-    if (!normalized) {
-        if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-        if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-        if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-        if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat/completions';
-        if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-        return 'https://api.openai.com/v1/chat/completions';
-    }
-
-    // 如果用户提供了 baseUrl，直接追加 provider 对应的端点路径
     if (normalized) {
-        if (provider === 'anthropic') {
-            return `${normalized}/v1/messages`;
-        }
-        // 默认使用 chat completions
-        return `${normalized}/v1/chat/completions`;
+        return provider === 'anthropic' ? `${normalized}/v1/messages` : `${normalized}/v1/chat/completions`;
     }
-
-    // 如果没有提供 baseUrl，使用默认值
-    if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-    if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-    if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-    if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat_completions';
-    if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-    return 'https://api.openai.com/v1/chat/completions';
+    const endpoints = {
+        anthropic: 'https://api.anthropic.com/v1/messages',
+        deepseek: 'https://api.deepseek.com/v1/chat/completions',
+        minimax: 'https://api.minimax.chat/v1/chat_completions',
+        kimi: 'https://api.moonshot.cn/v1/chat/completions',
+        glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
+    };
+    return endpoints[provider] || 'https://api.openai.com/v1/chat/completions';
 }
 
 function buildApiHeaders(provider, apiKey) {
@@ -435,17 +839,9 @@ function buildApiHeaders(provider, apiKey) {
 
 function buildApiBody(provider, model, systemPrompt, messages, temperature, maxTokens) {
     const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
-
     if (provider === 'anthropic') {
-        return {
-            model: modelName,
-            system: systemPrompt,
-            messages: messages,
-            max_tokens: maxTokens || 2048
-        };
+        return { model: modelName, system: systemPrompt, messages, max_tokens: maxTokens || 2048 };
     }
-
-    // OpenAI / DeepSeek / MiniMax
     return {
         model: modelName,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
@@ -456,145 +852,94 @@ function buildApiBody(provider, model, systemPrompt, messages, temperature, maxT
 
 async function callAI(messages, systemPrompt) {
     if (aiSettings.provider === 'local') {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。');
-            }, 1000);
-        });
+        return new Promise(r => setTimeout(() => r('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。'), 1000));
     }
 
     const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
-    const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider, aiSettings.model);
+    const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider);
     const headers = buildApiHeaders(provider, aiSettings.apiKey);
     const body = buildApiBody(provider, aiSettings.model, systemPrompt, messages, aiSettings.temperature, aiSettings.maxTokens);
 
-    try {
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: headers,
-            body: JSON.stringify(body)
-        });
+    const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
 
-        if (!response.ok) {
-            let errorDetail = '';
-            try {
-                const errData = await response.json();
-                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
-            } catch {
-                errorDetail = await response.text();
-            }
-            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
-        }
-
-        const data = await response.json();
-
-        if (provider === 'anthropic') {
-            return data.content?.[0]?.text || '';
-        } else {
-            return data.choices?.[0]?.message?.content || '';
-        }
-    } catch (error) {
-        if (error.message.includes('fetch') || error.message.includes('CORS')) {
-            throw new Error('网络请求失败，可能是 CORS 跨域问题。请确认 API 端点支持跨域访问。');
-        }
-        throw error;
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(`HTTP ${response.status}: ${err.error?.message || '未知错误'}`);
     }
+
+    const data = await response.json();
+    return provider === 'anthropic' ? (data.content?.[0]?.text || '') : (data.choices?.[0]?.message?.content || '');
 }
 
+// ==================== AI 功能 ====================
 async function aiWrite() {
-    const content = document.getElementById('contentEditor').value;
-    if (!content) {
-        alert('请先输入一些内容');
-        return;
-    }
+    const content = document.getElementById('contentEditor')?.value;
+    if (!content) { showToast('请先输入一些内容', 'error'); return; }
 
     const btn = document.querySelector('.toolbar-btn.primary');
-    btn.textContent = '⏳ AI思考中...';
-    btn.disabled = true;
+    if (btn) { btn.textContent = '⏳ AI思考中...'; btn.disabled = true; }
 
     try {
         const saved = localStorage.getItem('moyun_projects');
         const projects = JSON.parse(saved);
         const project = projects[projectIndex];
-
-        const messages = [{
-            role: 'user',
-            content: `请续写以下小说内容，保持相同的风格和节奏，续写150-300字：\n\n${content}`
-        }];
-
-        const continuation = await callAI(messages, getThemePrompt(project.type));
-        document.getElementById('contentEditor').value = content + continuation;
-        saveCurrentChapterLocal();
-        updateWordCount();
+        const continuation = await callAI([{ role: 'user', content: `续写150-300字：\n\n${content}` }], getThemePrompt(project?.type));
+        const editor = document.getElementById('contentEditor');
+        if (editor) {
+            editor.value = content + continuation;
+            saveCurrentChapterLocal();
+            updateWordCount();
+        }
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
-    btn.textContent = '✍️ AI续写';
-    btn.disabled = false;
+    if (btn) { btn.textContent = '✍️ AI续写'; btn.disabled = false; }
 }
 
 async function aiPolish() {
-    const content = document.getElementById('contentEditor').value;
-    if (!content) {
-        alert('请先输入内容');
-        return;
-    }
+    const content = document.getElementById('contentEditor')?.value;
+    if (!content) { showToast('请先输入内容', 'error'); return; }
 
-    const btn = document.querySelector('.toolbar-btn:nth-of-type(2)');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ AI润色中...';
-    btn.disabled = true;
+    const btns = document.querySelectorAll('.toolbar-btn');
+    const btn = btns[1];
+    if (btn) { btn.textContent = '⏳ AI润色中...'; btn.disabled = true; }
 
     try {
-        const messages = [{
-            role: 'user',
-            content: `请润色以下内容：\n\n${content}`
-        }];
-
-        const polished = await callAI(messages, '你是一位专业的中文写作润色专家。请直接返回润色后的内容。');
-        document.getElementById('contentEditor').value = polished;
-        saveCurrentChapterLocal();
-        updateWordCount();
+        const polished = await callAI([{ role: 'user', content: `润色：\n\n${content}` }], '你是专业的中文写作润色专家。');
+        const editor = document.getElementById('contentEditor');
+        if (editor) {
+            editor.value = polished;
+            saveCurrentChapterLocal();
+            updateWordCount();
+        }
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
-    btn.textContent = originalText;
-    btn.disabled = false;
+    if (btn) { btn.textContent = '🎨 AI润色'; btn.disabled = false; }
 }
 
 async function aiImprove() {
-    const content = document.getElementById('contentEditor').value;
-    if (!content) {
-        alert('请先输入内容');
-        return;
-    }
+    const content = document.getElementById('contentEditor')?.value;
+    if (!content) { showToast('请先输入内容', 'error'); return; }
 
-    const btn = document.querySelector('.toolbar-btn:nth-of-type(3)');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ AI分析中...';
-    btn.disabled = true;
+    const btns = document.querySelectorAll('.toolbar-btn');
+    const btn = btns[2];
+    if (btn) { btn.textContent = '⏳ AI分析中...'; btn.disabled = true; }
 
     try {
         const saved = localStorage.getItem('moyun_projects');
         const projects = JSON.parse(saved);
         const project = projects[projectIndex];
-
-        const messages = [{
-            role: 'user',
-            content: `请为以下小说内容提供改进建议：\n\n${content.slice(0, 500)}`
-        }];
-
-        const suggestion = await callAI(messages, getThemePrompt(project.type));
-        alert('💡 AI改进建议：\n\n' + suggestion);
+        const suggestion = await callAI([{ role: 'user', content: `提供改进建议：\n\n${content.slice(0, 500)}` }], getThemePrompt(project?.type));
+        showToast('💡 改进建议：\n\n' + suggestion, 'info');
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
-    btn.textContent = originalText;
-    btn.disabled = false;
+    if (btn) { btn.textContent = '💡 AI建议'; btn.disabled = false; }
 }
 
-// ==================== Init ====================
+// ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', init);

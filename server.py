@@ -1,3 +1,8 @@
+"""
+墨韵AI - Flask后端服务
+支持Claude API进行AI辅助小说创作
+"""
+
 import os
 import json
 import re
@@ -8,6 +13,7 @@ from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)
 
+# 获取API Key
 ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
 client = None
 
@@ -16,9 +22,9 @@ if ANTHROPIC_API_KEY:
         from anthropic import Anthropic
         client = Anthropic(api_key=ANTHROPIC_API_KEY)
     except ImportError:
-        pass
+        print("Warning: anthropic package not installed. Using mock responses.")
 
-# 主题专属系统提示词
+# ==================== 主题专属提示词 ====================
 THEME_PROMPTS = {
     'romance': """你是一位专业的言情小说写作助手，擅长：
 - 细腻的情感描写和人物心理刻画
@@ -35,6 +41,14 @@ THEME_PROMPTS = {
 - 塑造主角的成长弧线
 
 写作风格：气势磅礴，想象力丰富，世界观宏大。""",
+
+    'xianxia': """你是一位专业的仙侠小说写作助手，擅长：
+- 描绘修仙之路和长生追求
+- 设计仙魔两道和功法秘籍
+- 营造仙气飘飘的意境
+- 描绘飞升和天劫场景
+
+写作风格：意境悠远，文笔飘逸，充满仙侠韵味。""",
 
     'mystery': """你是一位专业的悬疑小说写作助手，擅长：
 - 铺设悬念和埋设伏笔
@@ -82,7 +96,23 @@ THEME_PROMPTS = {
 - 设计超自然元素和灵异事件
 - 制造惊悚感和代入感
 
-写作风格：善于制造恐惧氛围，注重心理描写，适度留白。"""
+写作风格：善于制造恐惧氛围，注重心理描写，适度留白。""",
+
+    'game': """你是一位专业的游戏小说写作助手，擅长：
+- 描绘虚拟游戏世界和副本冒险
+- 设计游戏系统和技能体系
+- 塑造玩家角色和游戏NPC
+- 描绘团队配合和竞技对战
+
+写作风格：代入感强，游戏元素丰富，节奏明快。""",
+
+    'apocalypse': """你是一位专业的末世小说写作助手，擅长：
+- 描绘末日生存和人性的挣扎
+- 设计末世背景和灾难设定
+- 塑造求生者角色和势力
+- 描绘废土世界和资源争夺
+
+写作风格：紧张刺激，生存感强，注重人性刻画。"""
 }
 
 DEFAULT_PROMPT = """你是一位专业的小说写作助手，擅长：
@@ -95,12 +125,27 @@ DEFAULT_PROMPT = """你是一位专业的小说写作助手，擅长：
 
 
 def get_system_prompt(theme_type=None):
+    """获取对应主题的系统提示词"""
     return THEME_PROMPTS.get(theme_type, DEFAULT_PROMPT)
+
+
+# ==================== API路由 ====================
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """健康检查"""
+    return jsonify({
+        'status': 'ok',
+        'service': 'MoYun AI Backend',
+        'version': '1.0.0',
+        'ai_available': client is not None
+    })
 
 
 @app.route('/api/analyze-theme', methods=['POST'])
 def analyze_theme():
-    data = request.json
+    """分析并细化小说主题"""
+    data = request.json or {}
     theme = data.get('theme', '')
     theme_type = data.get('themeType', '')
 
@@ -134,14 +179,21 @@ def analyze_theme():
             return jsonify({'error': str(e)}), 500
 
     # 模拟响应
-    suggestions = {
+    return jsonify({
+        'suggestion': generate_mock_theme_analysis(theme, theme_type)
+    })
+
+
+def generate_mock_theme_analysis(theme, theme_type):
+    """生成模拟的主题分析"""
+    templates = {
         'romance': f"""基于「{theme}」这个言情题材，我建议：
 
 📚 **题材定位**
 言情小说核心在于情感刻画，建议注重人物内心变化，善用细节描写来表现情感。
 
 👥 **人物设定**
-设计2-3个主要人物，突出他们之间的情感纠葛和性格差异。建议女主清新独立，男主深情专一。
+设计2-3个主要人物，突出他们之间的情感纠葛和性格差异。
 
 🌍 **背景设定**
 选择一个能衬托情感的典型环境，如：都市豪门、校园青春、古风宫廷等。
@@ -150,7 +202,7 @@ def analyze_theme():
 建议按照：相识→相知→相恋→误解→和好→升华的情感线来安排情节。
 
 ✍️ **写作技巧**
-多使用感官描写（触觉、听觉、嗅觉）来增强代入感，善于制造甜虐反转。""",
+多使用感官描写增强代入感，善于制造甜虐反转。""",
 
         'fantasy': f"""基于「{theme}」这个玄幻题材，我建议：
 
@@ -158,7 +210,7 @@ def analyze_theme():
 玄幻小说需要构建完整的世界观和力量体系，建议提前规划修炼等级和势力分布。
 
 👥 **人物设定**
-主角建议设计成平凡出身但有特殊体质或机缘，配角要各有特色（正派、反派、师友等）。
+主角建议设计成平凡出身但有特殊体质或机缘，配角要各有特色。
 
 🌍 **世界观构建**
 建议规划：境界等级划分、势力分布图、功法类型、地图设定等。
@@ -169,59 +221,7 @@ def analyze_theme():
 ✍️ **写作技巧**
 注意力量体系的逻辑自洽，战斗场面要精彩纷呈，适时加入爽点。""",
 
-        'mystery': f"""基于「{theme}」这个悬疑题材，我建议：
-
-📚 **题材定位**
-悬疑小说关键是悬念和节奏，建议设置多个谜题，适时揭示答案，保持读者好奇心。
-
-👥 **人物设定**
-侦探/调查者要智慧过人，配角要有各自的秘密。反派要足够狡猾，让读者难以猜测。
-
-🌍 **背景设定**
-选择一个封闭或半封闭的环境，如：孤岛、古宅、雪夜山庄等，增强悬疑感。
-
-📖 **结构建议**
-建议按照：案发→调查→迷局→推理→破案→反转的结构来安排。
-
-✍️ **写作技巧**
-注意伏笔和线索的埋设，反转要合理且出人意料，善用误导信息。""",
-
-        'scifi': f"""基于「{theme}」这个科幻题材，我建议：
-
-📚 **题材定位**
-科幻小说需要逻辑自洽的科技设定，建议提前规划技术水平线，避免设定矛盾。
-
-👥 **人物设定**
-主角建议具有创新精神和冒险精神，配角团队要有多元化的专业技能。
-
-🌍 **科技设定**
-建议规划：核心科技原理、武器装备、社会结构、未来生活细节等。
-
-📖 **结构建议**
-建议按照：现状→变革→冲突→解决→新常态的结构来安排情节。
-
-✍️ **写作技巧**
-确保科技设定的逻辑自洽，使用专业术语增强可信度，探讨科技与人性的关系。""",
-
-        'wuxia': f"""基于「{theme}」这个武侠题材，我建议：
-
-📚 **题材定位**
-武侠小说要注重江湖规矩和武功招式的描写，对话要符合古代语境，有古风韵味。
-
-👥 **人物设定**
-主角建议侠义心肠但有成长空间，配角要有江湖特色（掌门、侠客、绿林好汉等）。
-
-🌍 **江湖设定**
-建议规划：门派分布、江湖规矩、武功路数、兵器谱等。
-
-📖 **结构建议**
-建议按照：新手→拜师→历练→纷争→华山论剑→归隐的江湖线来安排。
-
-✍️ **写作技巧**
-武功招式要精彩但不繁琐，江湖情义要动人，对话要简洁有力。"""
-    }
-
-    default_suggestion = f"""基于「{theme}」这个主题，我建议：
+        'default': f"""基于「{theme}」这个主题，我建议：
 
 📚 **题材定位**
 建议创作一篇中长篇小说，注重情节的起承转合。
@@ -237,13 +237,15 @@ def analyze_theme():
 
 ✍️ **写作建议**
 开头要制造吸引力，让读者想继续读下去。"""
+    }
 
-    return jsonify({'suggestion': suggestions.get(theme_type, default_suggestion)})
+    return templates.get(theme_type, templates['default'])
 
 
 @app.route('/api/analyze-world', methods=['POST'])
 def analyze_world():
-    data = request.json
+    """分析世界观设定"""
+    data = request.json or {}
     world_setting = data.get('worldSetting', {})
     theme_type = data.get('themeType', '')
     theme = data.get('theme', '')
@@ -292,7 +294,8 @@ def analyze_world():
 
 @app.route('/api/generate-outline', methods=['POST'])
 def generate_outline():
-    data = request.json
+    """生成小说大纲"""
+    data = request.json or {}
     theme = data.get('theme', '')
     theme_type = data.get('themeType', '')
     theme_analysis = data.get('themeAnalysis', '')
@@ -329,71 +332,71 @@ def generate_outline():
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-    # 模拟大纲数据
+    # 模拟大纲
     outline_templates = {
         'romance': [
-            {"title": "缘起", "summary": "命运的相遇，心动的开始", "content": ""},
-            {"title": "相识", "summary": "渐生情愫，了解加深", "content": ""},
-            {"title": "相知", "summary": "深入了解，情感升温", "content": ""},
-            {"title": "风波", "summary": "误会产生，情感危机", "content": ""},
-            {"title": "真相", "summary": "误解解开，和好如初", "content": ""},
-            {"title": "相守", "summary": "终成眷属，幸福圆满", "content": ""},
+            {"title": "缘起", "summary": "命运的相遇，心动的开始"},
+            {"title": "相识", "summary": "渐生情愫，了解加深"},
+            {"title": "相知", "summary": "深入了解，情感升温"},
+            {"title": "风波", "summary": "误会产生，情感危机"},
+            {"title": "真相", "summary": "误解解开，和好如初"},
+            {"title": "相守", "summary": "终成眷属，幸福圆满"},
         ],
         'fantasy': [
-            {"title": "觉醒", "summary": "发现特殊体质，命运转折", "content": ""},
-            {"title": "拜师", "summary": "踏入修行之路", "content": ""},
-            {"title": "修炼", "summary": "实力稳步提升", "content": ""},
-            {"title": "历练", "summary": "初入江湖，风险与机遇并存", "content": ""},
-            {"title": "纷争", "summary": "势力争夺，群雄并起", "content": ""},
-            {"title": "巅峰", "summary": "终成大道，问鼎天下", "content": ""},
+            {"title": "觉醒", "summary": "发现特殊体质，命运转折"},
+            {"title": "拜师", "summary": "踏入修行之路"},
+            {"title": "修炼", "summary": "实力稳步提升"},
+            {"title": "历练", "summary": "初入江湖，风险与机遇并存"},
+            {"title": "纷争", "summary": "势力争夺，群雄并起"},
+            {"title": "巅峰", "summary": "终成大道，问鼎天下"},
         ],
         'mystery': [
-            {"title": "案发", "summary": "离奇事件发生", "content": ""},
-            {"title": "调查", "summary": "深入现场，收集线索", "content": ""},
-            {"title": "线索", "summary": "发现关键证据", "content": ""},
-            {"title": "迷局", "summary": "案情扑朔迷离", "content": ""},
-            {"title": "推理", "summary": "真相浮出水面", "content": ""},
-            {"title": "破局", "summary": "真相大白", "content": ""},
+            {"title": "案发", "summary": "离奇事件发生"},
+            {"title": "调查", "summary": "深入现场，收集线索"},
+            {"title": "线索", "summary": "发现关键证据"},
+            {"title": "迷局", "summary": "案情扑朔迷离"},
+            {"title": "推理", "summary": "真相浮出水面"},
+            {"title": "破局", "summary": "真相大白"},
         ],
         'scifi': [
-            {"title": "起点", "summary": "科技改变生活", "content": ""},
-            {"title": "异变", "summary": "发现异常现象", "content": ""},
-            {"title": "探索", "summary": "深入调查真相", "content": ""},
-            {"title": "危机", "summary": "面临生存威胁", "content": ""},
-            {"title": "抉择", "summary": "寻找解决方案", "content": ""},
-            {"title": "新生", "summary": "开创未来", "content": ""},
+            {"title": "起点", "summary": "科技改变生活"},
+            {"title": "异变", "summary": "发现异常现象"},
+            {"title": "探索", "summary": "深入调查真相"},
+            {"title": "危机", "summary": "面临生存威胁"},
+            {"title": "抉择", "summary": "寻找解决方案"},
+            {"title": "新生", "summary": "开创未来"},
         ],
         'wuxia': [
-            {"title": "少年", "summary": "初入江湖", "content": ""},
-            {"title": "拜师", "summary": "偶遇高人", "content": ""},
-            {"title": "成长", "summary": "武功精进", "content": ""},
-            {"title": "纷争", "summary": "卷入门派恩怨", "content": ""},
-            {"title": "论剑", "summary": "华山之巅", "content": ""},
-            {"title": "归隐", "summary": "江湖再见", "content": ""},
+            {"title": "少年", "summary": "初入江湖"},
+            {"title": "拜师", "summary": "偶遇高人"},
+            {"title": "成长", "summary": "武功精进"},
+            {"title": "纷争", "summary": "卷入门派恩怨"},
+            {"title": "论剑", "summary": "华山之巅"},
+            {"title": "归隐", "summary": "江湖再见"},
         ],
         'urban': [
-            {"title": "相遇", "summary": "命运安排", "content": ""},
-            {"title": "交集", "summary": "生活交织", "content": ""},
-            {"title": "职场", "summary": "现实压力", "content": ""},
-            {"title": "矛盾", "summary": "冲突爆发", "content": ""},
-            {"title": "解决", "summary": "共同面对", "content": ""},
-            {"title": "未来", "summary": "携手前行", "content": ""},
+            {"title": "相遇", "summary": "命运安排"},
+            {"title": "交集", "summary": "生活交织"},
+            {"title": "职场", "summary": "现实压力"},
+            {"title": "矛盾", "summary": "冲突爆发"},
+            {"title": "解决", "summary": "共同面对"},
+            {"title": "未来", "summary": "携手前行"},
         ],
         'historical': [
-            {"title": "乱世", "summary": "时代背景", "content": ""},
-            {"title": "抉择", "summary": "人物登场", "content": ""},
-            {"title": "纷争", "summary": "势力角逐", "content": ""},
-            {"title": "情义", "summary": "爱恨情仇", "content": ""},
-            {"title": "变局", "summary": "历史转折", "content": ""},
-            {"title": "落幕", "summary": "时代终结", "content": ""},
+            {"title": "乱世", "summary": "时代背景"},
+            {"title": "抉择", "summary": "人物登场"},
+            {"title": "纷争", "summary": "势力角逐"},
+            {"title": "情义", "summary": "爱恨情仇"},
+            {"title": "变局", "summary": "历史转折"},
+            {"title": "落幕", "summary": "时代终结"},
         ],
         'horror': [
-            {"title": "日常", "summary": "平静生活", "content": ""},
-            {"title": "异象", "summary": "诡异征兆", "content": ""},
-            {"title": "逼近", "summary": "恐惧加深", "content": ""},
-            {"title": "危机", "summary": "生死边缘", "content": ""},
-            {"title": "真相", "summary": "揭开秘密", "content": ""},
-            {"title": "余韵", "summary": "噩梦终结", "content": ""},
+            {"title": "日常", "summary": "平静生活"},
+            {"title": "异象", "summary": "诡异征兆"},
+            {"title": "逼近", "summary": "恐惧加深"},
+            {"title": "危机", "summary": "生死边缘"},
+            {"title": "真相", "summary": "揭开秘密"},
+            {"title": "余韵", "summary": "噩梦终结"},
         ]
     }
 
@@ -402,6 +405,7 @@ def generate_outline():
 
 
 def parse_chapters_from_text(text):
+    """从文本中解析章节"""
     chapters = []
     lines = text.split('\n')
     current_chapter = None
@@ -430,9 +434,9 @@ def parse_chapters_from_text(text):
 
     if not chapters:
         chapters = [
-            {"title": "缘起", "summary": "故事开端", "content": ""},
-            {"title": "发展", "summary": "情节推进", "content": ""},
-            {"title": "高潮", "summary": "矛盾爆发", "content": ""},
+            {"title": "缘起", "summary": "故事开端"},
+            {"title": "发展", "summary": "情节推进"},
+            {"title": "高潮", "summary": "矛盾爆发"},
         ]
 
     return chapters
@@ -440,11 +444,11 @@ def parse_chapters_from_text(text):
 
 @app.route('/api/ai-write', methods=['POST'])
 def ai_write():
-    data = request.json
+    """AI续写"""
+    data = request.json or {}
     content = data.get('content', '')
     chapter_title = data.get('chapterTitle', '')
     theme_type = data.get('themeType', '')
-    world_setting = data.get('worldSetting', {})
 
     if not content:
         return jsonify({'error': '请提供内容'}), 400
@@ -515,7 +519,8 @@ def ai_write():
 
 @app.route('/api/ai-polish', methods=['POST'])
 def ai_polish():
-    data = request.json
+    """AI润色"""
+    data = request.json or {}
     content = data.get('content', '')
     theme_type = data.get('themeType', '')
 
@@ -544,7 +549,8 @@ def ai_polish():
 
 @app.route('/api/ai-improve', methods=['POST'])
 def ai_improve():
-    data = request.json
+    """AI改进建议"""
+    data = request.json or {}
     content = data.get('content', '')
     chapter_title = data.get('chapterTitle', '')
     theme_type = data.get('themeType', '')
@@ -607,67 +613,28 @@ def ai_improve():
 
 4. **反转**：考虑在合适的地方加入反转""",
 
-        'scifi': """💡 **改进建议**：
+        'default': """💡 **改进建议**：
 
-1. **科技设定**：确保逻辑自洽，使用专业术语增强可信度
+1. **整体结构**：注意故事的起承转合，保持节奏紧凑
 
-2. **未来感**：增加科技生活细节的描写
+2. **人物塑造**：让人物形象更加立体，有鲜明的性格特点
 
-3. **人文关怀**：探讨科技与人性的关系
+3. **细节描写**：增加更多生动的细节，增强代入感
 
-4. **场景**：描绘未来城市和科技的视觉效果""",
-
-        'wuxia': """💡 **改进建议**：
-
-1. **武功描写**：增加招式和内功的细节描写
-
-2. **江湖规矩**：融入更多江湖规矩和门派特色
-
-3. **语言风格**：让对话更符合古代语境
-
-4. **侠义精神**：突出侠客的精神内核""",
-
-        'urban': """💡 **改进建议**：
-
-1. **真实感**：贴近现代生活细节，增强代入感
-
-2. **职场/社交**：增加真实场景的描写
-
-3. **人物塑造**：让角色更立体，符合都市人物特征
-
-4. **节奏**：保持明快的节奏，符合都市风格""",
-
-        'historical': """💡 **改进建议**：
-
-1. **时代感**：注意历史细节的准确性
-
-2. **语言**：人物对话要符合时代背景和身份
-
-3. **场景**：还原古代社会风貌
-
-4. **人物**：符合历史人物的定位""",
-
-        'horror': """💡 **改进建议**：
-
-1. **氛围**：善用环境描写来营造恐怖感
-
-2. **留白**：适度留白，不要过度描写
-
-3. **心理**：增加更多心理恐惧的描写
-
-4. **悬念**：设置更多悬念，吊读者胃口"""
+4. **语言表达**：让文字更加流畅优美，提升可读性"""
     }
 
-    return jsonify({'suggestion': suggestions.get(theme_type, suggestions['romance'])})
+    return jsonify({'suggestion': suggestions.get(theme_type, suggestions['default'])})
 
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
-    data = request.json
-    message = data.get('message', '')
+    """AI对话"""
+    data = request.json or {}
+    message_text = data.get('message', '')
     context = data.get('context', {})
 
-    if not message:
+    if not message_text:
         return jsonify({'error': '请提供消息'}), 400
 
     theme_type = context.get('themeType', '')
@@ -690,7 +657,7 @@ def chat():
                 system=prompt,
                 messages=[{
                     "role": "user",
-                    "content": f"{context_prompt}\n\n用户问题：{message}"
+                    "content": f"{context_prompt}\n\n用户问题：{message_text}"
                 }]
             )
             return jsonify({'response': message.content[0].text})
@@ -716,6 +683,53 @@ def chat():
     return jsonify({'response': random.choice(responses)})
 
 
+@app.route('/api/generate-name', methods=['POST'])
+def generate_name():
+    """生成小说/角色名称"""
+    data = request.json or {}
+    name_type = data.get('type', 'novel')  # novel 或 protagonist
+    theme = data.get('theme', '')
+    theme_type = data.get('themeType', '')
+
+    if client:
+        try:
+            prompt = get_system_prompt(theme_type)
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=100,
+                system=prompt,
+                messages=[{
+                    "role": "user",
+                    "content": f"为一个{theme or '通用'}类型的小说{name_type == 'novel' and '生成一个吸引人的书名' or '生成一个主角名字'}，只需要返回名字，不要任何解释。{'(书名用《》包裹)' if name_type == 'novel' else ''}"
+                }]
+            )
+            return jsonify({'name': message.content[0].text.strip()})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # 模拟名称
+    novel_names = [
+        '《星辰变》', '《凡人修仙传》', '《完美世界》', '《斗破苍穹》',
+        '《全职高手》', '《庆余年》', '《择天记》', '《雪中悍刀行》',
+        '《大主宰》', '《元尊》', '《万古最强宗》', '《逆天邪神》'
+    ]
+    protagonist_names = {
+        'fantasy': ['叶尘', '萧炎', '林动', '牧尘', '姜神', '莫铮'],
+        'romance': ['顾北辰', '顾南风', '苏锦瑟', '沈听澜', '温如玉'],
+        'mystery': ['顾晨', '林深', '陆离', '苏眠', '陈默'],
+        'scifi': ['陆鸣', '周明', '星河', '凌风', '苍穹'],
+        'default': ['叶尘', '韩立', '萧炎', '林动', '苏白']
+    }
+
+    if name_type == 'novel':
+        return jsonify({'name': random.choice(novel_names)})
+    else:
+        names = protagonist_names.get(theme_type, protagonist_names['default'])
+        return jsonify({'name': random.choice(names)})
+
+
+# ==================== 启动 ====================
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug = os.environ.get('FLASK_DEBUG', 'false').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug)

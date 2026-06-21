@@ -52,13 +52,71 @@
             <div class="editor-container">
                 <aside class="chapter-sidebar">
                     <h3>章节目录</h3>
+                    </div>
+
+                <!-- Tab Navigation for Sidebar -->
+                <div class="sidebar-tabs">
+                    <button class="sidebar-tab active" data-tab="chapters" onclick="switchSidebarTab('chapters')">📖 章节</button>
+                    <button class="sidebar-tab" data-tab="characters" onclick="switchSidebarTab('characters')">👥 角色</button>
+                    <button class="sidebar-tab" data-tab="world" onclick="switchSidebarTab('world')">🌍 世界</button>
+                    <button class="sidebar-tab" data-tab="timeline" onclick="switchSidebarTab('timeline')">⏱️ 时间</button>
+                </div>
+
+                <!-- Chapter List -->
+                <div class="sidebar-content active" id="chaptersTab">
                     <div class="chapter-list" id="chapterList">
                         <!-- Chapter items will be rendered here -->
                     </div>
                     <button class="add-chapter-btn" onclick="openAddChapterModal()">
                         <span>+</span> 添加章节
                     </button>
-                </aside>
+                </div>
+
+                <!-- Character List -->
+                <div class="sidebar-content" id="charactersTab">
+                    <div class="character-list" id="characterList">
+                        <!-- Character items will be rendered here -->
+                    </div>
+                    <button class="add-character-btn" onclick="openAddCharacterModal()">
+                        <span>+</span> 添加角色
+                    </button>
+                </div>
+
+                <!-- World Setting -->
+                <div class="sidebar-content" id="worldTab">
+                    <div class="world-setting" id="worldSetting">
+                        <div class="world-form-group">
+                            <label>时代背景</label>
+                            <input type="text" id="worldEra" class="form-input" placeholder="如：唐朝、明朝、现代">
+                        </div>
+                        <div class="world-form-group">
+                            <label>社会环境</label>
+                            <input type="text" id="worldSociety" class="form-input" placeholder="如：江湖朝堂、都市职场">
+                        </div>
+                        <div class="world-form-group">
+                            <label>地理设定</label>
+                            <textarea id="worldGeography" class="form-input" rows="2" placeholder="描述主要地理环境"></textarea>
+                        </div>
+                        <div class="world-form-group">
+                            <label>特殊规则</label>
+                            <textarea id="worldRules" class="form-input" rows="3" placeholder="如：魔法体系、武林秘籍、异能等级"></textarea>
+                        </div>
+                        <button class="save-world-btn" onclick="saveWorldSetting()">保存世界观</button>
+                    </div>
+                </div>
+
+                <!-- Timeline -->
+                <div class="sidebar-content" id="timelineTab">
+                    <div class="timeline-container" id="timelineContainer">
+                        <div class="timeline-events" id="timelineEvents">
+                            <!-- Timeline events will be rendered here -->
+                        </div>
+                    </div>
+                    <button class="add-event-btn" onclick="openAddTimelineEventModal()">
+                        <span>+</span> 添加时间节点
+                    </button>
+                </div>
+            </aside>
 
                 <div class="content-area">
                     <textarea class="content-textarea" id="contentEditor" placeholder="在这里开始你的创作..."></textarea>
@@ -106,6 +164,86 @@
                 <button class="modal-btn cancel" onclick="closeAddChapterModal()">取消</button>
                 <button class="modal-btn confirm" onclick="addChapter()">添加</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Add Character Modal -->
+    <div class="modal-overlay" id="addCharacterModal">
+        <div class="modal">
+            <h3 class="modal-title">添加角色</h3>
+            <div class="form-group">
+                <label class="form-label">角色名称</label>
+                <input type="text" class="form-input" id="characterNameInput" placeholder="请输入角色名称">
+            </div>
+            <div class="form-group">
+                <label class="form-label">角色身份</label>
+                <input type="text" class="form-input" id="characterRoleInput" placeholder="如：主角、配角、反派">
+            </div>
+            <div class="form-group">
+                <label class="form-label">角色简介</label>
+                <textarea class="form-input" id="characterDescInput" placeholder="描述角色外貌、性格、背景..." rows="3"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeAddCharacterModal()">取消</button>
+                <button class="modal-btn confirm" onclick="addCharacter()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Character Modal -->
+    <div class="modal-overlay" id="editCharacterModal">
+        <div class="modal">
+            <h3 class="modal-title">编辑角色</h3>
+            <div class="form-group">
+                <label class="form-label">角色名称</label>
+                <input type="text" class="form-input" id="editCharacterNameInput">
+            </div>
+            <div class="form-group">
+                <label class="form-label">角色身份</label>
+                <input type="text" class="form-input" id="editCharacterRoleInput">
+            </div>
+            <div class="form-group">
+                <label class="form-label">角色简介</label>
+                <textarea class="form-input" id="editCharacterDescInput" rows="3"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeEditCharacterModal()">取消</button>
+                <button class="modal-btn confirm" onclick="saveCharacter()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Timeline Event Modal -->
+    <div class="modal-overlay" id="addTimelineEventModal">
+        <div class="modal">
+            <h3 class="modal-title">添加时间节点</h3>
+            <div class="form-group">
+                <label class="form-label">事件名称</label>
+                <input type="text" class="form-input" id="eventTitleInput" placeholder="如：主角出生">
+            </div>
+            <div class="form-group">
+                <label class="form-label">发生时间</label>
+                <input type="text" class="form-input" id="eventTimeInput" placeholder="如：第一章后3年">
+            </div>
+            <div class="form-group">
+                <label class="form-label">事件描述</label>
+                <textarea class="form-input" id="eventDescInput" rows="3" placeholder="描述这个时间节点发生的事件"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeAddTimelineEventModal()">取消</button>
+                <button class="modal-btn confirm" onclick="addTimelineEvent()">添加</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reading Mode Modal -->
+    <div class="modal-overlay" id="readingModeModal">
+        <div class="modal reading-mode-content">
+            <div class="reading-mode-header">
+                <h3 class="modal-title" id="readingModeTitle">阅读模式</h3>
+                <button class="modal-btn cancel" onclick="closeReadingMode()">关闭</button>
+            </div>
+            <div class="reading-mode-body" id="readingModeBody"></div>
         </div>
     </div>
 

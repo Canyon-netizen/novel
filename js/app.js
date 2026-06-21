@@ -1,4 +1,6 @@
-// ==================== Data ====================
+// ==================== MoYun AI - 首页应用逻辑 ====================
+
+// ==================== 全局状态 ====================
 let projects = [];
 let currentProjectIndex = -1;
 let currentChapterIndex = -1;
@@ -11,7 +13,6 @@ let aiSettings = {
     temperature: 0.7
 };
 
-// Gist sync
 let gistSettings = {
     token: '',
     gistId: '',
@@ -19,8 +20,10 @@ let gistSettings = {
 };
 
 const GIST_FILENAME = 'moyun_data.json';
+let currentFilter = { type: null, search: '', timeSort: 'desc' };
+let currentView = 'grid';
 
-// ==================== Initialize ====================
+// ==================== 初始化 ====================
 function init() {
     loadProjects();
     loadSettings();
@@ -30,13 +33,29 @@ function init() {
     renderProjects();
     updateStats();
     updateAIStatus();
+    setupEventListeners();
 }
 
-// ==================== Storage ====================
+function setupEventListeners() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            currentFilter.search = this.value;
+            filterProjects();
+        });
+    }
+}
+
+// ==================== 存储操作 ====================
 function loadProjects() {
     const saved = localStorage.getItem('moyun_projects');
     if (saved) {
-        projects = JSON.parse(saved);
+        try {
+            projects = JSON.parse(saved);
+        } catch (e) {
+            console.error('加载项目失败:', e);
+            projects = [];
+        }
     }
 }
 
@@ -49,7 +68,9 @@ function loadSettings() {
     if (saved) {
         try {
             aiSettings = JSON.parse(saved);
-        } catch (e) {}
+        } catch (e) {
+            console.error('加载设置失败:', e);
+        }
     }
 }
 
@@ -61,7 +82,8 @@ function loadTheme() {
     const saved = localStorage.getItem('moyun_theme');
     if (saved) {
         document.documentElement.setAttribute('data-theme', saved);
-        document.querySelector('.theme-select').value = saved;
+        const select = document.querySelector('.theme-select');
+        if (select) select.value = saved;
     }
 }
 
@@ -71,6 +93,7 @@ function toggleTheme() {
     localStorage.setItem('moyun_theme', theme);
 }
 
+// ==================== 问候语 ====================
 function updateGreeting() {
     const hour = new Date().getHours();
     let greeting = '晚上好';
@@ -80,16 +103,19 @@ function updateGreeting() {
     const saved = localStorage.getItem('moyun_user_name');
     const name = saved || 'yyy';
 
-    document.getElementById('greetingText').textContent = `${greeting}，${name}`;
+    const greetingEl = document.getElementById('greetingText');
+    if (greetingEl) greetingEl.textContent = `${greeting}，${name}`;
 }
 
-// ==================== Render Functions ====================
+// ==================== 渲染函数 ====================
 function renderProjects(filterFn) {
     const grid = document.getElementById('novelGrid');
     const empty = document.getElementById('emptyState');
     const count = document.getElementById('projectCount');
 
-    let filteredProjects = filterFn ? filterFn(projects) : projects;
+    if (!grid || !empty || !count) return;
+
+    let filteredProjects = filterFn ? filterFn(projects) : [...projects];
     count.textContent = `(${filteredProjects.length})`;
 
     if (filteredProjects.length === 0) {
@@ -100,7 +126,7 @@ function renderProjects(filterFn) {
 
     empty.style.display = 'none';
 
-    grid.innerHTML = filteredProjects.map((project, index) => {
+    grid.innerHTML = filteredProjects.map((project) => {
         const originalIndex = projects.indexOf(project);
         return `
         <div class="novel-card" onclick="openProject(${originalIndex})">
@@ -108,44 +134,68 @@ function renderProjects(filterFn) {
                 <span class="novel-type">${getTypeName(project.type)}</span>
                 <span class="novel-menu" onclick="event.stopPropagation(); showNovelMenu(${originalIndex})">⋮</span>
             </div>
-            <h3 class="novel-title">${project.title}</h3>
-            <p class="novel-desc">${project.description || '暂无简介'}</p>
+            <h3 class="novel-title">${escapeHtml(project.title)}</h3>
+            <p class="novel-desc">${escapeHtml(project.description || '暂无简介')}</p>
             <div class="novel-meta">
-                <span>📖 ${project.chapters.length}章</span>
+                <span>📖 ${project.chapters?.length || 0}章</span>
                 <span>✍️ ${getProjectWordCount(project)}字</span>
             </div>
         </div>
     `}).join('');
 }
 
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 function getTypeName(type) {
     const types = {
         romance: '言情',
         fantasy: '玄幻',
+        xianxia: '仙侠',
         mystery: '悬疑',
         scifi: '科幻',
         wuxia: '武侠',
         urban: '都市',
         historical: '历史',
-        horror: '恐怖'
+        horror: '恐怖',
+        game: '游戏',
+        apocalypse: '末世'
     };
     return types[type] || '其他';
 }
 
 function getProjectWordCount(project) {
+    if (!project.chapters) return 0;
     return project.chapters.reduce((sum, ch) => sum + (ch.content?.length || 0), 0);
 }
 
-let currentFilter = { type: null, search: '', timeSort: 'desc' };
-let currentView = 'grid';
+function updateStats() {
+    const totalNovels = projects.length;
+    const totalChapters = projects.reduce((sum, p) => sum + (p.chapters?.length || 0), 0);
+    const totalWords = projects.reduce((sum, p) => sum + getProjectWordCount(p), 0);
+    const totalChars = projects.reduce((sum, p) => sum + (p.characters?.length || 0), 0);
 
+    const els = ['novelCount', 'chapterCount', 'wordCount', 'charCount'];
+    const vals = [totalNovels, totalChapters, totalWords, totalChars];
+    els.forEach((id, i) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = vals[i];
+    });
+}
+
+// ==================== 搜索和筛选 ====================
 function toggleSearch() {
     const searchBar = document.getElementById('searchBar');
     const filterPanel = document.getElementById('filterPanel');
+    if (!searchBar || !filterPanel) return;
+
     if (searchBar.style.display === 'none') {
         searchBar.style.display = 'block';
         filterPanel.style.display = 'none';
-        document.getElementById('searchInput').focus();
+        document.getElementById('searchInput')?.focus();
     } else {
         searchBar.style.display = 'none';
         currentFilter.search = '';
@@ -156,10 +206,11 @@ function toggleSearch() {
 function toggleFilter(filterType) {
     const searchBar = document.getElementById('searchBar');
     const filterPanel = document.getElementById('filterPanel');
+    if (!filterPanel) return;
 
     if (filterPanel.style.display === 'none' || currentFilter.type !== filterType) {
         filterPanel.style.display = 'block';
-        searchBar.style.display = 'none';
+        if (searchBar) searchBar.style.display = 'none';
         renderFilterPanel(filterType);
     } else {
         filterPanel.style.display = 'none';
@@ -171,18 +222,22 @@ function toggleFilter(filterType) {
 function renderFilterPanel(filterType) {
     currentFilter.type = filterType;
     const content = document.getElementById('filterContent');
+    if (!content) return;
 
     if (filterType === 'type') {
         const types = [
             { value: '', label: '全部' },
             { value: 'romance', label: '言情' },
             { value: 'fantasy', label: '玄幻' },
+            { value: 'xianxia', label: '仙侠' },
             { value: 'mystery', label: '悬疑' },
             { value: 'scifi', label: '科幻' },
             { value: 'wuxia', label: '武侠' },
             { value: 'urban', label: '都市' },
             { value: 'historical', label: '历史' },
-            { value: 'horror', label: '恐怖' }
+            { value: 'horror', label: '恐怖' },
+            { value: 'game', label: '游戏' },
+            { value: 'apocalypse', label: '末世' }
         ];
         content.innerHTML = '<div style="display:flex;gap:0.5rem;flex-wrap:wrap;">' +
             types.map(t => `<button class="toolbar-btn ${currentFilter.type === t.value ? 'active' : ''}" onclick="applyTypeFilter('${t.value}')">${t.label}</button>`).join('') +
@@ -233,71 +288,27 @@ function filterProjects() {
 
 function setView(view) {
     currentView = view;
-    document.getElementById('gridViewBtn').classList.toggle('active', view === 'grid');
-    document.getElementById('listViewBtn').classList.toggle('active', view === 'list');
+    const gridBtn = document.getElementById('gridViewBtn');
+    const listBtn = document.getElementById('listViewBtn');
     const grid = document.getElementById('novelGrid');
-    if (view === 'list') {
-        grid.style.gridTemplateColumns = '1fr';
-    } else {
-        grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
+
+    if (gridBtn) gridBtn.classList.toggle('active', view === 'grid');
+    if (listBtn) listBtn.classList.toggle('active', view === 'list');
+    if (grid) {
+        grid.style.gridTemplateColumns = view === 'list' ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))';
     }
 }
 
-document.getElementById('searchInput')?.addEventListener('input', function() {
-    currentFilter.search = this.value;
-    filterProjects();
-});
-
-function updateStats() {
-    const totalNovels = projects.length;
-    const totalChapters = projects.reduce((sum, p) => sum + p.chapters.length, 0);
-    const totalWords = projects.reduce((sum, p) => sum + getProjectWordCount(p), 0);
-    const totalChars = projects.reduce((sum, p) => sum + (p.characters?.length || 0), 0);
-
-    document.getElementById('novelCount').textContent = totalNovels;
-    document.getElementById('chapterCount').textContent = totalChapters;
-    document.getElementById('wordCount').textContent = totalWords;
-    document.getElementById('charCount').textContent = totalChars;
-}
-
-function renderChapters() {
-    const list = document.getElementById('chapterList');
-    const project = projects[currentProjectIndex];
-
-    if (!project || project.chapters.length === 0) {
-        list.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 1rem;">暂无章节</p>';
-        return;
-    }
-
-    list.innerHTML = project.chapters.map((ch, i) => `
-        <div class="chapter-item ${i === currentChapterIndex ? 'active' : ''}" onclick="selectChapter(${i})">
-            第${i + 1}章 · ${ch.title}
-        </div>
-    `).join('');
-}
-
-// ==================== Modal Functions ====================
+// ==================== 模态框 ====================
 function openNewNovelModal() {
-    // Redirect to create page with full configuration
     window.location.href = 'create.html';
 }
 
-function closeNewNovelModal() {
-    // No longer used - modal removed
-}
-
-function openAddChapterModal() {
-    document.getElementById('addChapterModal').classList.add('show');
-    document.getElementById('chapterTitleInput').value = '';
-    document.getElementById('chapterDescInput').value = '';
-}
-
-function closeAddChapterModal() {
-    document.getElementById('addChapterModal').classList.remove('show');
-}
-
 function openSettingsModal() {
-    document.getElementById('settingsModal').classList.add('show');
+    const modal = document.getElementById('settingsModal');
+    if (!modal) return;
+
+    modal.classList.add('show');
     document.getElementById('apiProvider').value = aiSettings.provider;
     document.getElementById('apiKeyInput').value = aiSettings.apiKey;
     document.getElementById('baseUrlInput').value = aiSettings.baseUrl;
@@ -310,29 +321,18 @@ function openSettingsModal() {
 }
 
 function closeSettingsModal() {
-    document.getElementById('settingsModal').classList.remove('show');
+    const modal = document.getElementById('settingsModal');
+    if (modal) modal.classList.remove('show');
 }
 
 function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
-    const keyGroup = document.getElementById('apiKeyGroup');
-    const urlGroup = document.getElementById('baseUrlGroup');
-    const modelGroup = document.getElementById('modelGroup');
-
-    if (provider === 'local') {
-        keyGroup.style.display = 'none';
-        urlGroup.style.display = 'none';
-        modelGroup.style.display = 'none';
-    } else {
-        keyGroup.style.display = 'block';
-        urlGroup.style.display = 'block';
-        modelGroup.style.display = 'block';
-    }
+    const fields = ['apiKeyGroup', 'baseUrlGroup', 'modelGroup'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = provider === 'local' ? 'none' : 'block';
+    });
 }
-
-document.getElementById('temperatureInput').addEventListener('input', function() {
-    document.getElementById('temperatureValue').textContent = this.value;
-});
 
 function saveSettings() {
     aiSettings.provider = document.getElementById('apiProvider').value;
@@ -344,10 +344,30 @@ function saveSettings() {
     saveSettingsToStorage();
     closeSettingsModal();
     updateAIStatus();
-    alert('设置已保存！');
+    showToast('设置已保存！', 'success');
 }
 
-// ==================== Gist Sync ====================
+// ==================== Toast 通知 ====================
+function showToast(message, type = 'info') {
+    let container = document.querySelector('.toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.animation = 'toastIn 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// ==================== Gist 同步 ====================
 function loadGistSettings() {
     const saved = localStorage.getItem('moyun_gist_settings');
     if (saved) {
@@ -356,7 +376,8 @@ function loadGistSettings() {
         } catch (e) {}
     }
     if (gistSettings.token) {
-        document.getElementById('githubTokenInput').value = gistSettings.token;
+        const input = document.getElementById('githubTokenInput');
+        if (input) input.value = gistSettings.token;
     }
     updateGistStatus();
 }
@@ -371,93 +392,23 @@ function updateGistStatus() {
     const syncBtn = document.getElementById('syncBtn');
     const loadBtn = document.getElementById('loadFromGistBtn');
 
+    if (!statusEl) return;
+
     if (gistSettings.token) {
         statusEl.style.display = 'block';
-        syncBtn.disabled = false;
-        loadBtn.disabled = false;
-        if (gistSettings.gistId) {
-            statusText.textContent = `✅ 已连接 Gist (ID: ${gistSettings.gistId.slice(0, 8)}...) 上次同步: ${gistSettings.lastSync || '从未'}`;
-        } else {
-            statusText.textContent = '⚠️ Token 已设置，点击"连接/更新 Gist"创建或更新 Gist';
+        if (syncBtn) syncBtn.disabled = false;
+        if (loadBtn) loadBtn.disabled = false;
+        if (statusText) {
+            if (gistSettings.gistId) {
+                statusText.textContent = `✅ 已连接 Gist (ID: ${gistSettings.gistId.slice(0, 8)}...) 上次同步: ${gistSettings.lastSync || '从未'}`;
+            } else {
+                statusText.textContent = '⚠️ Token 已设置，点击"连接/更新 Gist"创建或更新 Gist';
+            }
         }
     } else {
         statusEl.style.display = 'none';
-        syncBtn.disabled = true;
-        loadBtn.disabled = true;
-    }
-}
-
-async function connectGist() {
-    const token = document.getElementById('githubTokenInput').value.trim();
-    if (!token) {
-        alert('请输入 GitHub Token');
-        return;
-    }
-
-    gistSettings.token = token;
-    saveGistSettings();
-
-    try {
-        const data = getSyncData();
-        const gistData = JSON.stringify(data, null, 2);
-
-        if (gistSettings.gistId) {
-            // Update existing gist
-            const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    description: '墨韵AI 数据同步',
-                    files: {
-                        [GIST_FILENAME]: { content: gistData }
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.text();
-                throw new Error(`更新失败 (${response.status}): ${err}`);
-            }
-
-            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-            saveGistSettings();
-            updateGistStatus();
-            alert('✅ Gist 已更新！');
-
-        } else {
-            // Create new gist
-            const response = await fetch('https://api.github.com/gists', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    description: '墨韵AI 数据同步',
-                    public: false,
-                    files: {
-                        [GIST_FILENAME]: { content: gistData }
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                const err = await response.text();
-                throw new Error(`创建失败 (${response.status}): ${err}`);
-            }
-
-            const result = await response.json();
-            gistSettings.gistId = result.id;
-            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-            saveGistSettings();
-            updateGistStatus();
-            alert('✅ Gist 创建成功！\n\nGist ID: ' + gistSettings.gistId + '\n请妥善保存此 ID，以便在其他设备上恢复数据。');
-        }
-    } catch (error) {
-        alert('❌ Gist 操作失败：' + error.message);
+        if (syncBtn) syncBtn.disabled = true;
+        if (loadBtn) loadBtn.disabled = true;
     }
 }
 
@@ -472,9 +423,70 @@ function getSyncData() {
     };
 }
 
+async function connectGist() {
+    const token = document.getElementById('githubTokenInput').value.trim();
+    if (!token) {
+        showToast('请输入 GitHub Token', 'error');
+        return;
+    }
+
+    gistSettings.token = token;
+    saveGistSettings();
+
+    try {
+        const data = getSyncData();
+        const gistData = JSON.stringify(data, null, 2);
+
+        if (gistSettings.gistId) {
+            const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    description: '墨韵AI 数据同步',
+                    files: { [GIST_FILENAME]: { content: gistData } }
+                })
+            });
+
+            if (!response.ok) throw new Error(`更新失败 (${response.status})`);
+
+            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+            saveGistSettings();
+            updateGistStatus();
+            showToast('✅ Gist 已更新！', 'success');
+        } else {
+            const response = await fetch('https://api.github.com/gists', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    description: '墨韵AI 数据同步',
+                    public: false,
+                    files: { [GIST_FILENAME]: { content: gistData } }
+                })
+            });
+
+            if (!response.ok) throw new Error(`创建失败 (${response.status})`);
+
+            const result = await response.json();
+            gistSettings.gistId = result.id;
+            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
+            saveGistSettings();
+            updateGistStatus();
+            showToast('✅ Gist 创建成功！\n\nGist ID: ' + gistSettings.gistId, 'success');
+        }
+    } catch (error) {
+        showToast('❌ Gist 操作失败：' + error.message, 'error');
+    }
+}
+
 async function syncToGist() {
     if (!gistSettings.token || !gistSettings.gistId) {
-        alert('请先点击"连接/更新 Gist"');
+        showToast('请先点击"连接/更新 Gist"', 'error');
         return;
     }
 
@@ -484,7 +496,6 @@ async function syncToGist() {
     syncBtn.disabled = true;
 
     try {
-        const data = getSyncData();
         const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
             method: 'PATCH',
             headers: {
@@ -493,23 +504,18 @@ async function syncToGist() {
             },
             body: JSON.stringify({
                 description: '墨韵AI 数据同步',
-                files: {
-                    [GIST_FILENAME]: { content: JSON.stringify(data, null, 2) }
-                }
+                files: { [GIST_FILENAME]: { content: JSON.stringify(getSyncData(), null, 2) } }
             })
         });
 
-        if (!response.ok) {
-            const err = await response.text();
-            throw new Error(`同步失败 (${response.status}): ${err}`);
-        }
+        if (!response.ok) throw new Error(`同步失败 (${response.status})`);
 
         gistSettings.lastSync = new Date().toLocaleString('zh-CN');
         saveGistSettings();
         updateGistStatus();
-        alert('✅ 数据已同步到 Gist！');
+        showToast('✅ 数据已同步到 Gist！', 'success');
     } catch (error) {
-        alert('❌ 同步失败：' + error.message);
+        showToast('❌ 同步失败：' + error.message, 'error');
     } finally {
         syncBtn.textContent = originalText;
         syncBtn.disabled = false;
@@ -518,7 +524,7 @@ async function syncToGist() {
 
 async function loadFromGist() {
     if (!gistSettings.token) {
-        alert('请先输入 Token 并点击"连接/更新 Gist"');
+        showToast('请先输入 Token 并点击"连接/更新 Gist"', 'error');
         return;
     }
 
@@ -543,9 +549,7 @@ async function loadFromGist() {
 
         const response = await fetch(`https://api.github.com/gists/${gistId}`, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${gistSettings.token}`,
-            }
+            headers: { 'Authorization': `Bearer ${gistSettings.token}` }
         });
 
         if (!response.ok) throw new Error('加载失败，请检查 Gist ID 和 Token');
@@ -557,7 +561,6 @@ async function loadFromGist() {
 
         const data = JSON.parse(file.content);
 
-        // Restore data
         if (data.projects) {
             projects = data.projects;
             localStorage.setItem('moyun_projects', JSON.stringify(projects));
@@ -576,7 +579,6 @@ async function loadFromGist() {
             localStorage.setItem('moyun_theme', data.theme);
         }
 
-        // Reinitialize
         loadProjects();
         loadSettings();
         loadTheme();
@@ -589,15 +591,16 @@ async function loadFromGist() {
         saveGistSettings();
         updateGistStatus();
 
-        alert('✅ 数据加载成功！');
+        showToast('✅ 数据加载成功！', 'success');
     } catch (error) {
-        alert('❌ 加载失败：' + error.message);
+        showToast('❌ 加载失败：' + error.message, 'error');
     } finally {
         loadBtn.textContent = originalText;
         loadBtn.disabled = false;
     }
 }
 
+// ==================== API 测试 ====================
 async function testApiConnection() {
     const testBtn = document.getElementById('testBtn');
     const originalText = testBtn.textContent;
@@ -613,7 +616,7 @@ async function testApiConnection() {
         setTimeout(() => {
             testBtn.textContent = originalText;
             testBtn.disabled = false;
-            alert('✅ 本地模拟模式可用');
+            showToast('✅ 本地模拟模式可用', 'success');
         }, 500);
         return;
     }
@@ -621,35 +624,21 @@ async function testApiConnection() {
     if (!apiKey) {
         testBtn.textContent = originalText;
         testBtn.disabled = false;
-        alert('请先输入 API Key');
+        showToast('请先输入 API Key', 'error');
         return;
     }
 
     if (!model) {
         testBtn.textContent = originalText;
         testBtn.disabled = false;
-        alert('请先输入 Model 名称');
+        showToast('请先输入 Model 名称', 'error');
         return;
     }
 
     try {
-        // 自动检测 provider 类型（根据 URL 和 model）
         const detectedProvider = inferApiProfile(baseUrl, model) || provider;
-
-        // 获取预设配置
-        const preset = API_PRESETS[detectedProvider] || API_PRESETS.openai;
         const endpoint = buildApiEndpoint(baseUrl, detectedProvider, model);
-
-        // 构建请求头
-        const headers = { 'Content-Type': 'application/json' };
-        if (detectedProvider === 'anthropic') {
-            headers['x-api-key'] = apiKey;
-            headers['anthropic-version'] = '2023-06-01';
-        } else {
-            headers['Authorization'] = `Bearer ${apiKey}`;
-        }
-
-        // 使用标准的连接测试 payload
+        const headers = buildApiHeaders(detectedProvider, apiKey);
         const body = buildConnectivityTestPayload(detectedProvider, model);
 
         const response = await fetch(endpoint, {
@@ -659,82 +648,44 @@ async function testApiConnection() {
         });
 
         if (!response.ok) {
-            // 读取错误信息（只读一次）
-            let errorDetail = await response.text().catch(() => '无法读取错误详情');
-            try {
-                const errData = JSON.parse(errorDetail);
-                errorDetail = errData.error?.message || errData.error?.code || errorDetail.slice(0, 200);
-            } catch {
-                errorDetail = errorDetail.slice(0, 200);
-            }
-            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(`HTTP ${response.status}: ${errData.error?.message || errData.error?.code || '未知错误'}`);
         }
 
         const data = await response.json();
         let reply = '';
         if (detectedProvider === 'anthropic') {
-            reply = data.content?.[0]?.text || JSON.stringify(data).slice(0, 100);
+            reply = data.content?.[0]?.text || '';
         } else {
-            reply = data.choices?.[0]?.message?.content || JSON.stringify(data).slice(0, 100);
+            reply = data.choices?.[0]?.message?.content || '';
         }
 
-        // 检查返回值是否正确
-        if (reply.toLowerCase().includes('hello world')) {
-            testBtn.textContent = originalText;
-            testBtn.disabled = false;
-            alert('✅ 连接成功！\n\n模型回复：' + reply.slice(0, 200));
-        } else {
-            testBtn.textContent = originalText;
-            testBtn.disabled = false;
-            alert('⚠️ 连接成功，但回复异常：' + reply.slice(0, 200));
-        }
+        testBtn.textContent = originalText;
+        testBtn.disabled = false;
+        showToast('✅ 连接成功！模型回复：' + reply.slice(0, 100), 'success');
     } catch (error) {
         testBtn.textContent = originalText;
         testBtn.disabled = false;
-        alert('❌ 连接失败：' + error.message);
+        showToast('❌ 连接失败：' + error.message, 'error');
     }
 }
 
 function updateAIStatus() {
     const status = document.getElementById('aiStatus');
+    if (!status) return;
+
     if (aiSettings.provider === 'local') {
         status.textContent = '📍 本地模式';
     } else if (aiSettings.apiKey) {
-        const modelDisplay = aiSettings.model === '' ? aiSettings.customModel : aiSettings.model;
-        status.textContent = '✅ ' + (modelDisplay || aiSettings.provider.toUpperCase());
+        const modelDisplay = aiSettings.model || aiSettings.provider.toUpperCase();
+        status.textContent = '✅ ' + modelDisplay;
     } else {
         status.textContent = '⚠️ 未配置API';
     }
 }
 
-// ==================== CRUD Functions ====================
-function createNovel() {
-    const title = document.getElementById('novelTitleInput').value.trim();
-    const type = document.getElementById('novelTypeSelect').value;
-    const description = document.getElementById('novelDescInput').value.trim();
-
-    if (!title) {
-        alert('请输入小说标题');
-        return;
-    }
-
-    projects.push({
-        title,
-        type,
-        description,
-        chapters: [],
-        characters: [],
-        createdAt: new Date().toISOString()
-    });
-
-    saveProjects();
-    renderProjects();
-    updateStats();
-    closeNewNovelModal();
-}
-
+// ==================== CRUD 操作 ====================
 function openProject(index) {
-    // Store current project index and redirect to editor
     localStorage.setItem('moyun_current_project', index);
     localStorage.setItem('moyun_current_chapter', 0);
     window.location.href = `editor.html?project=${index}&chapter=0`;
@@ -742,41 +693,6 @@ function openProject(index) {
 
 function goBack() {
     window.location.href = 'index.html';
-}
-
-function addChapter() {
-    const title = document.getElementById('chapterTitleInput').value.trim();
-    const summary = document.getElementById('chapterDescInput').value.trim();
-
-    if (!title) {
-        alert('请输入章节标题');
-        return;
-    }
-
-    if (currentProjectIndex === -1) return;
-
-    projects[currentProjectIndex].chapters.push({
-        title,
-        summary,
-        content: ''
-    });
-
-    saveProjects();
-    renderChapters();
-    closeAddChapterModal();
-    updateStats();
-}
-
-function selectChapter(index) {
-    currentChapterIndex = index;
-    const project = projects[currentProjectIndex];
-    const chapter = project.chapters[index];
-
-    document.getElementById('editorTitle').textContent = `第${index + 1}章 · ${chapter.title}`;
-    document.getElementById('contentEditor').value = chapter.content || '';
-
-    renderChapters();
-    updateWordCount();
 }
 
 function showNovelMenu(index) {
@@ -796,19 +712,20 @@ function deleteProject(index) {
         saveProjects();
         renderProjects();
         updateStats();
+        showToast('项目已删除', 'success');
     }
 }
 
 function exportProject(index) {
     const project = projects[index];
-    if (project.chapters.length === 0) {
-        alert('没有可导出的内容');
+    if (!project.chapters || project.chapters.length === 0) {
+        showToast('没有可导出的内容', 'error');
         return;
     }
 
     let content = generateMarkdown(project);
 
-    const blob = new Blob([content], { type: 'text/markdown' });
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -818,20 +735,21 @@ function exportProject(index) {
 }
 
 function exportCurrentProject() {
-    if (currentProjectIndex === -1) {
-        alert('请先打开一个项目');
+    const currentIndex = parseInt(localStorage.getItem('moyun_current_project') || '-1');
+    if (currentIndex === -1) {
+        showToast('请先打开一个项目', 'error');
         return;
     }
-    exportProject(currentProjectIndex);
+    exportProject(currentIndex);
 }
 
 function generateMarkdown(project) {
     let content = `# ${project.title}\n\n`;
-    content += `## ${getTypeName(project.type)}\n\n`;
+    content += `> **类型**: ${getTypeName(project.type)}\n\n`;
     content += `${project.description || ''}\n\n`;
     content += `---\n\n## 章节内容\n\n`;
 
-    project.chapters.forEach((chapter, i) => {
+    (project.chapters || []).forEach((chapter, i) => {
         content += `### 第${i + 1}章 · ${chapter.title}\n\n`;
         if (chapter.summary) {
             content += `> ${chapter.summary}\n\n`;
@@ -842,126 +760,35 @@ function generateMarkdown(project) {
     return content;
 }
 
-// ==================== Content Editor ====================
-const contentEditor = document.getElementById('contentEditor');
-if (contentEditor) {
-    contentEditor.addEventListener('input', function() {
-        if (currentProjectIndex !== -1 && currentChapterIndex !== -1) {
-            projects[currentProjectIndex].chapters[currentChapterIndex].content = this.value;
-            saveProjects();
-            updateWordCount();
-        }
-    });
-}
-
-function updateWordCount() {
-    const content = document.getElementById('contentEditor').value;
-    document.getElementById('currentWordCount').textContent = `${content.length} 字`;
-}
-
-// ==================== AI Functions ====================
-function getThemePrompt(themeType) {
-    const prompts = {
-        romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
-        fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
-        mystery: '你是一位专业的悬疑小说写作助手，擅长铺设悬念和设计推理逻辑。请用中文回答。',
-        scifi: '你是一位专业的科幻小说写作助手，擅长设计科技设定和未来场景。请用中文回答。',
-        wuxia: '你是一位专业的武侠小说写作助手，擅长描绘江湖规矩和武功招式。请用中文回答。',
-        urban: '你是一位专业的都市小说写作助手，擅长描绘现代都市生活。请用中文回答。',
-        historical: '你是一位专业的历史小说写作助手，擅长还原时代背景和人物风貌。请用中文回答。',
-        horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。'
-    };
-    return prompts[themeType] || prompts.romance;
-}
-
-// ==================== API Presets ====================
+// ==================== API 预设 ====================
 const API_PRESETS = {
-    anthropic: {
-        name: 'Anthropic (Claude)',
-        baseUrl: 'https://api.anthropic.com/v1',
-        authHeader: 'x-api-key',
-        modelPrefix: ''
-    },
-    openai: {
-        name: 'OpenAI (GPT)',
-        baseUrl: 'https://api.openai.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: ''
-    },
-    deepseek: {
-        name: 'DeepSeek',
-        baseUrl: 'https://api.deepseek.com/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'deepseek-'
-    },
-    minimax: {
-        name: 'MiniMax',
-        baseUrl: 'https://api.minimax.chat/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'MiniMax-'
-    },
-    kimi: {
-        name: 'Kimi (Moonshot)',
-        baseUrl: 'https://api.moonshot.cn/v1',
-        authHeader: 'bearer',
-        modelPrefix: 'moonshot-'
-    },
-    glm: {
-        name: 'GLM (智谱)',
-        baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        authHeader: 'bearer',
-        modelPrefix: 'glm-'
-    }
+    anthropic: { name: 'Anthropic (Claude)', baseUrl: 'https://api.anthropic.com/v1', authHeader: 'x-api-key', modelPrefix: '' },
+    openai: { name: 'OpenAI (GPT)', baseUrl: 'https://api.openai.com/v1', authHeader: 'bearer', modelPrefix: '' },
+    deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', authHeader: 'bearer', modelPrefix: 'deepseek-' },
+    minimax: { name: 'MiniMax', baseUrl: 'https://api.minimax.chat/v1', authHeader: 'bearer', modelPrefix: 'MiniMax-' },
+    kimi: { name: 'Kimi (Moonshot)', baseUrl: 'https://api.moonshot.cn/v1', authHeader: 'bearer', modelPrefix: 'moonshot-' },
+    glm: { name: 'GLM (智谱)', baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4', authHeader: 'bearer', modelPrefix: 'glm-' }
 };
 
-// ==================== API Profile Detection ====================
 function inferApiProfile(baseUrl, model) {
     const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
     const normalizedModel = String(model || '').trim().toLowerCase();
 
-    // 检查是否有明确的代理路径（如 /anthropic）
-    // 这表示使用第三方代理，需要根据路径判断
-    if (/\/anthropic\b/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/\/openai\b/i.test(normalizedBaseUrl) || /\/chat\/completions/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
+    if (/\/anthropic\b/i.test(normalizedBaseUrl)) return 'anthropic';
+    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) return 'anthropic';
+    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) return 'deepseek';
+    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) return 'minimax';
+    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) return 'kimi';
+    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) return 'glm';
+    if (/api\.openai\.com/i.test(normalizedBaseUrl)) return 'openai';
 
-    // 按域名精确匹配官方 API
-    if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) {
-        return 'anthropic';
-    }
-    if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) {
-        return 'deepseek';
-    }
-    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) {
-        return 'minimax';
-    }
-    if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) {
-        return 'kimi';
-    }
-    if (/bigmodel\.cn/i.test(normalizedBaseUrl)) {
-        return 'glm';
-    }
-    if (/api\.openai\.com/i.test(normalizedBaseUrl)) {
-        return 'openai';
-    }
-
-    // 按 model 前缀匹配
     if (normalizedModel.startsWith('deepseek-')) return 'deepseek';
     if (normalizedModel.startsWith('minimax-')) return 'minimax';
     if (normalizedModel.startsWith('glm-')) return 'glm';
     if (normalizedModel.startsWith('moonshot-')) return 'kimi';
     if (/claude/i.test(normalizedModel)) return 'anthropic';
 
-    // 如果 baseUrl 有值但不在上面的列表中（第三方代理），返回 null 让调用方使用 provider 参数
-    if (normalizedBaseUrl) {
-        return null;
-    }
-
-    // 默认
-    return 'openai';
+    return null;
 }
 
 function buildConnectivityTestPayload(provider, model) {
@@ -979,34 +806,30 @@ function buildConnectivityTestPayload(provider, model) {
 function buildApiEndpoint(baseUrl, provider, model) {
     const normalized = (baseUrl || '').replace(/\/+$/, '');
 
-    // 如果用户提供了 baseUrl，直接追加 provider 对应的端点路径
     if (normalized) {
-        if (provider === 'anthropic') {
-            return `${normalized}/v1/messages`;
-        }
-        // 默认使用 chat completions
+        if (provider === 'anthropic') return `${normalized}/v1/messages`;
         return `${normalized}/v1/chat/completions`;
     }
 
-    // 如果没有提供 baseUrl，使用默认值
-    if (provider === 'anthropic') return 'https://api.anthropic.com/v1/messages';
-    if (provider === 'deepseek') return 'https://api.deepseek.com/v1/chat/completions';
-    if (provider === 'minimax') return 'https://api.minimax.chat/v1/chat_completions';
-    if (provider === 'kimi') return 'https://api.moonshot.cn/v1/chat/completions';
-    if (provider === 'glm') return 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
-    return 'https://api.openai.com/v1/chat/completions';
+    const endpoints = {
+        anthropic: 'https://api.anthropic.com/v1/messages',
+        deepseek: 'https://api.deepseek.com/v1/chat/completions',
+        minimax: 'https://api.minimax.chat/v1/chat_completions',
+        kimi: 'https://api.moonshot.cn/v1/chat/completions',
+        glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
+    };
+
+    return endpoints[provider] || 'https://api.openai.com/v1/chat/completions';
 }
 
 function buildApiHeaders(provider, apiKey) {
     const headers = { 'Content-Type': 'application/json' };
-
     if (provider === 'anthropic') {
         headers['x-api-key'] = apiKey;
         headers['anthropic-version'] = '2023-06-01';
     } else {
         headers['Authorization'] = `Bearer ${apiKey}`;
     }
-
     return headers;
 }
 
@@ -1014,38 +837,26 @@ function buildApiBody(provider, model, systemPrompt, messages, temperature) {
     const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
 
     if (provider === 'anthropic') {
-        return {
-            model: modelName,
-            system: systemPrompt,
-            messages: messages,
-            max_tokens: 2048
-        };
+        return { model: modelName, system: systemPrompt, messages: messages, max_tokens: 2048 };
     }
 
-    // OpenAI / DeepSeek / MiniMax - 不使用流式响应，直接返回完整 JSON
     return {
         model: modelName,
         messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: temperature,
+        temperature: temperature || 0.7,
         max_tokens: 2048
     };
 }
 
-// ==================== API Call ====================
 async function callAI(messages, systemPrompt) {
     if (aiSettings.provider === 'local') {
         return callLocalAI(messages, systemPrompt);
     }
 
-    // 使用 inferApiProfile 根据 baseUrl 和 model 自动检测 provider 类型
     const detectedProvider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
     const endpoint = buildApiEndpoint(aiSettings.baseUrl, detectedProvider, aiSettings.model);
     const headers = buildApiHeaders(detectedProvider, aiSettings.apiKey);
     const body = buildApiBody(detectedProvider, aiSettings.model, systemPrompt, messages, aiSettings.temperature);
-
-    if (!endpoint) {
-        throw new Error('未配置 API 端点');
-    }
 
     try {
         const response = await fetch(endpoint, {
@@ -1055,14 +866,8 @@ async function callAI(messages, systemPrompt) {
         });
 
         if (!response.ok) {
-            let errorDetail = '';
-            try {
-                const errData = await response.json();
-                errorDetail = errData.error?.message || JSON.stringify(errData).slice(0, 200);
-            } catch {
-                errorDetail = await response.text();
-            }
-            throw new Error(`HTTP ${response.status}: ${errorDetail}`);
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(`HTTP ${response.status}: ${errData.error?.message || '未知错误'}`);
         }
 
         const data = await response.json();
@@ -1070,7 +875,6 @@ async function callAI(messages, systemPrompt) {
         if (detectedProvider === 'anthropic') {
             return data.content?.[0]?.text || '';
         } else {
-            // OpenAI / DeepSeek / MiniMax
             return data.choices?.[0]?.message?.content || '';
         }
     } catch (error) {
@@ -1084,126 +888,158 @@ async function callAI(messages, systemPrompt) {
 function callLocalAI(messages, systemPrompt) {
     return new Promise((resolve) => {
         setTimeout(() => {
-            resolve('【本地模拟】这是一段模拟的AI续写内容。夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。');
+            resolve('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。');
         }, 1000);
     });
 }
 
+function getThemePrompt(themeType) {
+    const prompts = {
+        romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
+        fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
+        xianxia: '你是一位专业的仙侠小说写作助手，擅长描绘修仙之路和仙魔之争。请用中文回答。',
+        mystery: '你是一位专业的悬疑小说写作助手，擅长铺设悬念和设计推理逻辑。请用中文回答。',
+        scifi: '你是一位专业的科幻小说写作助手，擅长设计科技设定和未来场景。请用中文回答。',
+        wuxia: '你是一位专业的武侠小说写作助手，擅长描绘江湖规矩和武功招式。请用中文回答。',
+        urban: '你是一位专业的都市小说写作助手，擅长描绘现代都市生活。请用中文回答。',
+        historical: '你是一位专业的历史小说写作助手，擅长还原时代背景和人物风貌。请用中文回答。',
+        horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。',
+        game: '你是一位专业的游戏小说写作助手，擅长描绘游戏世界和副本冒险。请用中文回答。',
+        apocalypse: '你是一位专业的末世小说写作助手，擅长描绘末日生存和人性的挣扎。请用中文回答。'
+    };
+    return prompts[themeType] || prompts.romance;
+}
+
+// ==================== AI 功能 ====================
 async function aiWrite() {
-    if (currentChapterIndex === -1) {
-        alert('请先选择一个章节');
-        return;
-    }
-    const content = document.getElementById('contentEditor').value;
+    const content = document.getElementById('contentEditor')?.value;
     if (!content) {
-        alert('请先输入一些内容');
+        showToast('请先输入一些内容', 'error');
         return;
     }
 
     showLoading(true);
 
     try {
-        const project = projects[currentProjectIndex];
-        const systemPrompt = getThemePrompt(project.type);
+        const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+        const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
+        const chapterIndex = parseInt(localStorage.getItem('moyun_current_chapter') || '0');
+        const project = currentProject[projectIndex];
 
         const messages = [{
             role: 'user',
             content: `请续写以下小说内容，保持相同的风格和节奏，续写150-300字：\n\n${content}`
         }];
 
-        const continuation = await callAI(messages, systemPrompt);
-        document.getElementById('contentEditor').value = content + continuation;
-        projects[currentProjectIndex].chapters[currentChapterIndex].content = document.getElementById('contentEditor').value;
-        saveProjects();
-        updateWordCount();
+        const continuation = await callAI(messages, getThemePrompt(project?.type));
+        const editor = document.getElementById('contentEditor');
+        if (editor) {
+            editor.value = content + continuation;
+            currentProject[projectIndex].chapters[chapterIndex].content = editor.value;
+            localStorage.setItem('moyun_projects', JSON.stringify(currentProject));
+            updateWordCount();
+        }
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
     showLoading(false);
 }
 
 async function aiPolish() {
-    if (currentChapterIndex === -1) {
-        alert('请先选择一个章节');
-        return;
-    }
-    const content = document.getElementById('contentEditor').value;
+    const content = document.getElementById('contentEditor')?.value;
     if (!content) {
-        alert('请先输入内容');
+        showToast('请先输入内容', 'error');
         return;
     }
 
     showLoading(true);
 
     try {
-        const systemPrompt = '你是一位专业的中文写作润色专家，擅长优化文字表达。请直接返回润色后的内容。';
-
         const messages = [{
             role: 'user',
             content: `请润色以下内容：\n\n${content}`
         }];
 
-        const polished = await callAI(messages, systemPrompt);
-        document.getElementById('contentEditor').value = polished;
-        projects[currentProjectIndex].chapters[currentChapterIndex].content = polished;
-        saveProjects();
-        updateWordCount();
+        const polished = await callAI(messages, '你是一位专业的中文写作润色专家，擅长优化文字表达。请直接返回润色后的内容。');
+        const editor = document.getElementById('contentEditor');
+        if (editor) {
+            editor.value = polished;
+            const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+            const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
+            const chapterIndex = parseInt(localStorage.getItem('moyun_current_chapter') || '0');
+            currentProject[projectIndex].chapters[chapterIndex].content = polished;
+            localStorage.setItem('moyun_projects', JSON.stringify(currentProject));
+            updateWordCount();
+        }
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
     showLoading(false);
 }
 
 async function aiImprove() {
-    if (currentChapterIndex === -1) {
-        alert('请先选择一个章节');
-        return;
-    }
-    const content = document.getElementById('contentEditor').value;
+    const content = document.getElementById('contentEditor')?.value;
     if (!content) {
-        alert('请先输入内容');
+        showToast('请先输入内容', 'error');
         return;
     }
 
     showLoading(true);
 
     try {
-        const project = projects[currentProjectIndex];
-        const systemPrompt = getThemePrompt(project.type);
+        const currentProject = JSON.parse(localStorage.getItem('moyun_projects') || '[]');
+        const projectIndex = parseInt(localStorage.getItem('moyun_current_project') || '0');
+        const project = currentProject[projectIndex];
 
         const messages = [{
             role: 'user',
             content: `请为以下小说内容提供改进建议：\n\n${content.slice(0, 500)}`
         }];
 
-        const suggestion = await callAI(messages, systemPrompt);
-        alert('💡 AI改进建议：\n\n' + suggestion);
+        const suggestion = await callAI(messages, getThemePrompt(project?.type));
+        showToast('💡 AI改进建议：\n\n' + suggestion, 'info');
     } catch (error) {
-        alert('AI调用失败，请检查API设置');
+        showToast('AI调用失败：' + error.message, 'error');
     }
 
     showLoading(false);
 }
 
 function showLoading(show) {
-    const btn = event?.target?.closest('.toolbar-btn') || document.querySelector('.toolbar-btn.primary');
+    const btn = document.querySelector('.toolbar-btn.primary');
+    if (!btn) return;
+
     if (show) {
         btn.textContent = '⏳ AI思考中...';
         btn.disabled = true;
     } else {
-        btn.textContent = btn.classList.contains('primary') ? '✍️ AI续写' : btn.dataset.originalText || '✍️ AI续写';
+        btn.textContent = '✍️ AI续写';
         btn.disabled = false;
     }
 }
 
-// ==================== Auto-save ====================
+function updateWordCount() {
+    const editor = document.getElementById('contentEditor');
+    const countEl = document.getElementById('currentWordCount');
+    if (editor && countEl) {
+        countEl.textContent = `${editor.value.length} 字`;
+    }
+}
+
+// ==================== 自动保存 ====================
 setInterval(() => {
     if (projects.length > 0) {
         saveProjects();
     }
 }, 30000);
 
-// ==================== Init ====================
+// ==================== 初始化 ====================
 document.addEventListener('DOMContentLoaded', init);
+
+// Temperature slider
+document.getElementById('temperatureInput')?.addEventListener('input', function() {
+    const valueEl = document.getElementById('temperatureValue');
+    if (valueEl) valueEl.textContent = this.value;
+});

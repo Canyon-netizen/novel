@@ -196,8 +196,7 @@
             }
 
             if (valid) {
-                // 模拟登录成功，跳转到主页
-                localStorage.setItem('user', JSON.stringify({ name: username }));
+                localStorage.setItem('moyun_user_name', username);
                 window.location.href = 'index.html';
             }
         }
@@ -206,6 +205,14 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 handleLogin();
+            }
+        });
+
+        // 初始化：如果已有用户名，显示之
+        window.addEventListener('DOMContentLoaded', function() {
+            const savedName = localStorage.getItem('moyun_user_name');
+            if (savedName) {
+                document.getElementById('avatarText').textContent = savedName;
             }
         });
     </script>
