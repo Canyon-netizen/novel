@@ -87,11 +87,21 @@
             <div class="project-header">
                 <h2 class="section-title">我的小说 <span id="projectCount">(0)</span></h2>
                 <div class="toolbar">
-                    <button class="btn-secondary" onclick="toggleSearch()">搜索</button>
-                    <button class="btn-secondary" onclick="toggleFilter('type')">类型</button>
-                    <button class="btn-secondary" onclick="toggleFilter('time')">时间</button>
-                    <button class="btn-secondary" id="gridViewBtn" onclick="setView('grid')">⊞</button>
-                    <button class="btn-secondary" id="listViewBtn" onclick="setView('list')">☰</button>
+                    <button class="btn-secondary" onclick="toggleSearch()" title="搜索" aria-label="搜索">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="20" y1="20" x2="16.5" y2="16.5"/></svg>
+                    </button>
+                    <button class="btn-secondary" onclick="toggleFilter('type')" title="类型" aria-label="类型">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M3 12h18M3 19h18"/></svg>
+                    </button>
+                    <button class="btn-secondary" onclick="toggleFilter('time')" title="时间" aria-label="时间">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    </button>
+                    <button class="btn-secondary" id="gridViewBtn" onclick="setView('grid')" title="网格" aria-label="网格">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                    </button>
+                    <button class="btn-secondary" id="listViewBtn" onclick="setView('list')" title="列表" aria-label="列表">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    </button>
                     <button class="btn-primary" onclick="openNewNovelModal()">+ 新建</button>
                 </div>
             </div>

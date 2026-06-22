@@ -642,14 +642,24 @@ function saveCurrentChapterLocal() {
     if (!saved) return;
 
     const projects = safeLoadProjects();
-    const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
-    if (chapter) {
-        const contentEditor = document.getElementById('contentEditor');
-        if (contentEditor) {
-            chapter.content = contentEditor.value;
-            localStorage.setItem('moyun_projects', JSON.stringify(projects));
-        }
+    const project = projects[projectIndex];
+    const chapter = project?.chapters?.[chapterIndex];
+    if (!project || !chapter) return;
+
+    const contentEditor = document.getElementById('contentEditor');
+    if (contentEditor) {
+        chapter.content = contentEditor.value;
     }
+    // 标记项目最近编辑时间（驱动首页「最近写作」区块）
+    project.lastEditedAt = new Date().toISOString();
+    // 同步 mtime，让「最近写作」有排序依据
+    project.updatedAt = project.lastEditedAt;
+    if (!project.createdAt) project.createdAt = project.lastEditedAt;
+
+    localStorage.setItem('moyun_projects', JSON.stringify(projects));
+    // 同步当前项目索引到 localStorage（页面刷新后能恢复）
+    localStorage.setItem('moyun_current_project', String(projectIndex));
+    localStorage.setItem('moyun_current_chapter', String(chapterIndex));
 }
 
 function saveCurrentChapter() {
