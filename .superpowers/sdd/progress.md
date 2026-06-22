@@ -8,7 +8,7 @@
 | 4. Keyboard shortcuts module | complete | ac76daf | clean (bundled with T3) |
 | 5. index.html redesign | complete | 0671875 | clean (visually verified) |
 | 6. create.html single-column + B1 fix | complete | 19c8554 | clean (B1 verified, A1 partial, emojis stripped) |
-| 7. editor.html collapsible sidebar + AI loading | complete (uncommitted) | — | clean |
-| 8. login.html simplification + delete confirm | pending | — | — |
+| 7. editor.html collapsible sidebar + AI loading | complete | ec538e6 | clean |
+| 8. login.html simplification + delete confirm | complete | 0b9f2c0 | clean |
 | 9. Visual smoke test + legacy cleanup | pending | — | — |
 | 10. Docs + push | pending | — | — |
