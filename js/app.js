@@ -44,6 +44,7 @@ function init() {
     setupAuthActions();
     updateGreeting();
     renderProjects();
+    renderRecent();
     updateStats();
     updateAIStatus();
     setupEventListeners();
@@ -105,6 +106,11 @@ function updateGreeting() {
     const saved = localStorage.getItem('moyun_user_name');
     const name = saved || 'yyy';
 
+    // Welcome strip (replaces old welcome-section h1)
+    const stripEl = document.getElementById('welcomeStrip');
+    if (stripEl) stripEl.textContent = `${greeting}，${name}`;
+
+    // Backward-compat: legacy greetingText element
     const greetingEl = document.getElementById('greetingText');
     if (greetingEl) greetingEl.textContent = `${greeting}，${name}`;
 
@@ -138,18 +144,43 @@ function renderProjects(filterFn) {
         const originalIndex = projects.indexOf(project);
         return `
         <div class="novel-card" onclick="openProject(${originalIndex})">
-            <div class="novel-card-header">
-                <span class="novel-type">${getTypeName(project.type)}</span>
-                <span class="novel-menu" onclick="event.stopPropagation(); showNovelMenu(${originalIndex})">⋮</span>
-            </div>
-            <h3 class="novel-title">${escapeHtml(project.title)}</h3>
-            <p class="novel-desc">${escapeHtml(project.description || '暂无简介')}</p>
-            <div class="novel-meta">
-                <span>📖 ${project.chapters?.length || 0}章</span>
-                <span>✍️ ${getProjectWordCount(project)}字</span>
+            <div class="novel-card__type">${getTypeName(project.type)}</div>
+            <div class="novel-card__title">${escapeHtml(project.title)}</div>
+            <div class="novel-card__desc">${escapeHtml(project.description || '暂无简介')}</div>
+            <div class="novel-card__meta">
+                <span>${project.chapters?.length || 0} 章</span>
+                <span>${getProjectWordCount(project)} 字</span>
             </div>
         </div>
     `}).join('');
+}
+
+function renderRecent() {
+    const grid = document.getElementById('recentGrid');
+    if (!grid) return;
+    const recent = projects
+        .filter(p => p.lastEditedAt)
+        .sort((a, b) => new Date(b.lastEditedAt) - new Date(a.lastEditedAt))
+        .slice(0, 3);
+    if (recent.length === 0) {
+        NovelStates.render(grid, {
+            type: 'empty',
+            title: '还没有最近的写作',
+            desc: '开始你的第一个项目，最近的进度会显示在这里'
+        });
+        return;
+    }
+    grid.innerHTML = recent.map((p) => {
+        const idx = projects.indexOf(p);
+        const lastDate = p.lastEditedAt ? new Date(p.lastEditedAt).toLocaleString('zh-CN') : '';
+        return `
+            <div class="novel-card" onclick="openProject(${idx})">
+                <span class="novel-card__type">${getTypeName(p.type)}</span>
+                <div class="novel-card__title">${escapeHtml(p.title)}</div>
+                <div class="novel-card__meta">上次编辑 ${lastDate}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 function escapeHtml(text) {

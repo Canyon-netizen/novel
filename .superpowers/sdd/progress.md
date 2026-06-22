@@ -4,8 +4,8 @@
 |---|---|---|---|
 | 1. CSS token + motion + 3-state | complete | b0fd5a9 | clean |
 | 2. Theme toggle + 4-page header | complete | 398d949 | clean |
-| 3. empty/error/loading state module | pending | — | — |
-| 4. Keyboard shortcuts module | pending | — | — |
+| 3. empty/error/loading state module | complete | ac76daf | clean (bundled with T4) |
+| 4. Keyboard shortcuts module | complete | ac76daf | clean (bundled with T3) |
 | 5. index.html redesign | pending | — | — |
 | 6. create.html single-column + B1 fix | pending | — | — |
 | 7. editor.html collapsible sidebar + AI loading | pending | — | — |

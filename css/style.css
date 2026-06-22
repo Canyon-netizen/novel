@@ -1949,3 +1949,122 @@ textarea:focus-visible {
     font-size: 0.9rem;
     color: var(--text-primary);
 }
+
+/* ==================== Stat icons (single-color SVG) ==================== */
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent-primary);
+    background: var(--accent-soft);
+}
+.stat-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+/* ==================== Home: welcome-strip / stats / recent / project ==================== */
+.welcome-strip {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    padding: 0 4px;
+}
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+}
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: all var(--motion-normal);
+}
+.stat-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); border-color: var(--border-strong); }
+.stat-info h3 { font-size: 1.5rem; font-weight: 600; color: var(--text-primary); }
+.stat-info p { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+
+.section-title { font-size: 1.125rem; font-weight: 600; color: var(--text-primary); margin-bottom: 16px; }
+
+.recent-section, .project-section { margin-bottom: 32px; }
+.recent-grid, .novel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+@media (max-width: 1279px) { .recent-grid, .novel-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 767px) { .recent-grid, .novel-grid { grid-template-columns: 1fr; } }
+
+.novel-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    cursor: pointer;
+    transition: all var(--motion-normal);
+}
+.novel-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+.novel-card__type {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+}
+.novel-card__title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.novel-card__desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
+.novel-card__meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted); }
+.novel-card__menu { color: var(--text-secondary); cursor: pointer; padding: 4px 8px; }
+
+.project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.project-header .section-title { margin-bottom: 0; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn-secondary {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0 12px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: all var(--motion-normal);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-secondary:hover { background: var(--bg-secondary); border-color: var(--border-strong); }
+.btn-secondary.active { background: var(--accent-soft); color: var(--accent-primary); border-color: var(--accent-primary); }
+
+.btn-primary {
+    background: var(--accent-primary);
+    border: 1px solid var(--accent-primary);
+    color: #FFFFFF;
+    padding: 0 16px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: all var(--motion-normal);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-primary:hover { background: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 1023px) { .stats-section { grid-template-columns: repeat(2, 1fr); } }
