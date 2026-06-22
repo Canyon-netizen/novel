@@ -10,5 +10,5 @@
 | 6. create.html single-column + B1 fix | complete | 19c8554 | clean (B1 verified, A1 partial, emojis stripped) |
 | 7. editor.html collapsible sidebar + AI loading | complete | ec538e6 | clean |
 | 8. login.html simplification + delete confirm | complete | 0b9f2c0 | clean |
-| 9. Visual smoke test + legacy cleanup | pending | — | — |
+| 9. Visual smoke test + legacy cleanup | complete | b0ccced | clean |
 | 10. Docs + push | pending | — | — |

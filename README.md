@@ -1,6 +1,13 @@
-# 墨韵AI - 智能小说创作平台
+# 一页 - 智能小说创作平台
 
 > 智能小说创作平台，支持多种题材、模板市场、AI写作助手、数据同步
+
+## 设计语言
+
+- **品牌**：一页（点阵 + 思源黑体）
+- **配色**：淡黄纸张 `#F8F6F1`（亮）/ 深暖灰 `#1A1815`（暗）+ 青靛 `#2F5D62` 强调色
+- **字体**：UI 用思源黑体 + Inter；阅读区用思源宋体 + Source Serif Pro
+- **细节规范**：[docs/superpowers/specs/2026-06-22-yipye-redesign-design.md](docs/superpowers/specs/2026-06-22-yipye-redesign-design.md)
 
 ## 功能特点
 
