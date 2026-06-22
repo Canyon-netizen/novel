@@ -986,7 +986,7 @@ async function aiWrite() {
     if (!content) { showToast('请先输入一些内容', 'error'); return; }
 
     const btn = document.querySelector('.toolbar-btn.primary');
-    if (btn) { btn.textContent = '⏳ AI思考中...'; btn.disabled = true; }
+    if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> AI 思考中...'; btn.disabled = true; }
 
     try {
         const saved = localStorage.getItem('moyun_projects');
@@ -1003,7 +1003,7 @@ async function aiWrite() {
         showToast('AI调用失败：' + error.message, 'error');
     }
 
-    if (btn) { btn.textContent = '✍️ AI续写'; btn.disabled = false; }
+    if (btn) { btn.innerHTML = 'AI 续写'; btn.disabled = false; }
 }
 
 async function aiPolish() {
@@ -1012,7 +1012,7 @@ async function aiPolish() {
 
     const btns = document.querySelectorAll('.toolbar-btn');
     const btn = btns[1];
-    if (btn) { btn.textContent = '⏳ AI润色中...'; btn.disabled = true; }
+    if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> AI 润色中...'; btn.disabled = true; }
 
     try {
         const polished = await callAI([{ role: 'user', content: `润色：\n\n${content}` }], '你是专业的中文写作润色专家。');
@@ -1026,7 +1026,7 @@ async function aiPolish() {
         showToast('AI调用失败：' + error.message, 'error');
     }
 
-    if (btn) { btn.textContent = '🎨 AI润色'; btn.disabled = false; }
+    if (btn) { btn.innerHTML = 'AI 润色'; btn.disabled = false; }
 }
 
 async function aiImprove() {
@@ -1035,7 +1035,7 @@ async function aiImprove() {
 
     const btns = document.querySelectorAll('.toolbar-btn');
     const btn = btns[2];
-    if (btn) { btn.textContent = '⏳ AI分析中...'; btn.disabled = true; }
+    if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> AI 分析中...'; btn.disabled = true; }
 
     try {
         const saved = localStorage.getItem('moyun_projects');
@@ -1047,7 +1047,13 @@ async function aiImprove() {
         showToast('AI调用失败：' + error.message, 'error');
     }
 
-    if (btn) { btn.textContent = '💡 AI建议'; btn.disabled = false; }
+    if (btn) { btn.innerHTML = 'AI 建议'; btn.disabled = false; }
+}
+
+// ==================== Keyboard Shortcuts ====================
+if (typeof NovelShortcuts !== 'undefined') {
+    NovelShortcuts.bind('editor', 's', true, () => { saveCurrentChapter(); });
+    NovelShortcuts.bind('editor', 'Enter', true, (e) => { e.preventDefault(); aiWrite(); });
 }
 
 // ==================== 初始化 ====================

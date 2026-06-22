@@ -43,26 +43,32 @@
                 <h2 class="editor-title" id="editorTitle">第1章 · 章节标题</h2>
                 <div class="editor-actions">
                     <button class="action-btn" onclick="saveCurrentChapter()">
-                        <span>💾</span> 保存
+                        保存
                     </button>
                     <button class="action-btn" onclick="exportCurrentProject()">
-                        <span>📤</span> 导出
+                        导出
                     </button>
                 </div>
             </div>
 
             <div class="editor-container">
-                <aside class="chapter-sidebar">
-                    <h3>章节目录</h3>
-
-                    <!-- Tab Navigation for Sidebar -->
+                <aside class="chapter-sidebar" id="chapterSidebar">
                 <div class="sidebar-tabs">
-                    <button class="sidebar-tab active" data-tab="chapters" onclick="switchSidebarTab('chapters')">📖 章节</button>
-                    <button class="sidebar-tab" data-tab="characters" onclick="switchSidebarTab('characters')">👥 角色</button>
-                    <button class="sidebar-tab" data-tab="world" onclick="switchSidebarTab('world')">🌍 世界</button>
-                    <button class="sidebar-tab" data-tab="timeline" onclick="switchSidebarTab('timeline')">⏱️ 时间</button>
+                    <button class="sidebar-tab-icon active" data-tab="chapters" onclick="switchSidebarTab('chapters')" title="章节" aria-label="章节">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><line x1="8" y1="9" x2="16" y2="9"/></svg>
+                    </button>
+                    <button class="sidebar-tab-icon" data-tab="characters" onclick="switchSidebarTab('characters')" title="角色" aria-label="角色">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+                    </button>
+                    <button class="sidebar-tab-icon" data-tab="world" onclick="switchSidebarTab('world')" title="世界" aria-label="世界">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18"/></svg>
+                    </button>
+                    <button class="sidebar-tab-icon" data-tab="timeline" onclick="switchSidebarTab('timeline')" title="时间" aria-label="时间">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    </button>
                 </div>
 
+                <div class="sidebar-content-wrap" id="sidebarContent">
                 <!-- Chapter List -->
                 <div class="sidebar-content active" id="chaptersTab">
                     <div class="chapter-list" id="chapterList">
@@ -117,19 +123,20 @@
                         <span>+</span> 添加时间节点
                     </button>
                 </div>
+                </div>
             </aside>
 
                 <div class="content-area">
                     <textarea class="content-textarea" id="contentEditor" placeholder="在这里开始你的创作..."></textarea>
                     <div class="content-toolbar">
                         <button class="toolbar-btn primary" onclick="aiWrite()">
-                            ✍️ AI续写
+                            AI 续写
                         </button>
                         <button class="toolbar-btn" onclick="aiPolish()">
-                            🎨 AI润色
+                            AI 润色
                         </button>
                         <button class="toolbar-btn" onclick="aiImprove()">
-                            💡 AI建议
+                            AI 建议
                         </button>
                     </div>
                     <div class="word-count-bar">
