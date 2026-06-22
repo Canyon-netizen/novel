@@ -1811,3 +1811,141 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .novel-state--loading {
     min-height: 200px;
 }
+
+/* ==================== Page Header (4 pages) ==================== */
+.page-header {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: color-mix(in srgb, var(--bg-primary) 92%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.page-header--minimal {
+    height: 48px;
+    border-bottom: none;
+}
+.page-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.25rem;
+    font-family: var(--font-ui);
+}
+.page-logo__dot {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    grid-template-columns: repeat(3, 4px);
+    grid-template-rows: repeat(3, 4px);
+    gap: 3px;
+}
+.page-logo__dot span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+}
+.page-header__right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Theme toggle buttons */
+.theme-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: all var(--motion-normal);
+}
+.theme-btn:hover {
+    background: var(--bg-secondary);
+}
+.theme-btn--active {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Focus ring (a11y) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid var(--accent-soft);
+    outline-offset: 2px;
+}
+
+/* Header back button (editor only) */
+.header-back-btn {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all var(--motion-normal);
+    font-family: var(--font-ui);
+}
+.header-back-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Settings btn (header) */
+.settings-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--motion-normal);
+}
+.settings-btn:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* User info (header) */
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    position: relative;
+}
+.user-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+.user-name {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}

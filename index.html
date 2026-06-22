@@ -3,25 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>墨韵AI - 智能小说创作</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <meta name="theme-color" content="#F8F6F1" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1A1815" media="(prefers-color-scheme: dark)">
+    <title>一页 - 智能小说创作</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <div class="logo">📝</div>
-            <span class="brand-name">墨韵AI</span>
-            <span class="brand-sub">智能创作工作台</span>
-        </div>
-        <div class="header-right">
-            <button class="settings-btn" onclick="openSettingsModal()" title="设置">⚙️</button>
-            <select class="theme-select" onchange="toggleTheme()">
-                <option value="dark">暗色系</option>
-                <option value="light">亮色系</option>
-            </select>
+    <header class="page-header">
+        <a href="index.html" class="page-logo">
+            <div class="page-logo__dot">
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+            </div>
+            <span>一页</span>
+        </a>
+        <div class="page-header__right">
+            <button class="settings-btn" onclick="openSettingsModal()" title="设置" aria-label="设置">⚙</button>
+            <div id="themeToggle"></div>
             <div class="user-info">
                 <div class="user-avatar"></div>
                 <span class="user-name"></span>
@@ -243,6 +245,7 @@
     <script src="app/inspiration.js"></script>
     <script src="app/exporter.js"></script>
     <script src="app/settings-test.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/theme-toggle.js"></script>
+<script src="js/app.js"></script>
 </body>
 </html>

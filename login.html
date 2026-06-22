@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - 墨韵AI</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+    <meta name="theme-color" content="#F8F6F1" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1A1815" media="(prefers-color-scheme: dark)">
+    <title>登录 - 一页</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
     <link rel="stylesheet" href="css/style.css">
     <style>
         body {
@@ -138,15 +140,24 @@
     </style>
 </head>
 <body>
+    <header class="page-header page-header--minimal">
+        <a href="index.html" class="page-logo">
+            <div class="page-logo__dot">
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+                <span></span><span></span><span></span>
+            </div>
+            <span>一页</span>
+        </a>
+        <div class="page-header__right"></div>
+    </header>
     <div class="login-container">
-        <div class="login-avatar" id="loginAvatar" onclick="document.getElementById('avatarUpload').click()">
-            <span class="avatar-text" id="avatarText">未登录</span>
-            <img id="avatarPreview" style="display:none;" />
+        <div class="login-avatar" id="loginAvatar">
+            <span class="avatar-default">?</span>
         </div>
-        <input type="file" id="avatarUpload" class="avatar-upload" accept="image/*" onchange="handleAvatarUpload(event)">
 
         <h2 class="login-title">欢迎回来</h2>
-        <p class="login-sub">登录墨韵AI，继续你的创作之旅</p>
+        <p class="login-sub">登录一页，继续创作</p>
 
         <div class="form-group">
             <label class="form-label">账号</label>
@@ -169,6 +180,7 @@
         </div>
     </div>
 
+    <script src="js/theme-toggle.js"></script>
     <script>
         function handleAvatarUpload(event) {
             const file = event.target.files[0];
@@ -188,7 +200,8 @@
         function handleLogin() {
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value;
-            const avatar = document.getElementById('avatarPreview').src || '';
+            const avatarEl = document.getElementById('avatarPreview');
+            const avatar = avatarEl ? avatarEl.src : '';
             let valid = true;
 
             document.getElementById('usernameError').style.display = 'none';
@@ -231,8 +244,9 @@
         // 初始化：如果已有用户名，显示之
         window.addEventListener('DOMContentLoaded', function() {
             const savedName = localStorage.getItem('moyun_user_name');
-            if (savedName) {
-                document.getElementById('avatarText').textContent = savedName;
+            const avatarTextEl = document.getElementById('avatarText');
+            if (savedName && avatarTextEl) {
+                avatarTextEl.textContent = savedName;
             }
         });
     </script>
