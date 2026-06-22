@@ -15,7 +15,7 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
             display: grid;
             grid-template-columns: 400px 1fr;
             gap: 1.5rem;
-            min-height: calc(100vh - 140px);
+            min-height: calc(100vh - 200px);
         }
 
         /* Left Panel - Build Config */
@@ -24,7 +24,7 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
             border: 1px solid var(--border-color);
             border-radius: var(--border-radius);
             padding: 1.5rem;
-            max-height: calc(100vh - 180px);
+            max-height: calc(100vh - 240px);
             overflow-y: auto;
         }
 
@@ -1199,7 +1199,7 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
                     <label>小说名称</label>
                     <div class="input-with-btn">
                         <input type="text" class="form-input" id="novelName" placeholder="输入小说名称">
-                        <button class="ai-btn" onclick="aiGenerateName('novel')">✨ AI</button>
+                        <button class="ai-btn" onclick="aiGenerateName('novel')">AI</button>
                     </div>
                 </div>
 
@@ -1207,14 +1207,14 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
                     <label>主角名称</label>
                     <div class="input-with-btn">
                         <input type="text" class="form-input" id="protagonistName" placeholder="输入主角名称">
-                        <button class="ai-btn" onclick="aiGenerateName('protagonist')">✨ AI</button>
+                        <button class="ai-btn" onclick="aiGenerateName('protagonist')">AI</button>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-row-header">
                         <label>创作方向</label>
-                        <button class="mini-ai-btn" onclick="aiGenerateDirection()">✨ AI生成方向</button>
+                        <button class="mini-ai-btn" onclick="aiGenerateDirection()">AI 生成方向</button>
                     </div>
                     <textarea class="form-input" id="direction" placeholder="简要描述故事方向或核心创意..." rows="3"></textarea>
                 </div>
@@ -1222,16 +1222,16 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
                 <div class="form-row">
                     <label>小说类型</label>
                     <div class="tag-group" id="genreTags">
-                        <button class="tag-btn fantasy" data-value="fantasy">🔮 玄幻</button>
-                        <button class="tag-btn" data-value="xianxia">🧧 仙侠</button>
-                        <button class="tag-btn urban" data-value="urban">🏙️ 都市</button>
-                        <button class="tag-btn scifi" data-value="scifi">🚀 科幻</button>
-                        <button class="tag-btn" data-value="historical">🏯 历史</button>
-                        <button class="tag-btn romance" data-value="romance">💕 言情</button>
-                        <button class="tag-btn" data-value="mystery">🔍 悬疑</button>
-                        <button class="tag-btn wuxia" data-value="wuxia">⚔️ 武侠</button>
-                        <button class="tag-btn" data-value="game">🎮 游戏</button>
-                        <button class="tag-btn" data-value="apocalypse">🌡️ 末世</button>
+                        <button class="tag-btn fantasy" data-value="fantasy">玄幻</button>
+                        <button class="tag-btn" data-value="xianxia">仙侠</button>
+                        <button class="tag-btn urban" data-value="urban">都市</button>
+                        <button class="tag-btn scifi" data-value="scifi">科幻</button>
+                        <button class="tag-btn" data-value="historical">历史</button>
+                        <button class="tag-btn romance" data-value="romance">言情</button>
+                        <button class="tag-btn" data-value="mystery">悬疑</button>
+                        <button class="tag-btn wuxia" data-value="wuxia">武侠</button>
+                        <button class="tag-btn" data-value="game">游戏</button>
+                        <button class="tag-btn" data-value="apocalypse">末世</button>
                     </div>
                 </div>
 
@@ -1241,21 +1241,21 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
                     </div>
                     <div class="collapsible-content">
                         <div class="tag-group" id="tropeTags">
-                            <button class="tag-btn" data-value="system">📱 系统流</button>
+                            <button class="tag-btn" data-value="system">系统流</button>
                             <button class="tag-btn" data-value="levelup">⬆️ 升级流</button>
-                            <button class="tag-btn" data-value="invincible">👑 无敌流</button>
-                            <button class="tag-btn" data-value="farming">🌾 种田流</button>
-                            <button class="tag-btn" data-value="cultivation">⚡ 炼功流</button>
-                            <button class="tag-btn" data-value="tech">🔧 技术流</button>
-                            <button class="tag-btn" data-value="checkin">📝 签到流</button>
-                            <button class="tag-btn" data-value="rebirth">🔄 重生</button>
-                            <button class="tag-btn" data-value="transmigration">🚪 穿越</button>
-                            <button class="tag-btn" data-value="comprehension">💡 悟道流</button>
-                            <button class="tag-btn" data-value="seductive">💅 媚宠流</button>
-                            <button class="tag-btn" data-value="harem">👥 后宫</button>
-                            <button class="tag-btn" data-value="brainwar">🧠 脑子战</button>
-                            <button class="tag-btn" data-value="beast">🐉 御兽</button>
-                            <button class="tag-btn" data-value="alchemy">⚗️ 炼丹</button>
+                            <button class="tag-btn" data-value="invincible">无敌流</button>
+                            <button class="tag-btn" data-value="farming">种田流</button>
+                            <button class="tag-btn" data-value="cultivation">炼功流</button>
+                            <button class="tag-btn" data-value="tech">技术流</button>
+                            <button class="tag-btn" data-value="checkin">签到流</button>
+                            <button class="tag-btn" data-value="rebirth">重生</button>
+                            <button class="tag-btn" data-value="transmigration">穿越</button>
+                            <button class="tag-btn" data-value="comprehension">悟道流</button>
+                            <button class="tag-btn" data-value="seductive">媚宠流</button>
+                            <button class="tag-btn" data-value="harem">后宫</button>
+                            <button class="tag-btn" data-value="brainwar">脑子战</button>
+                            <button class="tag-btn" data-value="beast">御兽</button>
+                            <button class="tag-btn" data-value="alchemy">炼丹</button>
                         </div>
                     </div>
                 </div>
@@ -1389,7 +1389,7 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
 
     <!-- Footer -->
     <footer class="footer">
-      更新了些新BUG，额....是新功能 ✨
+      &nbsp;
     </footer>
 
     <!-- Settings Modal -->

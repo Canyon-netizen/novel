@@ -6,7 +6,7 @@
 | 2. Theme toggle + 4-page header | complete | 398d949 | clean |
 | 3. empty/error/loading state module | complete | ac76daf | clean (bundled with T4) |
 | 4. Keyboard shortcuts module | complete | ac76daf | clean (bundled with T3) |
-| 5. index.html redesign | pending | — | — |
+| 5. index.html redesign | complete | 0671875 | clean (visually verified) |
 | 6. create.html single-column + B1 fix | pending | — | — |
 | 7. editor.html collapsible sidebar + AI loading | pending | — | — |
 | 8. login.html simplification + delete confirm | pending | — | — |
