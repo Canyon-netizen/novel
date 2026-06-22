@@ -9,6 +9,15 @@
         return localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME;
     }
 
+    // Apply the saved theme to <html> as early as possible so the
+    // first paint already has the right background. Without this,
+    // pages flash light -> dark when navigation switches pages.
+    function applyStoredTheme() {
+        const theme = getCurrent();
+        document.documentElement.setAttribute('data-theme', theme);
+    }
+    applyStoredTheme();
+
     function apply(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem(STORAGE_KEY, theme);
@@ -35,12 +44,13 @@
         });
     }
 
-    // Public API
     root.NovelThemeToggle = { apply, getCurrent, render };
 
-    // Auto-init
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', render);
+        document.addEventListener('DOMContentLoaded', () => {
+            applyStoredTheme();
+            render();
+        });
     } else {
         render();
     }
