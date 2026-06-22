@@ -3,7 +3,7 @@
 | Task | Status | Commits | Review |
 |---|---|---|---|
 | 1. CSS token + motion + 3-state | complete | b0fd5a9 | clean |
-| 2. Theme toggle + 4-page header | pending | — | — |
+| 2. Theme toggle + 4-page header | complete | 398d949 | clean |
 | 3. empty/error/loading state module | pending | — | — |
 | 4. Keyboard shortcuts module | pending | — | — |
 | 5. index.html redesign | pending | — | — |
