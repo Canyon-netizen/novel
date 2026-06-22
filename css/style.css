@@ -2045,8 +2045,26 @@ textarea:focus-visible {
 }
 .novel-card__title { font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
 .novel-card__desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
-.novel-card__meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted); }
-.novel-card__menu { color: var(--text-secondary); cursor: pointer; padding: 4px 8px; }
+.novel-card__meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted); align-items: center; }
+.novel-card__meta > span:first-child { margin-right: auto; }
+.novel-card__menu-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--motion-normal);
+}
+.novel-card__menu-btn:hover {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: var(--danger-soft);
+}
 
 .project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
 .project-header .section-title { margin-bottom: 0; }

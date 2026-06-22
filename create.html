@@ -1366,8 +1366,10 @@ Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such fil
                         <p style="font-size:1.2rem;margin-bottom:1rem;color:var(--text-primary);">📄 导入章节大纲</p>
                         <p style="color:var(--text-muted);">支持 Markdown、JSON 或纯文本大纲，创建后会自动生成章节目录</p>
                         <div style="margin-top:1.5rem;">
+                            <input type="file" id="outlineFileInput" accept=".md,.markdown,.json,.txt" style="display:none" onchange="handleOutlineFile(event)">
                             <button class="toolbar-btn" onclick="selectOutlineFile()">选择大纲文件</button>
                         </div>
+                        <div id="importStatus" style="margin-top:1.5rem;display:none;"></div>
                     </div>
                 </div>
 
