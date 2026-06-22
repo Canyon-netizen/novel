@@ -1413,6 +1413,34 @@
         tab.classList.add('active');
         content.style.display = 'block';
         updateTabChrome(normalized);
+
+        // 双向联动 B: 切到探讨模式时，把构建 tab 已填字段作为上下文
+        if (normalized === 'discuss') {
+            injectBuildContextToDiscuss();
+        }
+    }
+
+  // 双向联动 B: 把构建 tab 的字段注入探讨模式
+  let discussContextInjected = false;
+  let discussContext = '';
+  function injectBuildContextToDiscuss() {
+        syncConfigFromControls();
+        const ctx = describeCurrentNovel();
+        if (!ctx || ctx.length < 2) {
+            discussContext = '你是一位专业的中文小说创作助手。';
+            return;
+        }
+        discussContext = '你是一位专业的中文小说创作助手。当前用户正在创建以下项目：\n' + ctx + '\n请基于此项目情况回答问题；当用户要求时，帮忙补全字段。';
+
+        if (!discussContextInjected) {
+            const userMsg = '[项目上下文] ' + ctx;
+            const aiMsg = '已了解项目「' + (config.novelName || '未命名') + '」的配置。我们来讨论：你可以问世界观、人物设定、情节冲突、写作技巧，或让我帮你补全字段。';
+            discussHistory.push({ role: 'user', content: userMsg });
+            discussHistory.push({ role: 'assistant', content: aiMsg });
+            appendDiscussMessage('user', userMsg);
+            appendDiscussMessage('assistant', aiMsg);
+            discussContextInjected = true;
+        }
     }
 
     function updateTabChrome(tabName) {
@@ -1590,7 +1618,7 @@
                 if (hasRemoteAIConfig()) {
                     response = await callAI(
                         discussHistory.slice(-8),
-                        '你是一位专业的中文小说创作助手，擅长世界观设定、人物塑造、情节设计和写作技巧。请给出具体、可执行的建议。'
+                        discussContext || '你是一位专业的中文小说创作助手，擅长世界观设定、人物塑造、情节设计和写作技巧。请给出具体、可执行的建议。'
                     );
                 } else {
                     await delay(650);
@@ -1630,12 +1658,36 @@
             body.appendChild(loading);
         } else {
             body.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+            // 双向联动 A: AI 回复（非 loading）加"应用到创作方向"按钮
+            if (role === 'assistant' && !options.loading) {
+                const actions = document.createElement('div');
+                actions.className = 'message-actions';
+                const applyBtn = document.createElement('button');
+                applyBtn.type = 'button';
+                applyBtn.className = 'discuss-apply-btn';
+                applyBtn.textContent = '应用到创作方向';
+                applyBtn.addEventListener('click', () => applyDiscussToDirection(content));
+                actions.appendChild(applyBtn);
+                body.appendChild(actions);
+            }
         }
 
         message.append(avatar, body);
         messagesEl.appendChild(message);
         messagesEl.scrollTop = messagesEl.scrollHeight;
         return message;
+    }
+
+    // 双向联动 A: 把 AI 聊天回答应用为"创作方向"字段
+    function applyDiscussToDirection(text) {
+        const dirInput = $('direction');
+        if (!dirInput) return;
+        const existing = dirInput.value.trim();
+        const newVal = existing ? existing + '\n\n' + text : text;
+        dirInput.value = newVal;
+        // 触发 input 事件让 syncConfigFromControls 同步
+        dirInput.dispatchEvent(new Event('input', { bubbles: true }));
+        toast('已应用为创作方向', 'success');
     }
 
     function localDiscussReply(message) {
