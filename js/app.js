@@ -783,13 +783,15 @@ function showNovelMenu(index) {
 }
 
 function deleteProject(index) {
-    if (confirm('确定要删除这个项目吗？')) {
-        projects.splice(index, 1);
-        saveProjects();
-        renderProjects();
-        updateStats();
-        showToast('项目已删除', 'success');
-    }
+    const p = projects[index];
+    if (!p) return;
+    if (!confirm(`确认删除「${p.title}」？删除后无法恢复。`)) return;
+    projects.splice(index, 1);
+    saveProjects();
+    renderProjects();
+    renderRecent();
+    updateStats();
+    showToast(`已删除「${p.title}」`, 'success');
 }
 
 function exportProject(index) {
