@@ -1136,7 +1136,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 0.85rem;
     cursor: pointer;
     transition: all var(--motion-normal);
-    margin-top: 0.5rem;
+    margin-top: auto;
+    padding-top: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1536,14 +1537,18 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex: 1;
     overflow-y: auto;
     padding: 8px;
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar-content {
     display: none;
+    flex-direction: column;
+    flex: 1 1 auto;
 }
 
 .sidebar-content.active {
-    display: block;
+    display: flex;
 }
 
 /* ==================== Character List ==================== */
@@ -1603,7 +1608,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 0.85rem;
     cursor: pointer;
     transition: all var(--motion-normal);
-    margin-top: 0.5rem;
+    margin-top: auto; padding-top: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1732,7 +1737,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
     font-size: 0.85rem;
     cursor: pointer;
     transition: all var(--motion-normal);
-    margin-top: 0.5rem;
+    margin-top: auto; padding-top: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
