@@ -812,6 +812,10 @@
         const model = $('modelInput');
         if (baseUrl) {
             baseUrl.placeholder = preset.baseUrl || 'https://your-api.example.com';
+            // 仅当字段为空时自动填入默认 baseUrl，避免覆盖用户已填的
+            if (!baseUrl.value.trim() && preset.baseUrl) {
+                baseUrl.value = preset.baseUrl;
+            }
         }
         if (model) {
             model.placeholder = preset.model || '输入模型名称';

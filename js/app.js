@@ -356,6 +356,18 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
+// 各 provider 的默认 baseUrl（用户切换 provider 时自动填入）
+const PROVIDER_BASE_URL_PRESETS = {
+    anthropic: 'https://api.anthropic.com',
+    openai: 'https://api.openai.com',
+    deepseek: 'https://api.deepseek.com',
+    // MiniMax Coding Plan 推荐用 Anthropic 兼容 endpoint（已在 minimaxi.com 验证存在）
+    minimax: 'https://api.minimaxi.com/anthropic',
+    kimi: 'https://api.moonshot.cn',
+    glm: 'https://open.bigmodel.cn/api/coding/paas/v4',
+    custom: ''
+};
+
 function onApiProviderChange() {
     const provider = document.getElementById('apiProvider').value;
     const fields = ['apiKeyGroup', 'baseUrlGroup', 'modelGroup'];
@@ -363,6 +375,14 @@ function onApiProviderChange() {
         const el = document.getElementById(id);
         if (el) el.style.display = provider === 'local' ? 'none' : 'block';
     });
+
+    // 自动填入默认 baseUrl（仅当字段为空时，避免覆盖用户已填的）
+    if (PROVIDER_BASE_URL_PRESETS[provider] !== undefined) {
+        const baseUrlInput = document.getElementById('baseUrlInput');
+        if (baseUrlInput && !baseUrlInput.value.trim()) {
+            baseUrlInput.value = PROVIDER_BASE_URL_PRESETS[provider];
+        }
+    }
 }
 
 function saveSettings() {
