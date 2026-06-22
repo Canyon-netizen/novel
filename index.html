@@ -222,6 +222,10 @@
                             <button class="btn-secondary" id="syncBtn" onclick="syncToGist()" disabled>同步</button>
                         </div>
                         <button class="btn-load" onclick="loadFromGist()" id="loadFromGistBtn">从 Gist 加载</button>
+                        <label class="gist-auto-sync" style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:0.85rem;color:var(--text-secondary);cursor:pointer;">
+                            <input type="checkbox" id="autoSyncCheckbox" onchange="toggleAutoSync(this.checked)">
+                            <span>数据变更后自动同步到 Gist（5 秒延迟）</span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -244,6 +248,7 @@
     <script src="js/theme-toggle.js"></script>
 <script src="js/states.js"></script>
 <script src="js/shortcuts.js"></script>
+<script src="js/auto-sync.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

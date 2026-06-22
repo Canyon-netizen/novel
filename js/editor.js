@@ -660,6 +660,15 @@ function saveCurrentChapterLocal() {
     // 同步当前项目索引到 localStorage（页面刷新后能恢复）
     localStorage.setItem('moyun_current_project', String(projectIndex));
     localStorage.setItem('moyun_current_chapter', String(chapterIndex));
+
+    // 触发 Gist 自动同步（debounced 5s 合并多次编辑，跨页面不依赖 timer 存活）
+    if (window.NovelAutoSync && window.NovelAutoSync.perform) {
+        if (window.__editorAutoSyncTimer) clearTimeout(window.__editorAutoSyncTimer);
+        const snapshot = JSON.stringify(projects);
+        window.__editorAutoSyncTimer = setTimeout(() => {
+            window.NovelAutoSync.perform(snapshot);
+        }, 5000);
+    }
 }
 
 function saveCurrentChapter() {

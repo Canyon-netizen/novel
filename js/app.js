@@ -41,6 +41,11 @@ function init() {
     NovelCommon.loadAISettings(aiSettings);
     NovelCommon.loadTheme();
     gistSettings = NovelCommon.loadGistSettings();
+    if (gistSettings.autoSyncEnabled === undefined) {
+        gistSettings.autoSyncEnabled = true; // default ON
+    }
+    const autoSyncEl = document.getElementById('autoSyncCheckbox');
+    if (autoSyncEl) autoSyncEl.checked = gistSettings.autoSyncEnabled;
     setupAuthActions();
     updateGreeting();
     renderProjects();
@@ -66,6 +71,12 @@ function getAuthUser() { return NovelCommon.getAuthUser(); }
 function handleLogout() { NovelCommon.handleLogout(); }
 function setupAuthActions() { NovelCommon.setupAuthActions(); }
 
+function toggleAutoSync(enabled) {
+    gistSettings.autoSyncEnabled = enabled;
+    NovelCommon.saveGistSettings(gistSettings);
+    showToast(enabled ? '已开启自动同步' : '已关闭自动同步', 'success');
+}
+
 // storage 委托
 function loadProjects() {
     projects = NovelCommon.loadProjects();
@@ -73,6 +84,8 @@ function loadProjects() {
 
 function saveProjects() {
     NovelCommon.saveProjects(projects);
+    scheduleAutoSync();
+    window.dispatchEvent(new Event('moyun_projects:changed'));
 }
 
 // settings 委托
@@ -597,6 +610,101 @@ async function syncToGist() {
         syncBtn.disabled = false;
     }
 }
+
+// Debounced auto-sync: when data changes, schedule a sync 5s later.
+// Only fires if user has set up Gist (token + gistId).
+let autoSyncTimer = null;
+let lastSyncedProjects = null;
+function scheduleAutoSync() {
+    if (!gistSettings || !gistSettings.token || !gistSettings.gistId) return;
+    if (gistSettings.autoSyncEnabled === false) return; // user disabled
+    // Read from localStorage directly so it works even on editor/create
+    // pages where the in-memory `projects` array might be stale.
+    let current;
+    try {
+        current = localStorage.getItem('moyun_projects') || '';
+    } catch (e) { return; }
+    if (!current || current === lastSyncedProjects) return; // no change
+    if (autoSyncTimer) clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(async () => {
+        autoSyncTimer = null;
+        try {
+            await syncToGist();
+            lastSyncedProjects = current;
+            localStorage.setItem(LAST_SYNCED_KEY, current);
+        } catch (e) {
+            console.warn("[auto-sync] failed", e);
+        }
+    }, 5000);
+}
+
+// Expose for other pages (editor/create) to trigger.
+window.NovelAutoSync = { schedule: scheduleAutoSync, perform: performSync };
+
+// Listen to localStorage writes from any page in the same tab
+// (other tabs use the native 'storage' event; same tab needs a
+// custom event because the browser doesn't dispatch 'storage'
+// for self-writes). Also: detect changes that happened on a
+// previous page (editor -> home navigation) by comparing the
+// current moyun_projects against a cached baseline.
+let cachedProjects = null;
+const LAST_SYNCED_KEY = 'moyun_projects_last_synced';
+function checkForChangesSinceLastVisit() {
+    try {
+        const current = localStorage.getItem('moyun_projects') || '';
+        if (!current) return;
+        const lastSynced = localStorage.getItem(LAST_SYNCED_KEY);
+        if (lastSynced !== null && current !== lastSynced) {
+            // Run the sync directly, in case the user navigates away before
+            // the 5s debounce in scheduleAutoSync fires.
+            performSync(current);
+        }
+        if (lastSynced === null) {
+            localStorage.setItem(LAST_SYNCED_KEY, current);
+        }
+    } catch (e) {}
+}
+
+async function performSync(snapshot) {
+    if (!gistSettings || !gistSettings.token || !gistSettings.gistId) return;
+    if (gistSettings.autoSyncEnabled === false) return;
+    // Skip if already up to date
+    if (snapshot === localStorage.getItem(LAST_SYNCED_KEY)) return;
+    try {
+        const response = await fetch("https://api.github.com/gists/" + gistSettings.gistId, {
+            method: 'PATCH',
+            headers: {
+                "Authorization": "Bearer " + gistSettings.token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                description: "一页 数据同步",
+                files: { [GIST_FILENAME]: { content: JSON.stringify(parseSyncData(snapshot), null, 2) } }
+            })
+        });
+        if (response.ok) {
+            localStorage.setItem(LAST_SYNCED_KEY, snapshot);
+        } else {
+            console.warn("[auto-sync] HTTP", response.status);
+        }
+    } catch (e) {
+        console.warn("[auto-sync] failed", e);
+    }
+}
+
+function parseSyncData(snapshot) {
+    try {
+        return { projects: JSON.parse(snapshot), templates: [], lastSync: new Date().toISOString() };
+    } catch (e) {
+        return { projects: [], templates: [], lastSync: new Date().toISOString() };
+    }
+}
+window.addEventListener('moyun_projects:changed', scheduleAutoSync);
+window.addEventListener('storage', (e) => {
+    if (e.key === 'moyun_projects') scheduleAutoSync();
+});
+// Check on every page load (covers editor -> home nav)
+checkForChangesSinceLastVisit();
 
 async function loadFromGist() {
     if (!gistSettings.token) {
