@@ -11,4 +11,4 @@
 | 7. editor.html collapsible sidebar + AI loading | complete | ec538e6 | clean |
 | 8. login.html simplification + delete confirm | complete | 0b9f2c0 | clean |
 | 9. Visual smoke test + legacy cleanup | complete | b0ccced | clean |
-| 10. Docs + push | pending | — | — |
+| 10. Docs + push | complete | 1eb6092 | clean (pushed) |
