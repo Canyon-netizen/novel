@@ -1719,6 +1719,9 @@
 
     // ==================== API Helpers ====================
     async function callAI(messages, systemPrompt) {
+        if (!aiSettings.baseUrl && aiSettings.provider !== 'local') {
+            throw new Error(`AI 设置中 Base URL 为空。Provider=${aiSettings.provider} 时必须填 Base URL（如 https://api.minimaxi.com/v1）。请打开设置重新填写并保存。`);
+        }
         const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider || 'openai';
         const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider);
         const response = await fetch(endpoint, {

@@ -839,7 +839,7 @@ function buildApiEndpoint(baseUrl, provider, model) {
     const endpoints = {
         anthropic: 'https://api.anthropic.com/v1/messages',
         deepseek: 'https://api.deepseek.com/v1/chat/completions',
-        minimax: 'https://api.minimaxi.com/v1/chat_completions',
+        minimax: 'https://api.minimaxi.com/v1/chat/completions',
         kimi: 'https://api.moonshot.cn/v1/chat/completions',
         glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
     };
@@ -876,6 +876,11 @@ function buildApiBody(provider, model, systemPrompt, messages, temperature) {
 async function callAI(messages, systemPrompt) {
     if (aiSettings.provider === 'local') {
         return callLocalAI(messages, systemPrompt);
+    }
+
+    // 没填 baseUrl 就走 fallback endpoint（不可靠），主动报错
+    if (!aiSettings.baseUrl) {
+        throw new Error(`AI 设置中 Base URL 为空。Provider=${aiSettings.provider} 时必须填 Base URL（如 https://api.minimaxi.com/v1）。请打开设置重新填写并保存。`);
     }
 
     const detectedProvider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;

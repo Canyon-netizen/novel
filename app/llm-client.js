@@ -167,6 +167,10 @@
       return callLocalAI(messages, systemPrompt);
     }
 
+    if (!settings.baseUrl && settings.provider !== 'local') {
+      throw new Error(`AI 设置中 Base URL 为空。Provider=${settings.provider} 时必须填 Base URL（如 https://api.minimaxi.com/v1）。请打开设置重新填写并保存。`);
+    }
+
     const detectedProvider = inferApiProfile(settings.baseUrl, settings.model) || settings.provider || 'openai';
     const endpoint = buildApiEndpoint(settings.baseUrl, detectedProvider, settings.model);
     const headers = buildApiHeaders(detectedProvider, settings.apiKey);

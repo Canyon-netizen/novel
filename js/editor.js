@@ -919,7 +919,7 @@ function buildApiEndpoint(baseUrl, provider) {
     const endpoints = {
         anthropic: 'https://api.anthropic.com/v1/messages',
         deepseek: 'https://api.deepseek.com/v1/chat/completions',
-        minimax: 'https://api.minimaxi.com/v1/chat_completions',
+        minimax: 'https://api.minimaxi.com/v1/chat/completions',
         kimi: 'https://api.moonshot.cn/v1/chat/completions',
         glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
     };
