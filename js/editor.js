@@ -1176,8 +1176,11 @@ function renderBatchCard() {
     };
 
     if (s.phase === 'idle') {
-        body.textContent = `基于本章大纲，AI 可一次性按顺序生成所有章节。点击「试写 ${s.sampleSize} 章」先看效果，满意再一键全量生成。`;
-        actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="sample">试写 ${s.sampleSize} 章</button>`;
+        body.textContent = `基于本章大纲，AI 可一次性按顺序生成所有章节。点击「试写 ${s.sampleSize} 章」先看效果,满意后一键生成剩余;或直接「一键全量」跳过试写。`;
+        actions.innerHTML = `
+            <button class="toolbar-btn primary" data-batch-action="sample">试写 ${s.sampleSize} 章</button>
+            <button class="toolbar-btn" data-batch-action="all">一键全量</button>
+        `;
         return;
     }
 
