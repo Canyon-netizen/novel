@@ -28,17 +28,36 @@
     const type = draft.genre || draft.theme || 'fantasy';
     const ctx = draft.direction || draft.synopsis || draft.description || '';
 
-    // 拿 aiSettings
+    // 拿 aiSettings — 优先用 NovelCommon 合并默认值,缺省回落到 window/localStorage
     let aiSettings = null;
-    if (typeof window.aiSettings === 'object' && window.aiSettings) {
-      aiSettings = window.aiSettings;
+    if (typeof NovelCommon !== 'undefined' && NovelCommon.loadAISettings) {
+      aiSettings = {};
+      NovelCommon.loadAISettings(aiSettings);
+    } else if (typeof window.aiSettings === 'object' && window.aiSettings) {
+      aiSettings = Object.assign({}, window.aiSettings);
     } else {
       try {
-        aiSettings = JSON.parse(localStorage.getItem('moyun_ai_settings') || '{}');
+        aiSettings = Object.assign({},
+          { provider: 'anthropic', temperature: 0.7, maxTokens: 2048 },
+          JSON.parse(localStorage.getItem('moyun_ai_settings') || '{}')
+        );
       } catch (e) {}
     }
-    if (!aiSettings || !aiSettings.apiKey) {
-      alert('请先在设置中配置 AI（API Key 不能为空）');
+    if (!aiSettings || !aiSettings.apiKey || !aiSettings.apiKey.trim()) {
+      const html = '<div class="insp-error">' +
+        '<p><strong>⚠️ 未配置 API Key</strong></p>' +
+        '<p>请先在「AI 设置」中填写 API Key 并保存。</p>' +
+        '<p style="color:#7f8c8d;font-size:0.85rem;">（设置入口：编辑器或主页右上角齿轮图标）</p>' +
+        '</div>';
+      showModal('灵感快照', html);
+      return;
+    }
+    if (!aiSettings.baseUrl || !aiSettings.baseUrl.trim()) {
+      const html = '<div class="insp-error">' +
+        '<p><strong>⚠️ 未配置 Base URL</strong></p>' +
+        '<p>请在「AI 设置」中填写 API Base URL（例如 https://api.minimaxi.com）并保存。</p>' +
+        '</div>';
+      showModal('灵感快照', html);
       return;
     }
 
@@ -53,14 +72,26 @@
     // 渲染 modal
     showModal('灵感快照', '<div id="inspirationContent">正在生成 5 个不同方向...</div>');
 
-    const result = await ins.generate({ context: ctx, theme: theme });
+    let result;
+    try {
+      result = await ins.generate({ context: ctx, theme: theme });
+    } catch (e) {
+      result = { ok: false, error: 'AI 调用失败: ' + (e.message || e), options: [], raw: '' };
+    }
     const container = document.getElementById('inspirationContent');
     if (!container) return;
 
     if (!result.ok || !result.options || result.options.length === 0) {
-      container.innerHTML = '<p style="color:#e74c3c;">生成失败: ' + (result.error || 'AI 未返回有效结果') + '</p>' +
-        '<p style="color:#7f8c8d;">原始输出（如果有）：</p><pre style="max-height:200px;overflow:auto;background:#f8f9fa;padding:0.5rem;">' +
-        (result.raw || '').replace(/</g, '&lt;') + '</pre>';
+      const safeRaw = String(result.raw || '').replace(/</g, '&lt;').slice(0, 600);
+      container.innerHTML = '<div class="insp-error">' +
+        '<p><strong>生成失败</strong></p>' +
+        '<p style="color:#e74c3c;">' + (result.error || 'AI 未返回有效结果') + '</p>' +
+        '<details style="margin-top:0.5rem;"><summary style="cursor:pointer;color:#7f8c8d;">原始输出（如果有）</summary>' +
+        '<pre style="max-height:200px;overflow:auto;background:#f8f9fa;padding:0.5rem;border-radius:4px;font-size:0.8rem;">' + safeRaw + '</pre></details>' +
+        '<button id="retryInspiration" style="margin-top:0.8rem;padding:0.4rem 1rem;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;">重试</button>' +
+        '</div>';
+      const retry = document.getElementById('retryInspiration');
+      if (retry) retry.addEventListener('click', () => { closeModal(); openInspirationPanel(); });
       return;
     }
 

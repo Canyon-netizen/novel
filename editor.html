@@ -56,15 +56,19 @@
                 <div class="sidebar-tabs">
                     <button class="sidebar-tab-icon active" data-tab="chapters" onclick="switchSidebarTab('chapters')" title="章节" aria-label="章节">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 4h16v16H4z"/><line x1="8" y1="9" x2="16" y2="9"/></svg>
+                        <span class="sidebar-tab-label">章节</span>
                     </button>
                     <button class="sidebar-tab-icon" data-tab="characters" onclick="switchSidebarTab('characters')" title="角色" aria-label="角色">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/></svg>
+                        <span class="sidebar-tab-label">角色</span>
                     </button>
                     <button class="sidebar-tab-icon" data-tab="world" onclick="switchSidebarTab('world')" title="世界" aria-label="世界">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18"/></svg>
+                        <span class="sidebar-tab-label">世界</span>
                     </button>
                     <button class="sidebar-tab-icon" data-tab="timeline" onclick="switchSidebarTab('timeline')" title="时间" aria-label="时间">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                        <span class="sidebar-tab-label">时间</span>
                     </button>
                 </div>
 
@@ -131,6 +135,9 @@
                     <div class="content-toolbar">
                         <button class="toolbar-btn primary" onclick="aiWrite()">
                             AI 续写
+                        </button>
+                        <button class="toolbar-btn secondary-plan" onclick="aiPlanOutline()" title="为全部章节生成大纲" aria-label="AI 规划大纲">
+                            AI 规划大纲
                         </button>
                         <button class="toolbar-btn" onclick="aiPolish()">
                             AI 润色

@@ -1,4 +1,3 @@
-Warning: Identity file /home/zhourui/.ssh/id_ed25519 not accessible: No such file or directory.
 # 仓库级 Agent 规则
 
 ## 提交作者规则

@@ -1558,6 +1558,16 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background: var(--accent-soft);
 }
 
+.sidebar-tab-label {
+    display: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+.chapter-sidebar:hover .sidebar-tab-label,
+.chapter-sidebar:focus-within .sidebar-tab-label {
+    display: inline;
+}
+
 .sidebar-content-wrap {
     flex: 1;
     overflow-y: auto;
@@ -2129,5 +2139,57 @@ textarea:focus-visible {
 }
 .btn-primary:hover { background: var(--accent-primary-hover); border-color: var(--accent-primary-hover); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ==================== Import Outline Panel ==================== */
+.import-status {
+    margin-top: 0.75rem;
+    padding: 0.8rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.import-status ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.2rem;
+    color: var(--text-primary);
+}
+.import-status strong { color: var(--text-primary); }
+
+.import-help {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+.import-help summary {
+    cursor: pointer;
+    color: var(--accent-primary);
+    font-weight: 500;
+    padding: 0.2rem 0;
+}
+.import-help-body { padding: 0.5rem 0 0; }
+.import-help-body p { margin: 0.4rem 0; }
+.import-help-body code {
+    background: var(--bg-card);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+.import-sample {
+    margin: 0.5rem 0 0;
+    padding: 0.6rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-ui, monospace);
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+}
 
 @media (max-width: 1023px) { .stats-section { grid-template-columns: repeat(2, 1fr); } }

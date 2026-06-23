@@ -446,7 +446,7 @@
             fileInput = document.createElement('input');
             fileInput.type = 'file';
             fileInput.id = 'outlineFileInput';
-            fileInput.accept = '.md,.markdown,.json,.txt,application/json,text/markdown,text/plain';
+            fileInput.accept = '.md,.markdown,.json,.txt,.docx,application/json,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             fileInput.style.display = 'none';
             fileInput.addEventListener('change', handleOutlineFile);
             importPanel.appendChild(fileInput);
@@ -464,6 +464,45 @@
             status.className = 'import-status';
             status.style.display = 'none';
             importPanel.appendChild(status);
+        }
+
+        if (!$('importHelp')) {
+            const help = document.createElement('details');
+            help.id = 'importHelp';
+            help.className = 'import-help';
+            help.innerHTML = `
+                <summary>支持的文件格式与大纲写法</summary>
+                <div class="import-help-body">
+                    <p><strong>支持格式：</strong>.md / .markdown / .txt / .docx / .json</p>
+                    <p><strong>Markdown 章节识别规则：</strong></p>
+                    <ul>
+                        <li>使用 <code>## 第一章 标题</code> 这样的二级或三级标题</li>
+                        <li>或用 <code>第一章</code> / <code>第1节</code> / <code>第3回</code> 开头</li>
+                        <li>或用 <code>- </code> / <code>1.</code> 列表项</li>
+                    </ul>
+                    <p><strong>JSON 格式：</strong>数组，每项含 <code>title</code> 和 <code>summary</code> 字段。</p>
+                    <p><strong>建议大纲写法：</strong>每章 80-200 字，列出关键冲突、关键事件、新角色登场。比"主角打败了敌人"更好的是"主角在矿洞深处发现噬魂蛊，被守卫追杀，最终觉醒灵脉"。</p>
+                    <pre class="import-sample">## 第一章 暗夜启程
+主角叶无归初到山城,投宿客栈,偶遇神秘女子。
+
+## 第二章 灵脉觉醒
+叶无归发现自己体内的灵脉被激活,开始修炼。
+- 关键冲突:被守卫追杀
+- 关键事件:获得"噬魂蛊"</pre>
+                </div>
+            `;
+            importPanel.appendChild(help);
+        }
+
+        if (!$('exportOutlineBtn')) {
+            const btn = document.createElement('button');
+            btn.id = 'exportOutlineBtn';
+            btn.type = 'button';
+            btn.className = 'toolbar-btn';
+            btn.textContent = '导出当前大纲 (.md)';
+            btn.style.marginTop = '0.5rem';
+            btn.addEventListener('click', exportImportedOutline);
+            importPanel.appendChild(btn);
         }
     }
 
@@ -1252,8 +1291,7 @@
         }
 
         try {
-            const text = await file.text();
-            const parsed = parseOutlineFile(file.name, text);
+            const parsed = await parseOutlineFile(file);
             importedOutline = parsed;
             renderImportStatus(parsed, file.name);
             toast(`已导入 ${parsed.chapters.length} 个章节`, 'success');
@@ -1264,15 +1302,52 @@
         }
     }
 
-    function parseOutlineFile(filename, text) {
-        const trimmed = text.trim();
-        if (!trimmed) throw new Error('文件内容为空');
+    async function parseOutlineFile(file) {
+        const name = (file.name || '').toLowerCase();
+        const isJson = name.endsWith('.json') || file.type === 'application/json';
+        const isDocx = name.endsWith('.docx') ||
+            file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
-        const lowerName = filename.toLowerCase();
-        if (lowerName.endsWith('.json')) {
-            return parseJsonOutline(trimmed);
+        if (isJson) {
+            const text = await file.text();
+            if (!text.trim()) throw new Error('文件内容为空');
+            return { ...parseJsonOutline(text), source: 'json' };
         }
-        return parseMarkdownOutline(trimmed);
+        if (isDocx) {
+            const text = await extractDocxText(file);
+            if (!text.trim()) throw new Error('无法从 docx 提取文字');
+            return { ...parseMarkdownOutline(text), source: 'docx' };
+        }
+        const text = await file.text();
+        if (!text.trim()) throw new Error('文件内容为空');
+        return { ...parseMarkdownOutline(text), source: 'markdown' };
+    }
+
+    async function extractDocxText(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        if (typeof mammoth === 'undefined') {
+            await loadMammoth();
+        }
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return (result?.value || '').trim();
+    }
+
+    function loadMammoth() {
+        return new Promise((resolve, reject) => {
+            if (typeof mammoth !== 'undefined') return resolve();
+            const existing = document.querySelector('script[data-mammoth]');
+            if (existing) {
+                existing.addEventListener('load', resolve);
+                existing.addEventListener('error', () => reject(new Error('mammoth.js 加载失败')));
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js';
+            script.dataset.mammoth = 'true';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error('mammoth.js 加载失败,请检查网络'));
+            document.head.appendChild(script);
+        });
     }
 
     function parseJsonOutline(text) {
@@ -1389,6 +1464,42 @@
         const input = $('outlineFileInput');
         if (input) input.value = '';
         if (!options.silent) toast('已清除导入的大纲', 'success');
+    }
+
+    function exportImportedOutline() {
+        const outline = importedOutline;
+        if (!outline || !outline.chapters?.length) {
+            toast('暂无大纲可导出', 'warning');
+            return;
+        }
+        const meta = readJson(STORAGE.config, {});
+        const title = meta.novelName || '未命名大纲';
+        const md = buildOutlineMarkdown(title, outline.chapters);
+        downloadTextFile(`${title}-大纲.md`, md);
+        toast(`已导出 ${outline.chapters.length} 章大纲`, 'success');
+    }
+
+    function buildOutlineMarkdown(title, chapters) {
+        const lines = [`# ${title}`, ''];
+        chapters.forEach((c, i) => {
+            lines.push(`## 第${i + 1}章 ${c.title || ''}`);
+            lines.push('');
+            lines.push(c.summary?.trim() || '（本章尚无大纲）');
+            lines.push('');
+        });
+        return lines.join('\n');
+    }
+
+    function downloadTextFile(filename, content) {
+        const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     // ==================== Tabs & Modals ====================

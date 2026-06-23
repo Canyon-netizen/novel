@@ -1001,18 +1001,25 @@ async function callAI(messages, systemPrompt) {
 
 // ==================== AI 功能 ====================
 async function aiWrite() {
-    const content = document.getElementById('contentEditor')?.value;
+    const editor = document.getElementById('contentEditor');
+    const content = editor?.value;
     if (!content) { showToast('请先输入一些内容', 'error'); return; }
 
     const btn = document.querySelector('.toolbar-btn.primary');
     if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> AI 思考中...'; btn.disabled = true; }
 
     try {
-        const saved = localStorage.getItem('moyun_projects');
         const projects = safeLoadProjects();
         const project = projects[projectIndex];
-        const continuation = await callAI([{ role: 'user', content: `请基于上文直接续写本章剩余内容（约2000-3000字），保持叙事节奏、人物语气与世界设定，输出纯正文不要任何解释或注释：\n\n${content}` }], getThemePrompt(project?.type));
-        const editor = document.getElementById('contentEditor');
+        const chapter = project?.chapters?.[chapterIndex] || {};
+
+        const outlineContext = buildOutlineContext(project, chapterIndex);
+        const systemPrompt = buildWriteSystemPrompt(project, chapter);
+
+        const continuation = await callAI(
+            [{ role: 'user', content: `${outlineContext}\n\n请基于以上全书大纲和上文正文，直接续写本章剩余内容（约2000-3000字），严格遵循本章大纲规划的情节走向，输出纯正文不要任何解释或注释：\n\n${content}` }],
+            systemPrompt
+        );
         if (editor) {
             editor.value = content + continuation;
             saveCurrentChapterLocal();
@@ -1023,6 +1030,94 @@ async function aiWrite() {
     }
 
     if (btn) { btn.innerHTML = 'AI 续写'; btn.disabled = false; }
+}
+
+function buildOutlineContext(project, currentIdx) {
+    const chapters = project?.chapters || [];
+    if (chapters.length === 0) return '【全书大纲】暂无章节大纲，请先在创建时导入或生成大纲。';
+
+    const lines = ['【全书大纲】'];
+    chapters.forEach((c, i) => {
+        const marker = i === currentIdx ? '← 当前章节' : '';
+        const summary = c.summary?.trim()
+            ? ` — ${c.summary.slice(0, 200)}`
+            : ' — （本章尚无大纲）';
+        lines.push(`${i + 1}. ${c.title || `第${i + 1}章`}${summary} ${marker}`.trim());
+    });
+    return lines.join('\n');
+}
+
+function buildWriteSystemPrompt(project, chapter) {
+    const themePrompt = getThemePrompt(project?.type);
+    const summaryLine = chapter.summary?.trim()
+        ? `\n\n【本章大纲】\n${chapter.summary}`
+        : '\n\n【本章大纲】暂无规划。';
+    return `${themePrompt}${summaryLine}\n\n严格遵循本章大纲的剧情走向，保持人物语气与世界设定一致。`;
+}
+
+async function aiPlanOutline() {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    if (!project || !project.chapters?.length) {
+        showToast('当前项目没有章节', 'error');
+        return;
+    }
+
+    const hasAnySummary = project.chapters.some(c => c.summary?.trim());
+    if (hasAnySummary) {
+        const ok = confirm('当前已有章节大纲，将被 AI 重新规划覆盖，是否继续？');
+        if (!ok) return;
+    }
+
+    const btn = document.querySelector('.toolbar-btn.secondary-plan');
+    if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> 规划中...'; btn.disabled = true; }
+
+    try {
+        const themePrompt = getThemePrompt(project?.type);
+        const meta = [
+            project.title && `书名：《${project.title}》`,
+            project.protagonist && `主角：${project.protagonist}`,
+            project.description && `简介：${project.description}`,
+            project.tropes?.length && `要素：${project.tropes.join('、')}`,
+            project.audience && `目标读者：${project.audience}`
+        ].filter(Boolean).join('\n');
+
+        const chapterList = project.chapters.map((c, i) => `${i + 1}. ${c.title || `第${i + 1}章`}`).join('\n');
+
+        const userPrompt = `请为以下小说的全部章节撰写简短大纲（每章 80-150 字，说明本章主要情节与冲突），严格按章节顺序输出 JSON 数组：\n\n${meta}\n\n章节列表：\n${chapterList}\n\n输出格式（仅返回 JSON，不要其它文字）：\n[{"index":1,"summary":"..."},{"index":2,"summary":"..."}]`;
+
+        const raw = await callAI([{ role: 'user', content: userPrompt }], themePrompt);
+
+        const parsed = parseOutlineJson(raw);
+        if (!parsed) {
+            throw new Error('AI 返回的不是有效 JSON');
+        }
+
+        project.chapters.forEach((c, i) => {
+            const entry = parsed.find(p => p.index === i + 1) || parsed[i];
+            if (entry?.summary) c.summary = String(entry.summary).slice(0, 800);
+        });
+
+        saveCurrentChapterLocal();
+        renderChapters(project, chapterIndex);
+        showToast(`已为 ${parsed.length} 章生成大纲`, 'success');
+    } catch (error) {
+        showToast('大纲生成失败：' + error.message, 'error');
+    }
+
+    if (btn) { btn.innerHTML = 'AI 规划大纲'; btn.disabled = false; }
+}
+
+function parseOutlineJson(raw) {
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (!match) return null;
+    try {
+        const data = JSON.parse(match[0]);
+        if (!Array.isArray(data)) return null;
+        return data.filter(d => d && (d.summary || d.index !== undefined));
+    } catch {
+        return null;
+    }
 }
 
 async function aiPolish() {
