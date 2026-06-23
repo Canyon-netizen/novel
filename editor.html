@@ -182,7 +182,10 @@
     <!-- Add Character Modal -->
     <div class="modal-overlay" id="addCharacterModal">
         <div class="modal">
-            <h3 class="modal-title">添加角色</h3>
+            <div class="modal-title-row">
+                <h3 class="modal-title">添加角色</h3>
+                <button class="modal-x" onclick="closeAddCharacterModal()" aria-label="关闭">&times;</button>
+            </div>
             <div class="form-group">
                 <label class="form-label">角色名称</label>
                 <input type="text" class="form-input" id="characterNameInput" placeholder="请输入角色名称">
@@ -205,7 +208,10 @@
     <!-- Edit Character Modal -->
     <div class="modal-overlay" id="editCharacterModal">
         <div class="modal">
-            <h3 class="modal-title">编辑角色</h3>
+            <div class="modal-title-row">
+                <h3 class="modal-title">编辑角色</h3>
+                <button class="modal-x" onclick="closeEditCharacterModal()" aria-label="关闭">&times;</button>
+            </div>
             <div class="form-group">
                 <label class="form-label">角色名称</label>
                 <input type="text" class="form-input" id="editCharacterNameInput">
@@ -228,7 +234,10 @@
     <!-- Add Timeline Event Modal -->
     <div class="modal-overlay" id="addTimelineEventModal">
         <div class="modal">
-            <h3 class="modal-title">添加时间节点</h3>
+            <div class="modal-title-row">
+                <h3 class="modal-title">添加时间节点</h3>
+                <button class="modal-x" onclick="closeAddTimelineEventModal()" aria-label="关闭">&times;</button>
+            </div>
             <div class="form-group">
                 <label class="form-label">事件名称</label>
                 <input type="text" class="form-input" id="eventTitleInput" placeholder="如：主角出生">
@@ -251,9 +260,9 @@
     <!-- Reading Mode Modal -->
     <div class="modal-overlay" id="readingModeModal">
         <div class="modal reading-mode-content">
-            <div class="reading-mode-header">
+            <div class="modal-title-row">
                 <h3 class="modal-title" id="readingModeTitle">阅读模式</h3>
-                <button class="modal-btn cancel" onclick="closeReadingMode()">关闭</button>
+                <button class="modal-x" onclick="closeReadingMode()" aria-label="关闭">&times;</button>
             </div>
             <div class="reading-mode-body" id="readingModeBody"></div>
         </div>
@@ -310,6 +319,7 @@
     </div>
 
     <script src="app/common.js"></script>
+    <script src="app/modals.js"></script>
     <script src="app/llm-client.js"></script>
     <script src="app/autosave.js"></script>
     <script src="app/undo-stack.js"></script>

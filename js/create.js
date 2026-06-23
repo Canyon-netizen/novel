@@ -558,10 +558,6 @@
                 closeModalById(overlay.id);
             });
         });
-
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') closeTopModal();
-        });
     }
 
     // ==================== Feedback Helpers ====================

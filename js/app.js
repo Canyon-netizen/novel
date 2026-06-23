@@ -163,9 +163,14 @@ function renderProjects(filterFn) {
             <div class="novel-card__meta">
                 <span>${project.chapters?.length || 0} 章</span>
                 <span>${getProjectWordCount(project)} 字</span>
-                <button class="novel-card__menu-btn" onclick="event.stopPropagation(); deleteProject(${originalIndex})" title="删除项目" aria-label="删除项目">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                </button>
+                <div class="novel-card__actions">
+                    <button class="novel-card__menu-btn" onclick="event.stopPropagation(); exportProject(${originalIndex})" title="导出项目" aria-label="导出项目">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <button class="novel-card__menu-btn" onclick="event.stopPropagation(); deleteProject(${originalIndex})" title="删除项目" aria-label="删除项目">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
     `}).join('');
@@ -392,16 +397,6 @@ function closeSettingsModalOnOverlay(event) {
         closeSettingsModal();
     }
 }
-
-// ESC key to close modals
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modal = document.getElementById('settingsModal');
-        if (modal && modal.classList.contains('show')) {
-            closeSettingsModal();
-        }
-    }
-});
 
 // 各 provider 的默认 baseUrl（用户切换 provider 时自动填入）
 const PROVIDER_BASE_URL_PRESETS = {
@@ -882,16 +877,6 @@ function goBack() {
     window.location.href = 'index.html';
 }
 
-function showNovelMenu(index) {
-    const project = projects[index];
-    const action = prompt(`项目管理: ${project.title}\n\n1. 删除项目\n2. 导出\n\n请输入操作编号：`);
-
-    if (action === '1') {
-        deleteProject(index);
-    } else if (action === '2') {
-        exportProject(index);
-    }
-}
 
 function deleteProject(index) {
     const p = projects[index];
