@@ -281,8 +281,26 @@ function renderOutlineTab() {
         const hasPrefix = /^第\s*[一二三四五六七八九十百零\d]+\s*[章节回]/.test(rawTitle);
         titleEl.textContent = hasPrefix ? rawTitle : `第${chapterIndex + 1}章 · ${rawTitle}`;
         const summary = (chapter.summary || '').trim();
-        summaryEl.textContent = summary || '暂无大纲 — 可点击工具栏的「AI 规划大纲」自动生成';
+        summaryEl.textContent = summary || '暂无大纲 — 点击下方按钮让 AI 生成,或在工具栏跑「AI 规划大纲」';
         summaryEl.classList.toggle('empty', !summary);
+
+        // Refresh "AI 生成此章大纲" button — show only when summary is empty
+        const card = document.getElementById('outlineCurrent');
+        if (card) {
+            let btn = card.querySelector('[data-action="plan-one"]');
+            if (!summary) {
+                if (!btn) {
+                    btn = document.createElement('button');
+                    btn.className = 'toolbar-btn';
+                    btn.dataset.action = 'plan-one';
+                    btn.textContent = 'AI 生成此章大纲';
+                    btn.addEventListener('click', aiPlanOneOutline);
+                    card.appendChild(btn);
+                }
+            } else if (btn) {
+                btn.remove();
+            }
+        }
     } else {
         titleEl.textContent = '未选择章节';
         summaryEl.textContent = '';
@@ -1421,6 +1439,72 @@ function parseOutlineJson(raw) {
     } catch {
         return null;
     }
+}
+
+async function aiPlanOneOutline() {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    const chapter = project?.chapters?.[chapterIndex];
+    if (!project || !chapter) { showToast('当前项目没有章节', 'error'); return; }
+
+    const btn = document.querySelector('[data-action="plan-one"]');
+    if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+
+    try {
+        const themePrompt = getThemePrompt(project?.type);
+        const meta = [
+            project.title && `书名：《${project.title}》`,
+            project.protagonist && `主角：${project.protagonist}`,
+            project.description && `简介：${project.description}`,
+            project.tropes?.length && `要素：${project.tropes.join('、')}`,
+            project.audience && `目标读者：${project.audience}`
+        ].filter(Boolean).join('\n');
+
+        const chapterList = project.chapters.map((c, i) => {
+            const has = c.summary?.trim() ? '✓' : '✗';
+            return `${i + 1}. ${c.title || `第${i + 1}章`} [${has}]`;
+        }).join('\n');
+
+        const userPrompt = `为以下小说的「第 ${chapterIndex + 1} 章 · ${chapter.title || '未命名'}」撰写 80-150 字大纲，说明本章主要情节与冲突。
+
+小说背景：
+${meta}
+
+全书章节列表（✓ 表示已有大纲，✗ 表示缺失）：
+${chapterList}
+
+要求：仅返回 JSON：{"summary":"..."}`;
+
+        const raw = await callAI([{ role: 'user', content: userPrompt }], themePrompt);
+        let summary = '';
+        // Try JSON first; fall back to treating the whole response as prose
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (m) {
+            try {
+                const data = JSON.parse(m[0]);
+                if (data.summary) summary = String(data.summary);
+            } catch { /* not JSON */ }
+        }
+        if (!summary) {
+            // Strip <think>...</think> and code fences; take the first prose line(s)
+            summary = raw
+                .replace(/<think>[\s\S]*?<\/think>/g, '')
+                .replace(/```[\s\S]*?```/g, '')
+                .trim();
+        }
+        if (!summary) throw new Error('AI 返回内容为空');
+
+        chapter.summary = summary.slice(0, 800);
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+        renderOutlineTab();
+        showToast(`第 ${chapterIndex + 1} 章大纲已生成`, 'success');
+    } catch (error) {
+        showToast('大纲生成失败：' + error.message, 'error');
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = 'AI 生成此章大纲'; }
 }
 
 async function aiPolish() {
