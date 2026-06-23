@@ -1472,7 +1472,8 @@
                 return;
             }
 
-            // Generic list under a real chapter → keep as summary
+            // Generic prose / sub-list items (2./3./4./etc.) under a real
+            // chapter → keep as summary beats (校园支线/暗线铺垫/...).
             if (current && line.trim() && !inSkippedBlock) {
                 current.summaryLines.push(line.trim());
             }
@@ -1517,10 +1518,12 @@
             </ul>
             ${parsed.chapters.length > preview.length ? `<div class="import-status-meta">还有 ${parsed.chapters.length - preview.length} 章未显示。</div>` : ''}
             <div class="import-status-actions">
-                <button class="toolbar-btn" type="button" onclick="clearImportedOutline()">清除导入</button>
-                <button class="toolbar-btn" type="button" id="exportOutlineBtnInline" onclick="exportImportedOutline()">导出大纲 (.md)</button>
+                <button class="toolbar-btn" type="button" data-action="clear-imported-outline">清除导入</button>
+                <button class="toolbar-btn" type="button" id="exportOutlineBtnInline" data-action="export-imported-outline">导出大纲 (.md)</button>
             </div>
         `;
+        status.querySelector('[data-action="clear-imported-outline"]')?.addEventListener('click', () => clearImportedOutline());
+        status.querySelector('[data-action="export-imported-outline"]')?.addEventListener('click', exportImportedOutline);
     }
 
     function renderImportError(message) {
@@ -1548,8 +1551,8 @@
             toast('暂无大纲可导出', 'warning');
             return;
         }
-        const meta = readJson(STORAGE.config, {});
-        const title = meta.novelName || '未命名大纲';
+        const inputTitle = document.getElementById('novelName')?.value?.trim();
+        const title = inputTitle || readJson(STORAGE.config, {}).novelName || '未命名大纲';
         const md = buildOutlineMarkdown(title, outline.chapters);
         downloadTextFile(`${title}-大纲.md`, md);
         toast(`已导出 ${outline.chapters.length} 章大纲`, 'success');
@@ -1560,7 +1563,12 @@
         chapters.forEach((c, i) => {
             lines.push(`## 第${i + 1}章 ${c.title || ''}`);
             lines.push('');
-            lines.push(c.summary?.trim() || '（本章尚无大纲）');
+            const summary = (c.summary || '').trim();
+            if (summary) {
+                lines.push(summary);
+            } else {
+                lines.push('（本章尚无大纲）');
+            }
             lines.push('');
         });
         return lines.join('\n');
@@ -2215,7 +2223,6 @@
 
     function cleanTitle(value) {
         return String(value || '')
-            .replace(/\\([\.\*\-\#\(\)\[\]\!\>\+\`])/g, '$1')
             .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
             .replace(/^第?\s*\d+\s*[章节回幕、.:-]?\s*/u, '')
             .replace(/^[#*\-\s>]+/, '')
