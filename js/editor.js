@@ -1011,7 +1011,7 @@ async function aiWrite() {
         const saved = localStorage.getItem('moyun_projects');
         const projects = safeLoadProjects();
         const project = projects[projectIndex];
-        const continuation = await callAI([{ role: 'user', content: `续写150-300字：\n\n${content}` }], getThemePrompt(project?.type));
+        const continuation = await callAI([{ role: 'user', content: `请基于上文直接续写本章剩余内容（约2000-3000字），保持叙事节奏、人物语气与世界设定，输出纯正文不要任何解释或注释：\n\n${content}` }], getThemePrompt(project?.type));
         const editor = document.getElementById('contentEditor');
         if (editor) {
             editor.value = content + continuation;
