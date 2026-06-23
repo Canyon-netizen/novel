@@ -57,6 +57,7 @@ function init() {
     loadProject();
     updateAIStatus();
     setupEventListeners();
+    renderBatchCard();
 }
 
 function setupEventListeners() {
@@ -201,14 +202,10 @@ function switchSidebarTab(tabName) {
         content.classList.toggle('active', content.id === tabName + 'Tab');
     });
 
-    // 大纲 tab 切换时刷新内容 + 展开侧边栏（outline 需要更宽空间）
+    // 大纲 tab 切换时刷新内容
     if (tabName === 'outline') {
         renderOutlineTab();
-        const sidebar = document.getElementById('chapterSidebar');
-        if (sidebar) sidebar.classList.add('force-expand');
-    } else {
-        const sidebar = document.getElementById('chapterSidebar');
-        if (sidebar) sidebar.classList.remove('force-expand');
+        renderBatchCard();
     }
 }
 
@@ -1105,6 +1102,260 @@ function buildWriteSystemPrompt(project, chapter) {
         ? `\n\n【本章大纲】\n${chapter.summary}`
         : '\n\n【本章大纲】暂无规划。';
     return `${themePrompt}${summaryLine}\n\n严格遵循本章大纲的剧情走向，保持人物语气与世界设定一致。`;
+}
+
+// ==================== AI 批量生成 ====================
+// 状态机：sampling → awaiting-approval → running ↔ paused → done / error
+const batchState = {
+    phase: 'idle',          // 'idle' | 'sampling' | 'awaiting-approval' | 'running' | 'paused' | 'done' | 'error'
+    abort: null,             // AbortController
+    sampleSize: 2,
+    pending: [],             // chapter indexes still to write in current run
+    completed: [],           // chapter indexes written this run
+    failedAt: null,          // { index, error } when phase === 'error'
+    startedAt: 0,
+    durations: [],          // ms per chapter (for ETA)
+    userApproved: false     // when 'all' is chosen after sampling
+};
+
+function renderBatchCard() {
+    const card = document.getElementById('batchCard');
+    if (!card) return;
+    const body = document.getElementById('batchCardBody');
+    const actions = document.getElementById('batchCardActions');
+    card.classList.remove('error');
+
+    const s = batchState;
+    const fmt = (sec) => {
+        const m = Math.floor(sec / 60);
+        const ss = Math.round(sec % 60);
+        return m > 0 ? `${m}分${ss}秒` : `${ss}秒`;
+    };
+
+    if (s.phase === 'idle') {
+        body.textContent = `基于本章大纲，AI 可一次性按顺序生成所有章节。点击「试写 ${s.sampleSize} 章」先看效果，满意再一键全量生成。`;
+        actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="sample">试写 ${s.sampleSize} 章</button>`;
+        return;
+    }
+
+    if (s.phase === 'sampling') {
+        const total = s.pending.length + s.completed.length;
+        const done = s.completed.length;
+        const pct = total ? Math.round(done / total * 100) : 0;
+        body.innerHTML = `正在试写第 <strong>${done + 1}</strong> / ${total} 章…
+            <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>`;
+        actions.innerHTML = `<button class="toolbar-btn" data-batch-action="pause">暂停</button>
+            <button class="toolbar-btn" data-batch-action="cancel">取消</button>`;
+        return;
+    }
+
+    if (s.phase === 'awaiting-approval') {
+        body.innerHTML = `已写 ${s.completed.length} 章样章。满意后点击下方按钮一键生成剩余章节。`;
+        actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="all">✓ 一键全量生成</button>
+            <button class="toolbar-btn" data-batch-action="sample">↻ 重新试写</button>
+            <button class="toolbar-btn" data-batch-action="reset">取消</button>`;
+        return;
+    }
+
+    if (s.phase === 'running' || s.phase === 'paused') {
+        const total = s.completed.length + s.pending.length;
+        const done = s.completed.length;
+        const pct = total ? Math.round(done / total * 100) : 0;
+        const avg = s.durations.length ? s.durations.reduce((a, b) => a + b, 0) / s.durations.length : 0;
+        const eta = avg * s.pending.length;
+        const status = s.phase === 'paused' ? '⏸ 已暂停' : '正在生成';
+        body.innerHTML = `${status}第 <strong>${done + 1}</strong> / ${total} 章 · 预计剩余 ${fmt(eta / 1000)}
+            <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">已完成 ${s.completed.length} 章 · 失败 0 · 跳过 0</div>`;
+        if (s.phase === 'paused') {
+            actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="resume">继续</button>
+                <button class="toolbar-btn" data-batch-action="cancel">终止</button>`;
+        } else {
+            actions.innerHTML = `<button class="toolbar-btn" data-batch-action="pause">暂停</button>
+                <button class="toolbar-btn" data-batch-action="cancel">终止</button>`;
+        }
+        return;
+    }
+
+    if (s.phase === 'done') {
+        const total = s.completed.length;
+        const ms = Date.now() - s.startedAt;
+        body.innerHTML = `✓ 已生成 ${total} 章 (耗时 ${fmt(ms / 1000)})。`;
+        actions.innerHTML = `<button class="toolbar-btn" data-batch-action="reset">清除</button>`;
+        return;
+    }
+
+    if (s.phase === 'error') {
+        card.classList.add('error');
+        const { index, error } = s.failedAt || {};
+        body.innerHTML = `第 ${index + 1} 章失败:${error}`;
+        actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="retry">重试第 ${index + 1} 章</button>
+            <button class="toolbar-btn" data-batch-action="cancel">终止</button>`;
+        return;
+    }
+
+    attachBatchActionHandlers();
+}
+
+function attachBatchActionHandlers() {
+    const actions = document.getElementById('batchCardActions');
+    if (!actions) return;
+    const map = {
+        sample: () => aiBatchStart('sample'),
+        all: () => aiBatchStart('all'),
+        pause: () => aiBatchPause(),
+        resume: () => aiBatchResume(),
+        cancel: () => aiBatchCancel(),
+        reset: () => aiBatchReset(),
+        retry: () => aiBatchRetry()
+    };
+    actions.querySelectorAll('[data-batch-action]').forEach(btn => {
+        const action = btn.dataset.batchAction;
+        const fn = map[action];
+        if (fn) btn.addEventListener('click', fn);
+    });
+}
+
+async function aiBatchStart(mode) {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    if (!project?.chapters?.length) { showToast('当前项目没有章节', 'error'); return; }
+
+    // Build list of chapters to write (skip non-empty unless retrying)
+    const retry = mode === 'retry';
+    const indexes = project.chapters
+        .map((c, i) => ({ c, i }))
+        .filter(({ c, i }) => retry ? i === batchState.failedAt?.index : !c.content?.trim())
+        .map(({ i }) => i);
+
+    if (indexes.length === 0) {
+        showToast('所有章节已有内容', 'warning');
+        return;
+    }
+
+    if (mode === 'sample') {
+        batchState.pending = indexes.slice(0, batchState.sampleSize);
+        batchState.phase = 'sampling';
+        batchState.userApproved = false;
+    } else {
+        batchState.userApproved = true;
+        batchState.pending = mode === 'retry' ? indexes : indexes;
+        batchState.phase = 'running';
+    }
+    batchState.completed = [];
+    batchState.failedAt = null;
+    batchState.durations = [];
+    batchState.startedAt = Date.now();
+    batchState.abort = new AbortController();
+    renderBatchCard();
+    await aiBatchRun();
+}
+
+async function aiBatchResume() {
+    if (batchState.phase !== 'paused') return;
+    batchState.phase = 'running';
+    batchState.abort = new AbortController();
+    renderBatchCard();
+    await aiBatchRun();
+}
+
+function aiBatchPause() {
+    if (batchState.phase !== 'sampling' && batchState.phase !== 'running') return;
+    if (batchState.abort) batchState.abort.abort();
+    batchState.phase = 'paused';
+    renderBatchCard();
+}
+
+function aiBatchCancel() {
+    if (batchState.abort) batchState.abort.abort();
+    batchState.phase = 'idle';
+    batchState.pending = [];
+    batchState.completed = [];
+    batchState.failedAt = null;
+    renderBatchCard();
+    showToast('已终止批量生成', 'info');
+}
+
+function aiBatchReset() {
+    batchState.phase = 'idle';
+    batchState.pending = [];
+    batchState.completed = [];
+    batchState.failedAt = null;
+    renderBatchCard();
+}
+
+async function aiBatchRetry() {
+    if (!batchState.failedAt) return;
+    const idx = batchState.failedAt.index;
+    batchState.failedAt = null;
+    batchState.phase = batchState.completed.length > 0 ? 'running' : 'sampling';
+    batchState.pending = [idx, ...batchState.pending];
+    batchState.abort = new AbortController();
+    renderBatchCard();
+    await aiBatchRun();
+}
+
+async function aiBatchRun() {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    if (!project?.chapters?.length) return;
+
+    while (batchState.pending.length > 0) {
+        if (batchState.phase === 'idle' || batchState.phase === 'done' || batchState.phase === 'paused') return;
+        const idx = batchState.pending[0];
+        const t0 = Date.now();
+        try {
+            await aiBatchWriteOne(project, idx);
+            batchState.durations.push(Date.now() - t0);
+            batchState.pending.shift();
+            batchState.completed.push(idx);
+            // Persist after each chapter so user can navigate to a finished one
+            saveCurrentChapterLocal();
+            renderOutlineTab();
+        } catch (e) {
+            if (e.name === 'AbortError' || batchState.phase === 'paused') {
+                // Pause: leave the failed chapter at the head of pending
+                return;
+            }
+            batchState.failedAt = { index: idx, error: e.message };
+            batchState.phase = 'error';
+            renderBatchCard();
+            return;
+        }
+    }
+    // Done
+    if (batchState.phase !== 'idle') {
+        if (batchState.completed.length === batchState.sampleSize && !batchState.userApproved) {
+            batchState.phase = 'awaiting-approval';
+        } else {
+            batchState.phase = 'done';
+        }
+        renderBatchCard();
+    }
+}
+
+async function aiBatchWriteOne(project, idx) {
+    const chapter = project.chapters[idx];
+    const prev = idx > 0 ? project.chapters[idx - 1] : null;
+    const prevTail = prev?.content?.trim() ? prev.content.trim().slice(-200) : '';
+    const systemPrompt = buildWriteSystemPrompt(project, chapter);
+    const outlineContext = buildOutlineContext(project, idx);
+    const userPrompt = `${outlineContext}
+${prevTail ? `\n\n【上一章结尾（用于衔接）】\n…${prevTail}` : ''}
+
+请基于全书大纲${prevTail ? '和上一章结尾' : ''}，直接续写本章正文（约2000-3000字），严格遵循本章大纲规划的情节走向，输出纯正文不要任何解释或注释。`;
+
+    const text = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
+    if (!text || !text.trim()) throw new Error('AI 返回内容为空');
+    chapter.content = (chapter.content?.trim() ? chapter.content.trim() + '\n\n' : '') + text.trim();
+    chapter.lastEditedAt = Date.now();
+    // Persist the entire project (chapterIndex global may not match the idx we're writing)
+    const all = safeLoadProjects();
+    all[projectIndex] = project;
+    project.lastEditedAt = new Date().toISOString();
+    localStorage.setItem('moyun_projects', JSON.stringify(all));
+    renderBatchCard();
+    return text;
 }
 
 async function aiPlanOutline() {
