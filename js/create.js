@@ -1384,24 +1384,63 @@
         const lines = text.split(/\r?\n/);
         const chapters = [];
         let current = null;
+        let inSkippedBlock = false;
+        let isFirstH1 = true;
+        const skipPatterns = [
+            /^(大纲|简介|设定|世界观|人物|角色|前言|序章|序|后记|附录|番外)$/i,
+            /^(前置|创作要求|硬性|说明|导言)/i,
+            /基础信息|人物设定|冲突体系|成长主干|分卷|细纲|细目|章节目录|剧情结构|分章|分幕|伏笔|可自由填充/,
+            /主线冲突|内心冲突|感情线冲突/,
+            /第[一二三四五六七八九十百\d]+卷/,
+            /^卷[一二三四五六七八九十百零\d]+/,
+            /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/u,
+            /^[一二三四五六七八九十]+、/,
+            /^【.*】$/,
+            /阶段[:：]/,
+        ];
+        const shouldSkip = (title) => skipPatterns.some(p => p.test(title.trim()));
+        const isChapterList = (line) =>
+            /^\s*\d+\.\s*\*?\*?第[一二三四五六七八九十百零\d]+[章节回]/.test(line);
 
         lines.forEach((line) => {
             const heading = line.match(/^\s{0,3}(#{1,4})\s+(.+?)\s*#*\s*$/);
             if (heading) {
+                const level = heading[1].length;
                 const title = cleanTitle(heading[2]);
-                if (/^(大纲|简介|设定|世界观|人物|角色)$/i.test(title)) return;
+                if (!title) return;
+                if (level === 1 && isFirstH1) {
+                    isFirstH1 = false;
+                    inSkippedBlock = true;
+                    return;
+                }
+                isFirstH1 = false;
+                if (shouldSkip(title) || /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/u.test(heading[2])) {
+                    current = null;
+                    inSkippedBlock = true;
+                    return;
+                }
+                inSkippedBlock = false;
                 current = { title, summaryLines: [] };
                 chapters.push(current);
                 return;
             }
 
-            const ordered = line.match(/^\s*(?:第?\d+[章节回]?|[-*+]|\d+[.)、])\s*[:：、.-]?\s*(.+)$/);
-            if (ordered && !current) {
-                chapters.push({ title: cleanTitle(ordered[1]), summaryLines: [] });
+            // Only treat list items as chapters when they look like 第N章/节/回
+            if (isChapterList(line)) {
+                // Match: 1. **第一章:副标题**... → capture "第一章:副标题"
+                // The title ends at the first 【 or ( or  (since closing ** is variable)
+                const m = line.match(/^\s*\d+\.\s*\*?\*?(第[一二三四五六七八九十百零\d]+[章节回][^【（\n]*)/);
+                if (m) {
+                    const title = cleanTitle(m[1]).replace(/[:：、\s]+$/, '');
+                    current = { title, summaryLines: [line.trim()] };
+                    chapters.push(current);
+                }
+                inSkippedBlock = false;
                 return;
             }
 
-            if (current && line.trim()) {
+            // Generic list under a real chapter → keep as summary
+            if (current && line.trim() && !inSkippedBlock) {
                 current.summaryLines.push(line.trim());
             }
         });
@@ -2117,6 +2156,8 @@
 
     function cleanTitle(value) {
         return String(value || '')
+            .replace(/\\([\.\*\-\#\(\)\[\]\!\>\+\`])/g, '$1')
+            .replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, '')
             .replace(/^第?\s*\d+\s*[章节回幕、.:-]?\s*/u, '')
             .replace(/^[#*\-\s>]+/, '')
             .trim()
