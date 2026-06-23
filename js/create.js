@@ -1328,8 +1328,40 @@
         if (typeof mammoth === 'undefined') {
             await loadMammoth();
         }
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        return (result?.value || '').trim();
+        // convertToHtml preserves heading levels (h1/h2/h3); we then translate
+        // them to markdown # marks so the existing parseMarkdownOutline path
+        // applies the same skip rules as for plain .md files.
+        const result = await mammoth.convertToHtml({ arrayBuffer });
+        return htmlToMarkdown(result?.value || '');
+    }
+
+    function htmlToMarkdown(html) {
+        const container = document.createElement('div');
+        container.innerHTML = html;
+        const lines = [];
+        container.childNodes.forEach(node => {
+            if (node.nodeType !== 1) {
+                if (node.textContent.trim()) lines.push(node.textContent.trim());
+                return;
+            }
+            const tag = node.tagName.toLowerCase();
+            if (/^h([1-4])$/.test(tag)) {
+                const level = Number(RegExp.$1);
+                const text = node.textContent.trim();
+                if (text) lines.push(`${'#'.repeat(level)} ${text}`);
+            } else if (tag === 'p' || tag === 'li') {
+                const text = node.textContent.trim();
+                if (text) {
+                    if (tag === 'li') lines.push(`- ${text}`);
+                    else lines.push(text);
+                }
+            } else {
+                // Unknown block — fall through with inner text.
+                const text = node.textContent.trim();
+                if (text) lines.push(text);
+            }
+        });
+        return lines.join('\n');
     }
 
     function loadMammoth() {
@@ -1396,6 +1428,7 @@
             /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/u,
             /^[一二三四五六七八九十]+、/,
             /^【.*】$/,
+            /^正文第/,
             /阶段[:：]/,
         ];
         const shouldSkip = (title) => skipPatterns.some(p => p.test(title.trim()));
@@ -1448,7 +1481,7 @@
         const normalized = chapters
             .map((chapter, index) => ({
                 title: cleanTitle(chapter.title) || `第${index + 1}章`,
-                summary: chapter.summaryLines.join('\n').slice(0, 800),
+                summary: distillSummary(chapter.summaryLines, 300),
                 content: ''
             }))
             .filter((chapter) => chapter.title);
@@ -1457,7 +1490,10 @@
             const fallback = text.split(/\n{2,}/)
                 .map((block, index) => ({
                     title: cleanTitle(block.split(/\r?\n/)[0]) || `第${index + 1}章`,
-                    summary: block.split(/\r?\n/).slice(1).join('\n').trim(),
+                    summary: distillSummary(
+                        block.split(/\r?\n/).slice(1).map(s => s.trim()).filter(Boolean),
+                        300
+                    ),
                     content: ''
                 }))
                 .slice(0, 80);
@@ -2143,6 +2179,29 @@
             .map((line) => line.trim())
             .filter(Boolean)[0]
             ?.slice(0, 32) || fallback;
+    }
+
+    function distillSummary(lines, maxLen = 300) {
+        if (!Array.isArray(lines) || lines.length === 0) return '';
+        const clean = lines
+            .map(l => l.replace(/^\s*[-*+]\s*/, '').replace(/\*\*([^*]+)\*\*/g, '$1').trim())
+            .filter(Boolean);
+        // Prioritize beats with structural keywords; fall back to first lines.
+        const beatKeywords = /^(主线剧情|主线|剧情|关键冲突|关键事件|核心冲突|核心事件|冲突|事件|伏笔|暗线|主线|明线)/;
+        const beats = clean.filter(l => beatKeywords.test(l));
+        const pool = beats.length >= 2 ? beats : clean;
+        const out = [];
+        let total = 0;
+        for (const line of pool) {
+            const cost = line.length + (out.length ? 1 : 0);
+            if (total + cost > maxLen) {
+                if (out.length === 0) out.push(line.slice(0, maxLen));
+                break;
+            }
+            out.push(line);
+            total += cost;
+        }
+        return out.join('\n').slice(0, maxLen);
     }
 
     function sanitizeGeneratedDirection(value) {
