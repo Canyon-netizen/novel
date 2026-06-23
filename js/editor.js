@@ -1367,6 +1367,17 @@ ${prevTail ? `\n\n【上一章结尾（用于衔接）】\n…${prevTail}` : ''}
     if (!text || !text.trim()) throw new Error('AI 返回内容为空');
     chapter.content = (chapter.content?.trim() ? chapter.content.trim() + '\n\n' : '') + text.trim();
     chapter.lastEditedAt = Date.now();
+
+    // Extract characters + world setting mentioned in this chapter
+    // (only on the first batch pass so we don't re-extract the same names forever).
+    // Failure here must not abort the whole batch — log and continue.
+    try {
+        const extracted = await aiExtractFromChapter(project, chapter);
+        mergeExtractedEntities(project, extracted);
+    } catch (e) {
+        console.warn(`第 ${idx + 1} 章实体提取失败:`, e);
+    }
+
     // Persist the entire project (chapterIndex global may not match the idx we're writing)
     const all = safeLoadProjects();
     all[projectIndex] = project;
@@ -1374,6 +1385,94 @@ ${prevTail ? `\n\n【上一章结尾（用于衔接）】\n…${prevTail}` : ''}
     localStorage.setItem('moyun_projects', JSON.stringify(all));
     renderBatchCard();
     return text;
+}
+
+async function aiExtractFromChapter(project, chapter) {
+    // Skip extraction on the stub provider — it returns prose, not JSON,
+    // and we don't want to seed fake characters from it.
+    if (aiSettings.provider === 'local') return { newCharacters: [], newWorldSetting: {} };
+
+    const systemPrompt = '你是一个小说实体抽取助手。从给定章节正文中抽取首次出现的角色和世界设定,只输出 JSON。';
+    const knownNames = (project.characters || []).map(c => c.name).filter(Boolean).join('、');
+    const userPrompt = `从以下章节抽取新角色和世界设定。
+
+【已知角色（不要重复）】${knownNames || '（暂无）'}
+
+【章节正文】
+${chapter.content}
+
+输出格式（仅返回 JSON，不要其它文字）：
+{
+  "newCharacters": [
+    {"name": "角色名", "role": "主角/配角/反派", "description": "一句话描述（含外貌/性格/身份）"}
+  ],
+  "newWorldSetting": {
+    "era": "时代背景（如：现代/架空王朝）",
+    "society": "社会环境",
+    "geography": "地理设定",
+    "rules": "特殊规则/力量体系/江湖规矩"
+  }
+}
+
+规则：
+- newCharacters 只包含本章新出现的角色（已知角色不要重复）
+- 如果本章没有新角色，newCharacters 为空数组
+- newWorldSetting 只填本章有补充的字段，没提到的留空字符串`;
+
+    const raw = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
+    return parseExtractionJson(raw);
+}
+
+function parseExtractionJson(raw) {
+    const result = { newCharacters: [], newWorldSetting: {} };
+    if (!raw) return result;
+    // Strip <think> blocks and code fences
+    const cleaned = raw.replace(/<think>[\s\S]*?<\/think>/g, '').replace(/```[\s\S]*?```/g, '').trim();
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (!m) return result;
+    try {
+        const data = JSON.parse(m[0]);
+        if (Array.isArray(data.newCharacters)) {
+            result.newCharacters = data.newCharacters
+                .filter(c => c && c.name)
+                .map(c => ({
+                    name: String(c.name).trim(),
+                    role: String(c.role || '配角').trim(),
+                    description: String(c.description || '').trim()
+                }));
+        }
+        if (data.newWorldSetting && typeof data.newWorldSetting === 'object') {
+            const w = data.newWorldSetting;
+            result.newWorldSetting = {
+                era: String(w.era || '').trim(),
+                society: String(w.society || '').trim(),
+                geography: String(w.geography || '').trim(),
+                rules: String(w.rules || '').trim()
+            };
+        }
+    } catch { /* keep result empty */ }
+    return result;
+}
+
+function mergeExtractedEntities(project, extracted) {
+    if (!project.characters) project.characters = [];
+    if (!project.worldSetting) project.worldSetting = {};
+
+    // Dedup characters by name (case-insensitive)
+    const existing = new Set(project.characters.map(c => (c.name || '').toLowerCase()));
+    for (const c of extracted.newCharacters) {
+        if (!c.name || existing.has(c.name.toLowerCase())) continue;
+        project.characters.push(c);
+        existing.add(c.name.toLowerCase());
+    }
+
+    // Merge world setting: only overwrite fields that are currently empty
+    // (so manual edits aren't clobbered by the model's later guesses).
+    const w = extracted.newWorldSetting || {};
+    if (w.era && !project.worldSetting.era) project.worldSetting.era = w.era;
+    if (w.society && !project.worldSetting.society) project.worldSetting.society = w.society;
+    if (w.geography && !project.worldSetting.geography) project.worldSetting.geography = w.geography;
+    if (w.rules && !project.worldSetting.rules) project.worldSetting.rules = w.rules;
 }
 
 async function aiPlanOutline() {
