@@ -70,6 +70,10 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
                         <span class="sidebar-tab-label">时间</span>
                     </button>
+                    <button class="sidebar-tab-icon" data-tab="outline" onclick="switchSidebarTab('outline')" title="大纲" aria-label="大纲">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        <span class="sidebar-tab-label">大纲</span>
+                    </button>
                 </div>
 
                 <div class="sidebar-content-wrap" id="sidebarContent">
@@ -126,6 +130,18 @@
                     <button class="add-event-btn" onclick="openAddTimelineEventModal()">
                         <span>+</span> 添加时间节点
                     </button>
+                </div>
+
+                <!-- Outline / Chapter Plan -->
+                <div class="sidebar-content" id="outlineTab">
+                    <div class="outline-current" id="outlineCurrent">
+                        <div class="outline-current-label">当前章节大纲</div>
+                        <div class="outline-current-title" id="outlineCurrentTitle">第1章</div>
+                        <div class="outline-current-summary" id="outlineCurrentSummary">暂无大纲 — 可点击下方「AI 规划大纲」自动生成</div>
+                    </div>
+                    <div class="outline-list" id="outlineList">
+                        <!-- All chapter outlines rendered here -->
+                    </div>
                 </div>
                 </div>
             </aside>

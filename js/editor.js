@@ -192,7 +192,7 @@ function loadProject() {
 // ==================== 侧边栏切换 ====================
 function switchSidebarTab(tabName) {
     // 切换tab按钮状态
-    document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    document.querySelectorAll('.sidebar-tab-icon').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.tab === tabName);
     });
 
@@ -200,6 +200,16 @@ function switchSidebarTab(tabName) {
     document.querySelectorAll('.sidebar-content').forEach(content => {
         content.classList.toggle('active', content.id === tabName + 'Tab');
     });
+
+    // 大纲 tab 切换时刷新内容 + 展开侧边栏（outline 需要更宽空间）
+    if (tabName === 'outline') {
+        renderOutlineTab();
+        const sidebar = document.getElementById('chapterSidebar');
+        if (sidebar) sidebar.classList.add('force-expand');
+    } else {
+        const sidebar = document.getElementById('chapterSidebar');
+        if (sidebar) sidebar.classList.remove('force-expand');
+    }
 }
 
 // ==================== 章节管理 ====================
@@ -245,6 +255,7 @@ function selectChapterByIndex(index) {
 
     renderChapters(project, index);
     updateWordCount();
+    renderOutlineTab();
 }
 
 function selectChapter(project, index) {
@@ -256,6 +267,47 @@ function selectChapter(project, index) {
     if (editorTitle) editorTitle.textContent = `第${index + 1}章 · ${chapter.title}`;
     if (contentEditor) contentEditor.value = chapter.content || '';
     updateWordCount();
+    renderOutlineTab();
+}
+
+function renderOutlineTab() {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    const titleEl = document.getElementById('outlineCurrentTitle');
+    const summaryEl = document.getElementById('outlineCurrentSummary');
+    const listEl = document.getElementById('outlineList');
+    if (!titleEl || !summaryEl || !listEl) return;
+
+    const chapter = project?.chapters?.[chapterIndex];
+    if (chapter) {
+        const rawTitle = (chapter.title || '').trim();
+        const hasPrefix = /^第\s*[一二三四五六七八九十百零\d]+\s*[章节回]/.test(rawTitle);
+        titleEl.textContent = hasPrefix ? rawTitle : `第${chapterIndex + 1}章 · ${rawTitle}`;
+        const summary = (chapter.summary || '').trim();
+        summaryEl.textContent = summary || '暂无大纲 — 可点击工具栏的「AI 规划大纲」自动生成';
+        summaryEl.classList.toggle('empty', !summary);
+    } else {
+        titleEl.textContent = '未选择章节';
+        summaryEl.textContent = '';
+    }
+
+    const chapters = project?.chapters || [];
+    listEl.innerHTML = chapters.map((c, i) => {
+        const isActive = i === chapterIndex;
+        const rawTitle = (c.title || '').trim();
+        const hasPrefix = /^第\s*[一二三四五六七八九十百零\d]+\s*[章节回]/.test(rawTitle);
+        const displayTitle = hasPrefix ? rawTitle : `第${i + 1}章 · ${rawTitle}`;
+        const summary = (c.summary || '').trim();
+        const preview = summary
+            ? summary.replace(/\n+/g, ' ').slice(0, 80) + (summary.length > 80 ? '…' : '')
+            : '（无大纲）';
+        return `
+            <div class="outline-item ${isActive ? 'active' : ''}" data-chapter-index="${i}" onclick="selectChapterByIndex(${i}); renderOutlineTab();">
+                <div class="outline-item-title">${escapeHtml(displayTitle)}</div>
+                <div class="outline-item-preview">${escapeHtml(preview)}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 function openAddChapterModal() {
