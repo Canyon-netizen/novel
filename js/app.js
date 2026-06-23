@@ -147,11 +147,18 @@ function renderProjects(filterFn) {
 
     if (filteredProjects.length === 0) {
         grid.innerHTML = '';
+        const isFiltered = projects.length > 0 && (currentFilter.search || currentFilter.type);
+        if (isFiltered) {
+            empty.innerHTML = '<h3>没有匹配的项目</h3><p>请调整搜索或筛选条件</p>';
+        } else {
+            empty.innerHTML = '<h3>还没有创建小说项目</h3><p>开始创作你的第一部小说作品吧</p><button class="btn-primary" onclick="openNewNovelModal()">开始创作</button>';
+        }
         empty.style.display = 'block';
         return;
     }
 
     empty.style.display = 'none';
+    empty.innerHTML = '<h3>还没有创建小说项目</h3><p>开始创作你的第一部小说作品吧</p><button class="btn-primary" onclick="openNewNovelModal()">开始创作</button>';
 
     grid.innerHTML = filteredProjects.map((project) => {
         const originalIndex = projects.indexOf(project);
