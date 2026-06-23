@@ -1436,13 +1436,14 @@
         status.style.display = 'block';
         status.innerHTML = `
             <strong>已导入：${escapeHtml(filename)}（${parsed.chapters.length} 章）</strong>
-            创建小说时会自动带入这些章节。
+            <span style="color:var(--text-muted);">创建小说时会自动带入这些章节。</span>
             <ul>
                 ${preview.map((chapter, index) => `<li>第${index + 1}章 · ${escapeHtml(chapter.title)}</li>`).join('')}
             </ul>
-            ${parsed.chapters.length > preview.length ? `<div style="margin-top:0.5rem;">还有 ${parsed.chapters.length - preview.length} 章未显示。</div>` : ''}
-            <div style="margin-top:0.8rem;">
+            ${parsed.chapters.length > preview.length ? `<div class="import-status-meta">还有 ${parsed.chapters.length - preview.length} 章未显示。</div>` : ''}
+            <div class="import-status-actions">
                 <button class="toolbar-btn" type="button" onclick="clearImportedOutline()">清除导入</button>
+                <button class="toolbar-btn" type="button" id="exportOutlineBtnInline" onclick="exportImportedOutline()">导出大纲 (.md)</button>
             </div>
         `;
     }

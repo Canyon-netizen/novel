@@ -2141,7 +2141,7 @@ textarea:focus-visible {
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ==================== Import Outline Panel ==================== */
-.import-status {
+#importStatus {
     margin-top: 0.75rem;
     padding: 0.8rem;
     background: var(--bg-secondary);
@@ -2149,13 +2149,28 @@ textarea:focus-visible {
     border-radius: var(--radius-sm);
     font-size: 0.85rem;
     color: var(--text-secondary);
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    text-align: left;
 }
-.import-status ul {
+#importStatus ul {
     margin: 0.5rem 0 0;
-    padding-left: 1.2rem;
+    padding: 0;
+    list-style: none;
     color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
 }
-.import-status strong { color: var(--text-primary); }
+#importStatus li {
+    text-align: left;
+    line-height: 1.5;
+    padding-left: 0.6rem;
+    border-left: 2px solid var(--border-color);
+}
+#importStatus strong { color: var(--text-primary); }
+.import-status-meta { margin-top: 0.5rem; }
+.import-status-actions { margin-top: 0.8rem; display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 .import-help {
     margin-top: 0.75rem;
