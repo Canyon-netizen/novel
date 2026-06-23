@@ -27,9 +27,11 @@ jobs:
       - name: Build artifact
         run: |
           mkdir -p _site
-          # 复制前端文件到 _site（GitHub Pages 部署根）
+          # 复制所有前端 HTML 入口到 _site
           cp index.html _site/
           cp login.html _site/
+          cp create.html _site/
+          cp editor.html _site/
           cp -r css _site/
           cp -r app _site/
           cp -r js _site/
