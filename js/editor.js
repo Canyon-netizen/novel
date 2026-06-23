@@ -1136,12 +1136,37 @@ const batchState = {
     userApproved: false     // when 'all' is chosen after sampling
 };
 
+const BATCH_ACTIONS = {
+    sample: () => aiBatchStart('sample'),
+    all: () => aiBatchStart('all'),
+    pause: () => aiBatchPause(),
+    resume: () => aiBatchResume(),
+    cancel: () => aiBatchCancel(),
+    reset: () => aiBatchReset(),
+    retry: () => aiBatchRetry()
+};
+
 function renderBatchCard() {
     const card = document.getElementById('batchCard');
     if (!card) return;
     const body = document.getElementById('batchCardBody');
     const actions = document.getElementById('batchCardActions');
     card.classList.remove('error');
+    // One-time delegated click handler on the actions container. Each time
+    // renderBatchCard rewrites actions.innerHTML, this single listener
+    // survives because it's bound to the parent, not the buttons. The
+    // lookup is by data-batch-action at click time, so we don't need to
+    // re-attach after every re-render.
+    if (actions && !actions.__delegated) {
+        actions.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-batch-action]');
+            if (!btn) return;
+            const action = btn.dataset.batchAction;
+            const fn = BATCH_ACTIONS[action];
+            if (fn) fn();
+        });
+        actions.__delegated = true;
+    }
 
     const s = batchState;
     const fmt = (sec) => {
@@ -1216,22 +1241,9 @@ function renderBatchCard() {
 }
 
 function attachBatchActionHandlers() {
-    const actions = document.getElementById('batchCardActions');
-    if (!actions) return;
-    const map = {
-        sample: () => aiBatchStart('sample'),
-        all: () => aiBatchStart('all'),
-        pause: () => aiBatchPause(),
-        resume: () => aiBatchResume(),
-        cancel: () => aiBatchCancel(),
-        reset: () => aiBatchReset(),
-        retry: () => aiBatchRetry()
-    };
-    actions.querySelectorAll('[data-batch-action]').forEach(btn => {
-        const action = btn.dataset.batchAction;
-        const fn = map[action];
-        if (fn) btn.addEventListener('click', fn);
-    });
+    // Kept as a no-op for callers that haven't been updated to use the
+    // delegated handler installed once in renderBatchCard. Safe to delete
+    // once all external references are gone.
 }
 
 async function aiBatchStart(mode) {
@@ -1327,8 +1339,10 @@ async function aiBatchRun() {
             batchState.durations.push(Date.now() - t0);
             batchState.pending.shift();
             batchState.completed.push(idx);
-            // Persist after each chapter so user can navigate to a finished one
-            saveCurrentChapterLocal();
+            // aiBatchWriteOne already persists; do NOT call saveCurrentChapterLocal
+            // here — it would clobber the just-written chapter with stale
+            // contentEditor value from whatever chapter the user happens to
+            // have open in the sidebar.
             renderOutlineTab();
         } catch (e) {
             if (e.name === 'AbortError' || batchState.phase === 'paused') {

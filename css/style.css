@@ -2190,6 +2190,28 @@ textarea:focus-visible {
 .novel-card__desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5; }
 .novel-card__meta { display: flex; gap: 12px; font-size: 0.8rem; color: var(--text-muted); align-items: center; }
 .novel-card__meta > span:first-child { margin-right: auto; }
+.active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.6rem 0.3rem 0.8rem;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-primary);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    color: var(--accent-primary);
+    margin-left: 0.6rem;
+}
+.active-filter-chip .chip-close {
+    background: none;
+    border: none;
+    color: var(--accent-primary);
+    cursor: pointer;
+    padding: 0 0.2rem;
+    font-size: 1rem;
+    line-height: 1;
+}
+.active-filter-chip .chip-close:hover { color: var(--text-primary); }
 .novel-card__actions { display: inline-flex; gap: 4px; margin-left: auto; }
 .novel-card__menu-btn {
     background: transparent;

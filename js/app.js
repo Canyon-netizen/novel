@@ -63,6 +63,8 @@ function setupEventListeners() {
             filterProjects();
         });
     }
+    const chip = document.querySelector('[data-action="clear-filter"]');
+    if (chip) chip.addEventListener('click', clearAllFilters);
 }
 
 // auth 委托
@@ -144,6 +146,7 @@ function renderProjects(filterFn) {
 
     let filteredProjects = filterFn ? filterFn(projects) : [...projects];
     count.textContent = `(${filteredProjects.length})`;
+    updateActiveFilterChip();
 
     if (filteredProjects.length === 0) {
         grid.innerHTML = '';
@@ -324,6 +327,33 @@ function applyTypeFilter(type) {
 
 function applyTimeFilter(order) {
     currentFilter.timeSort = order;
+    filterProjects();
+}
+
+function updateActiveFilterChip() {
+    const chip = document.getElementById('activeFilterChip');
+    const label = document.getElementById('activeFilterLabel');
+    if (!chip || !label) return;
+    const parts = [];
+    if (currentFilter.search) parts.push(`搜索:${currentFilter.search}`);
+    if (currentFilter.type) parts.push(`类型:${getTypeName(currentFilter.type) || currentFilter.type}`);
+    if (parts.length === 0) {
+        chip.style.display = 'none';
+    } else {
+        label.textContent = parts.join(' · ');
+        chip.style.display = 'inline-flex';
+    }
+}
+
+function clearAllFilters() {
+    currentFilter.search = '';
+    currentFilter.type = null;
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = '';
+    const searchBar = document.getElementById('searchBar');
+    if (searchBar) searchBar.style.display = 'none';
+    const filterPanel = document.getElementById('filterPanel');
+    if (filterPanel) filterPanel.style.display = 'none';
     filterProjects();
 }
 
