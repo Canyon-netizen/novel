@@ -1082,9 +1082,10 @@ async function aiWrite() {
 
         const outlineContext = buildOutlineContext(project, chapterIndex);
         const systemPrompt = buildWriteSystemPrompt(project, chapter);
+        const targetWords = detectChapterTargetWords(chapter);
 
         const continuation = await callAI(
-            [{ role: 'user', content: `${outlineContext}\n\n请基于以上全书大纲和上文正文，直接续写本章剩余内容（约2000-3000字），严格遵循本章大纲规划的情节走向，输出纯正文不要任何解释或注释：\n\n${content}` }],
+            [{ role: 'user', content: `${outlineContext}\n\n请基于以上全书大纲和上文正文,直接续写本章剩余内容（${targetWords}字左右,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释：\n\n${content}` }],
             systemPrompt
         );
         if (editor) {
@@ -1109,9 +1110,33 @@ function buildOutlineContext(project, currentIdx) {
         const summary = c.summary?.trim()
             ? ` — ${c.summary.slice(0, 200)}`
             : ' — （本章尚无大纲）';
-        lines.push(`${i + 1}. ${c.title || `第${i + 1}章`}${summary} ${marker}`.trim());
+        const wc = detectChapterTargetWords(c);
+        const wcTag = wc ? ` [目标 ${wc}字]` : '';
+        lines.push(`${i + 1}. ${c.title || `第${i + 1}章`}${summary}${wcTag} ${marker}`.trim());
     });
     return lines.join('\n');
+}
+
+// Parse the per-chapter word-count target from the title. Recognizes
+// patterns like:
+//   "【单章1.4w字】" / "[单章8000字]" / "(约12000字)" / "1.4w字"
+// Returns null when no explicit target is found, in which case the
+// caller should fall back to a sane default.
+function detectChapterTargetWords(chapter) {
+    if (!chapter) return null;
+    const title = chapter.title || '';
+    const summary = chapter.summary || '';
+    const blob = title + ' ' + summary;
+    // 1.4w / 2.5w / 1万 / 1.2万 / 8000字 / 12000字
+    const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
+    if (wanMatch) return String(Math.round(parseFloat(wanMatch[1]) * 10000));
+    const kMatch = blob.match(/(\d{3,5})\s*字/);
+    if (kMatch) {
+        const n = parseInt(kMatch[1], 10);
+        // ignore tiny numbers that look like scene markers ("8字对话")
+        if (n >= 1000) return String(n);
+    }
+    return null;
 }
 
 function buildWriteSystemPrompt(project, chapter) {
@@ -1133,7 +1158,9 @@ const batchState = {
     failedAt: null,          // { index, error } when phase === 'error'
     startedAt: 0,
     durations: [],          // ms per chapter (for ETA)
-    userApproved: false     // when 'all' is chosen after sampling
+    userApproved: false,    // when 'all' is chosen after sampling
+    pendingChapterSegments: 0,    // segments to write in current chapter (long-chapter mode)
+    completedChapterSegments: 0   // segments written so far
 };
 
 const BATCH_ACTIONS = {
@@ -1210,7 +1237,10 @@ function renderBatchCard() {
         const avg = s.durations.length ? s.durations.reduce((a, b) => a + b, 0) / s.durations.length : 0;
         const eta = avg * s.pending.length;
         const status = s.phase === 'paused' ? '⏸ 已暂停' : '正在生成';
-        body.innerHTML = `${status}第 <strong>${done + 1}</strong> / ${total} 章 · 预计剩余 ${fmt(eta / 1000)}
+        const segInfo = s.pendingChapterSegments > 1
+            ? ` · 本章 ${s.completedChapterSegments}/${s.pendingChapterSegments} 段`
+            : '';
+        body.innerHTML = `${status}第 <strong>${done + 1}</strong> / ${total} 章${segInfo} · 预计剩余 ${fmt(eta / 1000)}
             <div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div>
             <div style="font-size:0.75rem; color:var(--text-muted);">已完成 ${s.completed.length} 章 · 失败 0 · 跳过 0</div>`;
         if (s.phase === 'paused') {
@@ -1371,23 +1401,60 @@ async function aiBatchRun() {
 
 async function aiBatchWriteOne(project, idx) {
     const chapter = project.chapters[idx];
-    const prev = idx > 0 ? project.chapters[idx - 1] : null;
-    const prevTail = prev?.content?.trim() ? prev.content.trim().slice(-200) : '';
+    const targetWords = parseInt(detectChapterTargetWords(chapter) || '2500', 10);
+    const chunkSize = 2500; // each API call asks for ~2.5k chars
+    const totalChunks = Math.max(1, Math.ceil(targetWords / chunkSize));
+    const isLongChapter = totalChunks > 1;
+
     const systemPrompt = buildWriteSystemPrompt(project, chapter);
-    const outlineContext = buildOutlineContext(project, idx);
-    const userPrompt = `${outlineContext}
-${prevTail ? `\n\n【上一章结尾（用于衔接）】\n…${prevTail}` : ''}
 
-请基于全书大纲${prevTail ? '和上一章结尾' : ''}，直接续写本章正文（约2000-3000字），严格遵循本章大纲规划的情节走向，输出纯正文不要任何解释或注释。`;
+    // Generate each chunk; subsequent chunks see the previous tail for continuity.
+    let accumulatedContent = chapter.content?.trim() || '';
+    const prev = idx > 0 ? project.chapters[idx - 1] : null;
+    const crossTail = prev?.content?.trim() ? prev.content.trim().slice(-200) : '';
 
-    const text = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
-    if (!text || !text.trim()) throw new Error('AI 返回内容为空');
-    chapter.content = (chapter.content?.trim() ? chapter.content.trim() + '\n\n' : '') + text.trim();
-    chapter.lastEditedAt = Date.now();
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+        if (batchState.abort && batchState.abort.signal && batchState.abort.signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+        const isFirst = chunkIdx === 0;
+        const isLast = chunkIdx === totalChunks - 1;
+        const wordsThisChunk = isLast
+            ? Math.max(1000, targetWords - chunkSize * (totalChunks - 1))  // last chunk may be smaller
+            : chunkSize;
+        const tail = chunkIdx === 0 ? crossTail : accumulatedContent.slice(-200);
 
-    // Extract characters + world setting mentioned in this chapter
-    // (only on the first batch pass so we don't re-extract the same names forever).
-    // Failure here must not abort the whole batch — log and continue.
+        const outlineContext = buildOutlineContext(project, idx);
+        const userPrompt = `${outlineContext}
+${tail ? `\n\n【衔接上文】\n…${tail}` : ''}
+
+${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 ${chunkIdx + 1}/${totalChunks} 段,本段约 ${wordsThisChunk}字。\n` : ''}请基于全书大纲${tail ? '和上文衔接' : ''},${isFirst ? '开始写本章' : '继续写本章'}正文（约${wordsThisChunk}字,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释。`;
+
+        const text = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
+        if (!text || !text.trim()) throw new Error(`第 ${idx + 1} 章第 ${chunkIdx + 1} 段 AI 返回内容为空`);
+
+        accumulatedContent = accumulatedContent
+            ? accumulatedContent + '\n\n' + text.trim()
+            : text.trim();
+
+        // Persist incrementally so progress is observable & resumable
+        chapter.content = accumulatedContent;
+        chapter.lastEditedAt = Date.now();
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        project.lastEditedAt = new Date().toISOString();
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+
+        // Update batch UI to reflect progress within this chapter
+        if (isLongChapter) {
+            const segmentsDone = chunkIdx + 1;
+            batchState.pendingChapterSegments = totalChunks;
+            batchState.completedChapterSegments = segmentsDone;
+            renderBatchCard();
+        }
+    }
+
+    // Extract characters + world setting from the now-complete chapter
     try {
         const extracted = await aiExtractFromChapter(project, chapter);
         mergeExtractedEntities(project, extracted);
@@ -1395,13 +1462,8 @@ ${prevTail ? `\n\n【上一章结尾（用于衔接）】\n…${prevTail}` : ''}
         console.warn(`第 ${idx + 1} 章实体提取失败:`, e);
     }
 
-    // Persist the entire project (chapterIndex global may not match the idx we're writing)
-    const all = safeLoadProjects();
-    all[projectIndex] = project;
-    project.lastEditedAt = new Date().toISOString();
-    localStorage.setItem('moyun_projects', JSON.stringify(all));
     renderBatchCard();
-    return text;
+    return accumulatedContent;
 }
 
 async function aiExtractFromChapter(project, chapter) {
