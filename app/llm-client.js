@@ -85,8 +85,18 @@
   }
 
   // ==================== Endpoint / Headers / Body ====================
+  function normalizeBaseUrl(raw) {
+    let url = String(raw || '').trim().replace(/\/+$/, '');
+    if (!url) return '';
+    // protocol-relative: //cdn.example.com/v1 → https://cdn.example.com/v1
+    if (/^\/\//.test(url)) return 'https:' + url;
+    // missing scheme: api.openai.com/v1 → https://api.openai.com/v1
+    if (!/^https?:\/\//i.test(url)) return 'https://' + url;
+    return url;
+  }
+
   function buildApiEndpoint(baseUrl, provider, model) {
-    let normalized = (baseUrl || '').replace(/\/+$/, '');
+    const normalized = normalizeBaseUrl(baseUrl);
     if (normalized) {
       // 如果 baseUrl 已经以 /v1 结尾（OpenAI 兼容 / Anthropic / DeepSeek / MiniMax / Moonshot 官方都是
       // https://<host>/v1），就不再叠加 /v1，避免拼出 /v1/v1/chat/completions 这种 404 路径。
@@ -145,6 +155,34 @@
     };
   }
 
+  // ==================== Write System Prompt Builder ====================
+  // 通用写作规范，view 层调用 buildWriteSystemPrompt 时自动追加到 system prompt。
+  // 保持中性、可被 11 种题材共用；类型专属风格靠 THEME_PROMPTS 注入。
+  const WRITE_RULES = [
+    '直接输出纯正文，不要任何解释、注释、标题、章节名或元数据。',
+    '保持人物语气、世界观、叙事节奏与上文一致。',
+    '围绕本章大纲的情节走向展开，不要跑题或提前剧透后续章节。',
+    '输出长度遵守用户给定的字数指引，允许 ±20% 浮动。'
+  ].join('\n');
+
+  function buildWriteSystemPrompt(options) {
+    const opts = options || {};
+    const themePrompt = (typeof NovelCommon !== 'undefined' && NovelCommon.getThemePrompt)
+      ? NovelCommon.getThemePrompt(opts.type)
+      : '你是一位专业的中文小说写作助手。请用中文回答。';
+    const chapter = opts.chapter || {};
+    const summaryLine = (chapter.summary && String(chapter.summary).trim())
+      ? '\n\n【本章大纲】\n' + String(chapter.summary).trim()
+      : '\n\n【本章大纲】暂无规划，请根据全书走向自由发挥但保持合理性。';
+    const instructionsLine = opts.instructions
+      ? '\n\n【本次任务】\n' + String(opts.instructions).trim()
+      : '';
+    return themePrompt
+      + summaryLine
+      + '\n\n【写作规范】\n' + WRITE_RULES
+      + instructionsLine;
+  }
+
   // ==================== Local Mock ====================
   function callLocalAI(messages, systemPrompt) {
     return new Promise(function (resolve) {
@@ -196,6 +234,12 @@
             : JSON.stringify(errData).slice(0, 200);
         } catch (e) {
           errorDetail = await response.text();
+        }
+        if (response.status === 401 || response.status === 403) {
+          throw new Error('API Key 无效或已过期（HTTP ' + response.status + '）:' + errorDetail);
+        }
+        if (response.status === 404) {
+          throw new Error('Base URL 路径不存在（HTTP 404），请检查是否需要 /v1 后缀。详情:' + errorDetail);
         }
         throw new Error('HTTP ' + response.status + ': ' + errorDetail);
       }
@@ -353,6 +397,8 @@
     buildApiHeaders: buildApiHeaders,
     buildApiBody: buildApiBody,
     buildConnectivityTestPayload: buildConnectivityTestPayload,
+    buildWriteSystemPrompt: buildWriteSystemPrompt,
+    normalizeBaseUrl: normalizeBaseUrl,
     callAI: callAI,
     callLocalAI: callLocalAI,
     testConnection: testConnection

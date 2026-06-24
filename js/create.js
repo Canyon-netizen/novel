@@ -912,31 +912,16 @@
             }
 
             try {
-                const detectedProvider = inferApiProfile(baseUrl, model) || provider;
-                let endpoint = '';
-                try {
-                    endpoint = buildApiEndpoint(baseUrl, detectedProvider);
-                } catch (error) {
-                    markInvalid(baseUrlInput, error.message);
-                    return;
-                }
-                console.info('[Moyun] Testing AI endpoint:', endpoint);
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: buildApiHeaders(detectedProvider, apiKey),
-                    body: JSON.stringify(buildConnectivityTestPayload(detectedProvider, model, maxTokens))
-                });
-
-                if (!response.ok) {
-                    throw new Error(formatApiHttpError(response.status, endpoint, await readError(response)));
-                }
-
-                const data = await response.json();
-                const reply = extractAIText(data, detectedProvider);
-                if (reply.toLowerCase().includes('hello')) {
-                    toast(`连接成功，模型回复：${reply.slice(0, 80)}`, 'success');
+                const result = await NovelLLMClient.testConnection(aiSettings, { timeoutMs: 15000 });
+                if (result.code === 'local') {
+                    toast('本地模拟模式无需测试', 'success');
                 } else {
-                    toast(`连接成功，但回复不是预期文本：${reply.slice(0, 80) || '空回复'}`, 'warning');
+                    const sample = (result.sample || '').toLowerCase();
+                    if (sample.includes('hello')) {
+                        toast(`连接成功，模型回复：${result.sample.slice(0, 80)}`, 'success');
+                    } else {
+                        toast(`连接成功，但回复不是预期文本：${result.sample.slice(0, 80) || '空回复'}`, 'warning');
+                    }
                 }
             } catch (error) {
                 toast(normalizeNetworkError(error), 'error', '连接测试失败');
@@ -1772,7 +1757,7 @@
                 try {
                     const target = type === 'protagonist' ? '主角名字' : '小说书名';
                     const prompt = `请为${describeCurrentNovel()}生成一个${target}。只返回名称，不要解释，不要加引号。`;
-                    generated = await callAI([{ role: 'user', content: prompt }], getCreationSystemPrompt());
+                    generated = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: prompt }], getCreationSystemPrompt());
                 } catch (error) {
                     toast(`远程 AI 失败，已改用本地模拟：${normalizeNetworkError(error)}`, 'warning');
                 }
@@ -1804,7 +1789,7 @@
                         `要求：80到140字，包含主线矛盾、主角目标、故事看点；只输出创作方向，不要标题和解释。`,
                         config.tropes.length ? `已选叙事套路：${selectedTropeLabels().join('、')}` : ''
                     ].filter(Boolean).join('\n');
-                    generated = await callAI([{ role: 'user', content: prompt }], getCreationSystemPrompt());
+                    generated = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: prompt }], getCreationSystemPrompt());
                 } catch (error) {
                     toast(`远程 AI 失败，已改用本地模拟：${normalizeNetworkError(error)}`, 'warning');
                 }
@@ -1905,7 +1890,7 @@
             try {
                 let response;
                 if (hasRemoteAIConfig()) {
-                    response = await callAI(
+                    response = await NovelLLMClient.callAI(aiSettings,
                         discussHistory.slice(-8),
                         discussContext || '你是一位专业的中文小说创作助手，擅长世界观设定、人物塑造、情节设计和写作技巧。请给出具体、可执行的建议。'
                     );
@@ -2063,153 +2048,22 @@
     }
 
     // ==================== API Helpers ====================
-    async function callAI(messages, systemPrompt) {
-        if (!aiSettings.baseUrl && aiSettings.provider !== 'local') {
-            throw new Error(`AI 设置中 Base URL 为空。Provider=${aiSettings.provider} 时必须填 Base URL（如 https://api.minimaxi.com/v1）。请打开设置重新填写并保存。`);
-        }
-        const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider || 'openai';
-        const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider);
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: buildApiHeaders(provider, aiSettings.apiKey),
-            body: JSON.stringify(buildApiBody(provider, aiSettings.model, systemPrompt, messages))
-        });
-
-        if (!response.ok) {
-            throw new Error(formatApiHttpError(response.status, endpoint, await readError(response)));
-        }
-        return extractAIText(await response.json(), provider);
-    }
-
-    function inferApiProfile(baseUrl, model) {
-        const normalizedBaseUrl = String(baseUrl || '').toLowerCase();
-        const normalizedModel = String(model || '').toLowerCase();
-
-        if (/anthropic|claude/.test(normalizedBaseUrl) || /claude/.test(normalizedModel)) return 'anthropic';
-        if (/deepseek/.test(normalizedBaseUrl) || normalizedModel.startsWith('deepseek-')) return 'deepseek';
-        if (/minimax/.test(normalizedBaseUrl) || normalizedModel.startsWith('minimax-')) return 'minimax';
-        if (/moonshot|kimi/.test(normalizedBaseUrl) || normalizedModel.startsWith('moonshot-')) return 'kimi';
-        if (/bigmodel|glm/.test(normalizedBaseUrl) || normalizedModel.startsWith('glm-')) return 'glm';
-        if (/openai/.test(normalizedBaseUrl)) return 'openai';
-        return normalizedBaseUrl ? null : 'openai';
-    }
-
-    function buildApiEndpoint(baseUrl, provider) {
-        const preset = API_PRESETS[provider] || API_PRESETS.openai;
-        const normalized = normalizeApiBaseUrl(baseUrl || preset.baseUrl || '');
-        if (/\/(messages|chat\/completions|chat_completions)$/i.test(normalized)) return normalized;
-        if (/\/v1$/i.test(normalized) && preset.endpoint.startsWith('/v1/')) {
-            return `${normalized}${preset.endpoint.replace(/^\/v1/, '')}`;
-        }
-        return `${normalized}${preset.endpoint}`;
-    }
-
-    function normalizeApiBaseUrl(baseUrl) {
-        const normalized = String(baseUrl || '').trim().replace(/\/+$/, '');
-        if (!normalized) throw new Error('请填写 Base URL，例如：https://api.openai.com');
-        if (!/^https?:\/\//i.test(normalized)) {
-            throw new Error('Base URL 必须是完整地址，并以 http:// 或 https:// 开头，不能只填 /v1 或 api.xxx.com');
-        }
-        return normalized;
-    }
-
-    function buildApiHeaders(provider, apiKey) {
-        const headers = { 'Content-Type': 'application/json' };
-        if (provider === 'anthropic') {
-            headers['x-api-key'] = apiKey;
-            headers['anthropic-version'] = '2023-06-01';
-        } else {
-            headers.Authorization = `Bearer ${apiKey}`;
-        }
-        return headers;
-    }
-
-    function buildConnectivityTestPayload(provider, model, maxTokens) {
-        if (provider === 'anthropic') {
-            return {
-                model,
-                max_tokens: Math.min(maxTokens || 256, 256),
-                system: 'Reply with exactly: hello world',
-                messages: [{ role: 'user', content: 'hello world' }]
-            };
-        }
-        return {
-            model,
-            messages: [
-                { role: 'system', content: 'Reply with exactly: hello world' },
-                { role: 'user', content: 'hello world' }
-            ],
-            temperature: 0,
-            max_tokens: Math.min(maxTokens || 256, 256)
-        };
-    }
-
-    function buildApiBody(provider, model, systemPrompt, messages) {
-        const modelName = model || API_PRESETS[provider]?.model || API_PRESETS.openai.model;
-        const maxTokens = aiSettings.maxTokens || DEFAULT_AI_SETTINGS.maxTokens;
-
-        if (provider === 'anthropic') {
-            return {
-                model: modelName,
-                system: systemPrompt,
-                messages: normalizeMessages(messages, true),
-                max_tokens: maxTokens,
-                temperature: aiSettings.temperature
-            };
-        }
-
-        return {
-            model: modelName,
-            messages: [{ role: 'system', content: systemPrompt }, ...normalizeMessages(messages, false)],
-            temperature: aiSettings.temperature,
-            max_tokens: maxTokens
-        };
-    }
-
-    function normalizeMessages(messages, anthropic) {
-        return messages.map((message) => ({
-            role: anthropic && message.role === 'assistant' ? 'assistant' : (message.role === 'assistant' ? 'assistant' : 'user'),
-            content: message.content
-        }));
-    }
-
-    function extractAIText(data, provider) {
-        let text = '';
-        if (provider === 'anthropic') {
-            text = data.content?.map((item) => item.text || '').join('\n') || '';
-        } else {
-            text = data.choices?.[0]?.message?.content || data.choices?.[0]?.text || '';
-        }
-        return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    }
-
-    async function readError(response) {
-        const text = await response.text().catch(() => '');
-        if (!text) return '无法读取错误详情';
-        try {
-            const data = JSON.parse(text);
-            return data.error?.message || data.message || text.slice(0, 220);
-        } catch {
-            return text.slice(0, 220);
-        }
-    }
-
-    function formatApiHttpError(status, endpoint, detail) {
-        if (status === 404) {
-            return `API 地址返回 404：${endpoint}。请检查 Provider 和 Base URL 是否匹配，OpenAI 兼容接口通常填 https://你的域名/v1 或 https://你的域名，不要填当前网页地址或相对路径。`;
-        }
-        if (status === 401 || status === 403) {
-            return `API 鉴权失败 HTTP ${status}：请检查 API Key、模型权限和 Provider。${detail}`;
-        }
-        return `HTTP ${status}: ${detail}`;
-    }
-
+    // LLM 调用栈（callAI / inferApiProfile / buildApiEndpoint / buildApiHeaders /
+    // buildApiBody / buildConnectivityTestPayload / normalizeMessages / extractAIText /
+    // readError / formatApiHttpError）已经全部搬到 app/llm-client.js。create.js 里的
+    // 远端 AI 调用（包括 AI 书名生成、AI 角色名、AI 创作方向、Discuss 模式）都走
+    // NovelLLMClient.callAI(aiSettings, messages, systemPrompt)。Settings 弹窗的"测试连接"
+    // 走 NovelLLMClient.testConnection(aiSettings)。normalizeNetworkError 保留作为
+    // 错误归一化包装（fallback toast 用）。
     function normalizeNetworkError(error) {
         const message = error?.message || String(error);
         if (/Failed to fetch|NetworkError|CORS/i.test(message)) {
             return '网络请求失败，可能是浏览器跨域限制或 API 地址不可访问';
         }
         return message;
+    }
+    if (typeof NovelLLMClient === 'undefined') {
+        console.error('NovelLLMClient 模块未加载，create.js 无法调用 LLM。请检查 create.html 的 <script> 顺序。');
     }
 
     // ==================== Labels & Text Helpers ====================

@@ -824,20 +824,6 @@ function exportCurrentProject() {
     URL.revokeObjectURL(url);
 }
 
-function getTypeName(type) {
-    // 优先使用 NovelCommon 的实现
-    if (typeof NovelCommon !== 'undefined' && NovelCommon.getTypeName) {
-        return NovelCommon.getTypeName(type);
-    }
-    const types = {
-        romance: '言情', fantasy: '玄幻', xianxia: '仙侠',
-        mystery: '悬疑', scifi: '科幻', wuxia: '武侠',
-        urban: '都市', historical: '历史', horror: '恐怖',
-        game: '游戏', apocalypse: '末世'
-    };
-    return types[type] || '其他';
-}
-
 function updateParentStats() {
     // 更新父窗口的统计数据（如果存在）
     if (window.opener) {
@@ -944,126 +930,23 @@ function updateAIStatus() {
     }
 }
 
-// ==================== AI 提示词（11 种类型完整支持）====================
+// ==================== AI 提示词（委托 NovelCommon）====================
+// 类型/题材提示词统一在 app/common.js 的 THEME_PROMPTS（11 种全覆盖），
+// 这里不再保留副本，避免三处漂移。
 function getThemePrompt(themeType) {
-    // 优先使用 NovelCommon 的实现（如果存在）
     if (typeof NovelCommon !== 'undefined' && NovelCommon.getThemePrompt) {
         return NovelCommon.getThemePrompt(themeType);
     }
-    const prompts = {
-        romance: '你是一位专业的言情小说写作助手，擅长细腻的情感描写和人物心理刻画。请用中文回答。',
-        fantasy: '你是一位专业的玄幻小说写作助手，擅长构建奇幻世界观和力量体系。请用中文回答。',
-        xianxia: '你是一位专业的仙侠小说写作助手，擅长描绘修仙之路和仙魔之争。请用中文回答。',
-        mystery: '你是一位专业的悬疑小说写作助手，擅长铺设悬念和设计推理逻辑。请用中文回答。',
-        scifi: '你是一位专业的科幻小说写作助手，擅长设计科技设定和未来场景。请用中文回答。',
-        wuxia: '你是一位专业的武侠小说写作助手，擅长描绘江湖规矩和武功招式。请用中文回答。',
-        urban: '你是一位专业的都市小说写作助手，擅长描绘现代都市生活。请用中文回答。',
-        historical: '你是一位专业的历史小说写作助手，擅长还原时代背景和人物风貌。请用中文回答。',
-        horror: '你是一位专业的恐怖小说写作助手，擅长营造恐怖氛围和心理恐惧。请用中文回答。',
-        game: '你是一位专业的游戏小说写作助手，擅长描绘游戏世界和副本冒险。请用中文回答。',
-        apocalypse: '你是一位专业的末世小说写作助手，擅长描绘末日生存和人性的挣扎。请用中文回答。'
-    };
-    return prompts[themeType] || prompts.romance;
+    return '你是一位专业的中文小说写作助手。请用中文回答。';
 }
 
-// ==================== API 调用（本地完整实现 + NovelLLMClient 委托后备）====================
-const API_PRESETS = {
-    anthropic: { name: 'Anthropic (Claude)', baseUrl: 'https://api.anthropic.com/v1', authHeader: 'x-api-key' },
-    openai: { name: 'OpenAI (GPT)', baseUrl: 'https://api.openai.com/v1', authHeader: 'bearer' },
-    deepseek: { name: 'DeepSeek', baseUrl: 'https://api.deepseek.com/v1', authHeader: 'bearer' },
-    minimax: { name: 'MiniMax', baseUrl: 'https://api.minimaxi.com/v1', authHeader: 'bearer' },
-    kimi: { name: 'Kimi', baseUrl: 'https://api.moonshot.cn/v1', authHeader: 'bearer' },
-    glm: { name: 'GLM', baseUrl: 'https://open.bigmodel.cn/api/coding/paas/v4', authHeader: 'bearer' }
-};
-
-function inferApiProfile(baseUrl, model) {
-    const nb = String(baseUrl || '').trim().toLowerCase();
-    const nm = String(model || '').trim().toLowerCase();
-
-    if (/\/anthropic\b/i.test(nb)) return 'anthropic';
-    if (/api\.anthropic\.com/i.test(nb)) return 'anthropic';
-    if (/api\.deepseek\.com/i.test(nb)) return 'deepseek';
-    if (/api\.minimax\.chat/i.test(nb)) return 'minimax';
-    if (/api\.moonshot\.cn/i.test(nb)) return 'kimi';
-    if (/bigmodel\.cn/i.test(nb)) return 'glm';
-    if (/api\.openai\.com/i.test(nb)) return 'openai';
-
-    if (nm.startsWith('deepseek-')) return 'deepseek';
-    if (nm.startsWith('minimax-')) return 'minimax';
-    if (nm.startsWith('glm-')) return 'glm';
-    if (nm.startsWith('moonshot-')) return 'kimi';
-    if (/claude/i.test(nm)) return 'anthropic';
-
-    return null;
-}
-
-function buildApiEndpoint(baseUrl, provider) {
-    const normalized = (baseUrl || '').replace(/\/+$/, '');
-    if (normalized) {
-        return provider === 'anthropic' ? `${normalized}/v1/messages` : `${normalized}/v1/chat/completions`;
-    }
-    const endpoints = {
-        anthropic: 'https://api.anthropic.com/v1/messages',
-        deepseek: 'https://api.deepseek.com/v1/chat/completions',
-        minimax: 'https://api.minimaxi.com/v1/chat/completions',
-        kimi: 'https://api.moonshot.cn/v1/chat/completions',
-        glm: 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions'
-    };
-    return endpoints[provider] || 'https://api.openai.com/v1/chat/completions';
-}
-
-function buildApiHeaders(provider, apiKey) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (provider === 'anthropic') {
-        headers['x-api-key'] = apiKey;
-        headers['anthropic-version'] = '2023-06-01';
-    } else {
-        headers['Authorization'] = `Bearer ${apiKey}`;
-    }
-    return headers;
-}
-
-function buildApiBody(provider, model, systemPrompt, messages, temperature, maxTokens) {
-    const modelName = model || (provider === 'anthropic' ? 'claude-sonnet-4-20250514' : 'gpt-4');
-    if (provider === 'anthropic') {
-        return { model: modelName, system: systemPrompt, messages, max_tokens: maxTokens || 2048 };
-    }
-    return {
-        model: modelName,
-        messages: [{ role: 'system', content: systemPrompt }, ...messages],
-        temperature: temperature || 0.7,
-        max_tokens: maxTokens || 2048
-    };
-}
-
-async function callAI(messages, systemPrompt) {
-    // 优先委托到 NovelLLMClient（如果可用），签名差异：llm-client 签名 callAI(aiSettings, messages, systemPrompt)
-    if (typeof NovelLLMClient !== 'undefined' && NovelLLMClient.callAI) {
-        try {
-            return await NovelLLMClient.callAI(aiSettings, messages, systemPrompt);
-        } catch (e) {
-            console.warn('NovelLLMClient.callAI 失败，回落到本地实现:', e);
-        }
-    }
-
-    if (aiSettings.provider === 'local') {
-        return new Promise(r => setTimeout(() => r('【本地模拟】夜风轻拂，星光点点，他望着远方的山峦，心中涌起无限思绪。'), 1000));
-    }
-
-    const provider = inferApiProfile(aiSettings.baseUrl, aiSettings.model) || aiSettings.provider;
-    const endpoint = buildApiEndpoint(aiSettings.baseUrl, provider);
-    const headers = buildApiHeaders(provider, aiSettings.apiKey);
-    const body = buildApiBody(provider, aiSettings.model, systemPrompt, messages, aiSettings.temperature, aiSettings.maxTokens);
-
-    const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
-
-    if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(`HTTP ${response.status}: ${err.error?.message || '未知错误'}`);
-    }
-
-    const data = await response.json();
-    return provider === 'anthropic' ? (data.content?.[0]?.text || '') : (data.choices?.[0]?.message?.content || '');
+// ==================== API 调用（统一委托 NovelLLMClient）====================
+// 之前这里有一份完整的 LLM 调用栈副本（API_PRESETS/inferApiProfile/buildApiEndpoint/
+// buildApiHeaders/buildApiBody/callAI），已经全部搬到 app/llm-client.js。
+// 这里的 callAI 直接走公共模块——batch state、reasoning 模型适配、401/403/404
+// 错误分类都只在 llm-client.js 维护一份。
+if (typeof NovelLLMClient === 'undefined') {
+    console.error('NovelLLMClient 模块未加载，editor.js 无法调用 LLM。请检查 editor.html 的 <script> 顺序。');
 }
 
 // ==================== AI 功能 ====================
@@ -1084,7 +967,7 @@ async function aiWrite() {
         const systemPrompt = buildWriteSystemPrompt(project, chapter);
         const targetWords = detectChapterTargetWords(chapter);
 
-        const continuation = await callAI(
+        const continuation = await NovelLLMClient.callAI(aiSettings,
             [{ role: 'user', content: `${outlineContext}\n\n请基于以上全书大纲和上文正文,直接续写本章剩余内容（${targetWords}字左右,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释：\n\n${content}` }],
             systemPrompt
         );
@@ -1140,11 +1023,10 @@ function detectChapterTargetWords(chapter) {
 }
 
 function buildWriteSystemPrompt(project, chapter) {
-    const themePrompt = getThemePrompt(project?.type);
-    const summaryLine = chapter.summary?.trim()
-        ? `\n\n【本章大纲】\n${chapter.summary}`
-        : '\n\n【本章大纲】暂无规划。';
-    return `${themePrompt}${summaryLine}\n\n严格遵循本章大纲的剧情走向，保持人物语气与世界设定一致。`;
+    return NovelLLMClient.buildWriteSystemPrompt({
+        type: project?.type,
+        chapter: chapter
+    });
 }
 
 // ==================== AI 批量生成 ====================
@@ -1430,7 +1312,7 @@ ${tail ? `\n\n【衔接上文】\n…${tail}` : ''}
 
 ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 ${chunkIdx + 1}/${totalChunks} 段,本段约 ${wordsThisChunk}字。\n` : ''}请基于全书大纲${tail ? '和上文衔接' : ''},${isFirst ? '开始写本章' : '继续写本章'}正文（约${wordsThisChunk}字,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释。`;
 
-        const text = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
+        const text = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], systemPrompt);
         if (!text || !text.trim()) throw new Error(`第 ${idx + 1} 章第 ${chunkIdx + 1} 段 AI 返回内容为空`);
 
         accumulatedContent = accumulatedContent
@@ -1498,7 +1380,7 @@ ${chapter.content}
 - 如果本章没有新角色，newCharacters 为空数组
 - newWorldSetting 只填本章有补充的字段，没提到的留空字符串`;
 
-    const raw = await callAI([{ role: 'user', content: userPrompt }], systemPrompt);
+    const raw = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], systemPrompt);
     return parseExtractionJson(raw);
 }
 
@@ -1585,7 +1467,7 @@ async function aiPlanOutline() {
 
         const userPrompt = `请为以下小说的全部章节撰写简短大纲（每章 80-150 字，说明本章主要情节与冲突），严格按章节顺序输出 JSON 数组：\n\n${meta}\n\n章节列表：\n${chapterList}\n\n输出格式（仅返回 JSON，不要其它文字）：\n[{"index":1,"summary":"..."},{"index":2,"summary":"..."}]`;
 
-        const raw = await callAI([{ role: 'user', content: userPrompt }], themePrompt);
+        const raw = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], themePrompt);
 
         const parsed = parseOutlineJson(raw);
         if (!parsed) {
@@ -1653,7 +1535,7 @@ ${chapterList}
 
 要求：仅返回 JSON：{"summary":"..."}`;
 
-        const raw = await callAI([{ role: 'user', content: userPrompt }], themePrompt);
+        const raw = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], themePrompt);
         let summary = '';
         // Try JSON first; fall back to treating the whole response as prose
         const m = raw.match(/\{[\s\S]*\}/);
@@ -1694,7 +1576,7 @@ async function aiPolish() {
     if (btn) { btn.innerHTML = '<span class="novel-spinner"></span> AI 润色中...'; btn.disabled = true; }
 
     try {
-        const polished = await callAI([{ role: 'user', content: `润色：\n\n${content}` }], '你是专业的中文写作润色专家。');
+        const polished = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: `润色：\n\n${content}` }], '你是专业的中文写作润色专家。');
         const editor = document.getElementById('contentEditor');
         if (editor) {
             editor.value = polished;
@@ -1720,7 +1602,7 @@ async function aiImprove() {
         const saved = localStorage.getItem('moyun_projects');
         const projects = safeLoadProjects();
         const project = projects[projectIndex];
-        const suggestion = await callAI([{ role: 'user', content: `提供改进建议：\n\n${content.slice(0, 500)}` }], getThemePrompt(project?.type));
+        const suggestion = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: `提供改进建议：\n\n${content.slice(0, 500)}` }], getThemePrompt(project?.type));
         showToast('💡 改进建议：\n\n' + suggestion, 'info');
     } catch (error) {
         showToast('AI调用失败：' + error.message, 'error');
