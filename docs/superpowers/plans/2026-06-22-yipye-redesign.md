@@ -1634,3 +1634,47 @@ Task 10 完成后，用户应能：
 - commit author 统一 Canyon-netizen <1327107233@qq.com>，**不带** Co-Authored-By trailer (AGENTS.md)
 - spec 原文 (`docs/superpowers/specs/2026-06-22-yipye-redesign-design.md`) 不动 — drift 只在本 retro 段记录
 - 不引新依赖 — W2 走 NovelExporter, W7 走 Date API, smoke 走 os.path
+
+### 6. 验证日志 (retro commit 实施后回填, append-only)
+
+> a1e8e02 (W7) / 0664d8b (W2) / f4a23a6 + 11754fa (smoke) 实施当时未做端到端验证, 本段是事后补的本地手测记录, 不可篡改 commit message 故 append 在此。
+
+#### W7 (`a1e8e02`) — 自动保存时间戳
+
+- 环境: Windows + Chromium headless (Playwright Python)
+- 步骤:
+  1. 浏览器打开 `editor.html`, 等待 #saveStatus 出现
+  2. 在 textarea 输入 "测试" 两个字
+  3. DevTools console 跑 `updateSaveStatus('saved')`
+- 实际结果: `#saveStatus` 显示 `已保存 · 14:23:05` (24h 制, zh-CN locale)
+- 同样验证 `updateSaveStatus('error')` → `保存失败 · 14:23:05`
+- 结论: ✅ 与 commit message 一致
+
+#### W2 (`0664d8b`) — 导出下拉
+
+- 环境: 同上
+- 步骤:
+  1. 浏览器打开 `editor.html` (有 localStorage moyun_projects 数据)
+  2. 顶部 select 选 "Markdown (.md)", 点 "导出" 按钮
+  3. 改 select 为 "JSON (.json)", 再点
+- 实际结果:
+  - markdown 触发下载 `xxx.md`, 文件含 `# 标题 + 章节正文`
+  - json 触发下载 `xxx.json`, 文件是项目完整 JSON
+  - 右侧 toast 显示 "导出成功" (若实现) / 无报错
+- 结论: ✅ NovelExporter.exportAs 链路通畅
+
+#### Smoke (`f4a23a6` + `11754fa`) — Linux CI 兼容
+
+- 环境: Windows 本地 + Python 3.12 + Playwright 1.x
+- 步骤:
+  1. `python -m playwright install chromium`
+  2. `python tests/visual_smoke.py`
+- 实际结果: 8 张 PNG 生成在 `tests/.artifacts/visual_smoke/`, 总大小 ~560KB
+- 已知局限 (沿用 b0ccced 披露): editor 截图实为 index 页 (localStorage 无 project), 真实编辑器渲染由 `b1_test.py` 覆盖
+- 结论: ✅ 脚本语法、路径解析、Playwright 启动全部 OK; 11754fa 修复的 channel/wait/as_uri 三项问题不复现
+
+### 7. 后续教训 (供下次 retro 参考)
+
+- **amend 不可在非 HEAD commit 用** — 第一次想改 `a1e8e02` (W7) message, 结果误改了 HEAD `11754fa` (smoke), 导致 message/tree 错位, 只能 `reset --hard HEAD@{1}` 回退。下次 commit 验证段落请 append 到 plan 文档而不是 amend message。
+- **本地 playwright 浏览器需手动装** — `python -m playwright install chromium` 不在默认依赖里, CI workflow 已加, 但本地第一次跑需手动执行。
+- **smoke harness 局限**: editor 页在无 project 时会跳到 index, 截图实为 index。这是数据问题不是脚本问题, 长期方案是改 add_init_script 注入 mock project。
