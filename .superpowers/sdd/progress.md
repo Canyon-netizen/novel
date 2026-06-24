@@ -24,12 +24,12 @@
 | ID | 名称 | 状态 | 实施 commit | 备注 |
 |---|---|---|---|---|
 | W1 | 删除项目无确认 / 无恢复 | complete | 0b9f2c0 + 1557b2d | confirm() 二次确认 + 无 undo (符合 spec O6) |
-| W2 | 导出按钮反馈 | complete (retro) | 见 retro commit | 接 NovelExporter.exportAs, 5 格式 dropdown |
+| W2 | 导出按钮反馈 | complete (retro) | `0664d8b` | 接 NovelExporter.exportAs, 5 格式 dropdown |
 | W3 | Gist 同步 UI 化 | deferred | — | plan self-review: spec 标 "不大改", 保留 settings modal |
 | W4 | 编辑器"返回"按钮 | complete | 398d949 | header `.header-back-btn`, tertiary 样式 |
 | W5 | 新用户引导 onboarding | complete | 0671875 (隐性) | spec 要求 "不复杂的 tour", 首页 "开始创作" CTA + 引导文字 |
 | W6 | 章节重命名入口 | deferred | — | spec 开放问题, plan self-review 跳过, retro 评估 ROI 2/5 不补 |
-| W7 | 自动保存可见性 | complete (retro) | 见 retro commit | "已保存 · HH:MM:SS" 带时间戳 |
+| W7 | 自动保存可见性 | complete (retro) | `a1e8e02` | "已保存 · HH:MM:SS" 带时间戳 |
 | W8 | 登录页"未登录" 3 字 | complete | 0b9f2c0 | 头像改 "?" SVG 占位 |
 
 ## 工程层 (E1-E5)
@@ -53,7 +53,7 @@
 
 | 开放问题 | spec 决策 | 代码实际 | commit | 状态 |
 |---|---|---|---|---|
-| O1 侧栏默认折叠 vs 展开 | spec: 默认 56px 只显示 icon, hover 展开 240px | 实际: `.chapter-sidebar { width: 280px }` 默认展开, 无折叠交互 | `af55dbf` (always-open sidebar) | **drift — spec 未修订, 代码走了 always-open**. 留待未来一次 spec 修订统一处理, 本次 retro 不动 spec 原文 |
+| O1 侧栏默认折叠 vs 展开 | spec: 默认 56px 只显示 icon, hover 展开 240px (spec:429) | 实际: `.chapter-sidebar { width: 280px }` 默认展开, 无折叠交互 | `af55dbf` (always-open sidebar) | **drift — spec 未修订, 代码走了 always-open**. 留待未来一次 spec 修订统一处理, 本次 retro 不动 spec 原文 |
 
 ## Spec 范围外 (n/a, 仅记录)
 
@@ -64,5 +64,4 @@
 
 ## Retro 关联
 
-- Plan retro 段: `docs/superpowers/plans/2026-06-22-yipye-redesign.md` 末尾 `## Retro (2026-06-25)`
-- 5 个 retro commit 序列在 plan retro 段列出
+- Plan retro 段: `docs/superpowers/plans/2026-06-22-yipye-redesign.md` 末尾 `## Retro (2026-06-25)` (含 5 commit 序列 `5cbdcc4` / `2de24fb` / `a1e8e02` / `0664d8b` / `f4a23a6`)
