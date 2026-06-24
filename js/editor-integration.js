@@ -132,12 +132,12 @@ function updateStatsPanel(stats) {
 
 function exportCurrentProjectAs(format) {
     const saved = localStorage.getItem('moyun_projects');
-    if (!saved) { alert('没有项目可导出'); return; }
+    if (!saved) { showToast('没有项目可导出', 'error'); return; }
     const projects = JSON.parse(saved);
     const project = projects[projectIndex];
-    if (!project) { alert('项目不存在'); return; }
+    if (!project) { showToast('项目不存在', 'error'); return; }
     const r = NovelExporter.exportAs(project, format);
-    if (!r.ok) alert('导出失败: ' + r.error);
+    if (!r.ok) showToast('导出失败: ' + r.error, 'error');
 }
 
 function exportCurrentProjectMenu() {

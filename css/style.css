@@ -1098,6 +1098,24 @@ input[type="range"]::-webkit-slider-thumb:hover {
     border-color: var(--accent-primary);
 }
 
+.action-select {
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color var(--motion-normal);
+}
+
+.action-select:hover,
+.action-select:focus {
+    border-color: var(--accent-primary);
+    outline: none;
+}
+
 .editor-container {
     display: grid;
     grid-template-columns: 300px 1fr;
