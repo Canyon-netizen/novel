@@ -1579,3 +1579,56 @@ Task 10 完成后，用户应能：
 6. Ctrl+S 保存有提示
 7. 删除项目有二次确认
 8. CSS ≤ 2000 行
+
+---
+
+## Retro (2026-06-25)
+
+> 距 plan 完成 (1eb6092) 已 3 天，期间累积 20+ 个 fix/feat commit。本次回溯重新评估 spec 25 项细节的真实落地状态，并补做 ROI 最高的 2 项 (W7/W2)。
+
+### 1. Deferred 项的最终去向
+
+| ID | plan self-review 原文 | retro 决议 |
+|---|---|---|
+| D4 favicon 暗色 | "spec 范围内不实施" | **继续 deferred** |
+| D9 i18n 扩展点 | "不实施（spec 范围外）" | **继续 deferred** |
+| W2 导出下拉 | "spec 写'实施时决定'，保留现有 select" | **retro 补做** — 接 NovelExporter.exportAs，5 格式 dropdown（commit 见 #4）|
+| W3 Gist UI | "spec 标记'不大改'" | **继续 deferred** — 5s 自动 sync (`d3ca8a8`) 已能覆盖场景 |
+| W6 章节重命名 inline | "plan 不强制" | **继续 deferred** — ROI 评估 2/5（功能存在但入口不够直观），下轮 spec 修订再统一 |
+| E3 favicon 主题切换 | "不实施" | **继续 deferred** |
+| E5 OG image | "不实施（README TODO）" | **继续 deferred** |
+
+### 2. Spec drift (O1 侧栏方案被推翻)
+
+- **Spec 决策**: O1 — "默认折叠为 56px 只显示 icon，hover 展开 240px"（spec:429）
+- **代码实际**: `.chapter-sidebar { width: 280px }` 默认展开，无折叠交互
+- **Drift commit**: `af55dbf` "feat(editor): always-open sidebar + AI 批量生成"
+- **决议**: spec 原文不动（改 spec 会扩大工作面），代码继续 always-open，留待未来一次 spec 修订时统一处理。drift 在 `.superpowers/sdd/progress.md` 单独记录。
+
+### 3. 后续 fix commit 因果链
+
+| commit | subject | 归类 |
+|---|---|---|
+| `1557b2d` | fix(interaction): restore working project delete button | **流程缺陷** — W1 实施时把按钮"修坏"了需后补 |
+| `0aa633d` | fix(modals): generic ESC handler + per-card export | **流程缺陷** — D7 Esc 实施时丢失通用处理器 |
+| `252d896` | fix(ci): deploy create.html + editor.html to GitHub Pages | **流程缺陷** — plan 验收未覆盖部署路径 |
+| `af55dbf` | feat(editor): always-open sidebar + AI 批量生成 | **决策变更** — 推翻 O1 spec |
+| `1874179` / `9c1c316` / `1dce86d` / `c4bd8e5` | 编辑器增强/AI 分块 | **合理新增** (plan 范围外) |
+| `887dfe9` / `5e06489` | fix(import): MD/DOCX 解析 robust | **合理新增** |
+| `9d90de7` | chore: cache-bust editor.js | **合理新增** (CDN 缓存) |
+
+**教训**: 8 个 plan 后续 commit 中 3 个属于流程缺陷——plan 任务粒度过粗、缺少端到端回归验证。下次写 plan 应在每个 Task 末尾加 "verification artifact"（截图/commit 引用），而不是 "visually verified" 这种口号。
+
+### 4. Retro 补做的 5 个 commit 序列
+
+1. `docs(ledger): restructure progress.md to 25-item spec checklist` (5cbdcc4)
+2. `docs(plan): add retro appendix to 2026-06-22-yipye-redesign.md` (本 commit)
+3. `feat(editor): show timestamp in autosave status (W7)` — `js/editor-integration.js` 文案带 HH:MM:SS
+4. `feat(editor): wire export dropdown to NovelExporter (W2)` — editor.html select+button, 调用 NovelExporter.exportAs
+5. `fix(ci): make visual_smoke.py portable + run in CI` — 路径改相对 + test.yml 加 step + actions/upload-artifact
+
+### 5. 不变量 (retro commit 通用约束)
+
+- commit author 统一 Canyon-netizen <1327107233@qq.com>，**不带** Co-Authored-By trailer (AGENTS.md)
+- spec 原文 (`docs/superpowers/specs/2026-06-22-yipye-redesign-design.md`) 不动 — drift 只在本 retro 段记录
+- 不引新依赖 — W2 走 NovelExporter, W7 走 Date API, smoke 走 os.path
