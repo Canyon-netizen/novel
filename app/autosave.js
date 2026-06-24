@@ -149,8 +149,10 @@
     let lastSavedContent = element.value || '';
     let status = 'idle';
     let listeners = [];
+    let enabled = true;
 
     function setStatus(s) {
+      if (!enabled) return;
       if (status === s) return;
       status = s;
       onStatusChange(s);

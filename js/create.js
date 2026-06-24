@@ -1293,12 +1293,101 @@
         try {
             const parsed = await parseOutlineFile(file);
             importedOutline = parsed;
+            // Extract project meta from the raw outline text and auto-fill
+            // the build tab so the user doesn't have to retype 小说名称,
+            // 主角 etc. — most outlines include this info up front.
+            if (parsed.rawText) {
+                const meta = inferOutlineMeta(parsed.rawText);
+                applyOutlineMetaToForm(meta);
+            }
             renderImportStatus(parsed, file.name);
             toast(`已导入 ${parsed.chapters.length} 个章节`, 'success');
         } catch (error) {
             importedOutline = null;
             renderImportError(error.message);
             toast(error.message, 'error', '导入失败');
+        }
+    }
+
+    function inferOutlineMeta(rawText) {
+        const meta = { title: '', protagonist: '', direction: '', genre: '', totalWordTarget: '' };
+        // Title: look for "作品名称：xxx" or "书名：《xxx》" patterns, or
+        // fall back to the first H1 / H2 heading that doesn't match skip.
+        const titleMatch = rawText.match(/(?:作品名称|书名)\s*[::]\s*[`【《]?\s*([^\n】》】`]+)/);
+        if (titleMatch) meta.title = titleMatch[1].trim();
+        if (!meta.title) {
+            const h1 = rawText.match(/^#\s+([^\n]+)/m);
+            if (h1) meta.title = h1[1].trim();
+        }
+
+        // Protagonist: look for "主角：xxx" or "核心主角：xxx" patterns
+        const protagMatch = rawText.match(/(?:核心)?主角(?:名)?\s*[::]\s*([^\n]+)/);
+        if (protagMatch) meta.protagonist = protagMatch[1].split(/[,，、]/)[0].trim();
+
+        // Direction / synopsis: first non-empty line under "简介" or "创作方向"
+        const dirMatch = rawText.match(/(?:简介|创作方向|故事基调)\s*[::]\s*([^\n]+(?:\n[^\n#]+)?)/);
+        if (dirMatch) meta.direction = dirMatch[1].replace(/\n+/g, ' ').trim().slice(0, 200);
+
+        // Total word count: "总字数：108万字" or "108万" patterns
+        const totalMatch = rawText.match(/总字数\s*[::]\s*(\d+)\s*万/);
+        if (totalMatch) {
+            const wan = parseInt(totalMatch[1], 10);
+            if (wan > 0 && wan < 1000) meta.totalWordTarget = String(wan);
+        }
+
+        // Genre: detect by keywords
+        const genreMap = [
+            { kw: ['玄幻', '修真', '仙侠', '灵脉', '筑基'], genre: 'xuanhuan' },
+            { kw: ['都市', '职场', '现代'], genre: 'urban' },
+            { kw: ['科幻', '星际', '未来', '赛博'], genre: 'scifi' },
+            { kw: ['历史', '王朝', '古代', '穿越'], genre: 'historical' },
+            { kw: ['言情', '爱情', '恋爱'], genre: 'romance' },
+            { kw: ['悬疑', '推理', '侦探', '破案'], genre: 'mystery' },
+            { kw: ['武侠', '江湖', '门派', '武功'], genre: 'wuxia' },
+            { kw: ['末世', '废土', '末日', '丧尸'], genre: 'wasteland' }
+        ];
+        for (const { kw, genre } of genreMap) {
+            if (kw.some(k => rawText.includes(k))) { meta.genre = genre; break; }
+        }
+
+        return meta;
+    }
+
+    function applyOutlineMetaToForm(meta) {
+        if (!meta) return;
+        const filled = [];
+        if (meta.title) {
+            const el = $('novelName');
+            if (el && !el.value) { el.value = meta.title; filled.push('小说名称'); }
+        }
+        if (meta.protagonist) {
+            const el = $('protagonistName');
+            if (el && !el.value) { el.value = meta.protagonist; filled.push('主角名称'); }
+        }
+        if (meta.direction) {
+            const el = $('direction');
+            if (el && !el.value) { el.value = meta.direction; filled.push('创作方向'); }
+        }
+        if (meta.genre) {
+            const activeType = qs('.type-chip.active, .preset-btn.active[data-type], [data-type].active');
+            if (!activeType) {
+                const chip = qs(`[data-type="${meta.genre}"]`) || qs(`[data-genre="${meta.genre}"]`);
+                if (chip) { chip.click?.(); filled.push('类型'); }
+            }
+        }
+        if (meta.totalWordTarget) {
+            // Slider is in 万字 units; only update if user hasn't adjusted it
+            const slider = $('wordCountSlider');
+            const value = $('wordCountValue');
+            if (slider) {
+                slider.value = meta.totalWordTarget;
+                slider.dispatchEvent(new Event('input'));
+                if (value) value.textContent = `${meta.totalWordTarget}万字`;
+                filled.push(`篇幅字数 ${meta.totalWordTarget}万`);
+            }
+        }
+        if (filled.length) {
+            toast(`已从大纲自动填入:${filled.join('、')}`, 'success', 3000);
         }
     }
 
@@ -1311,16 +1400,16 @@
         if (isJson) {
             const text = await file.text();
             if (!text.trim()) throw new Error('文件内容为空');
-            return { ...parseJsonOutline(text), source: 'json' };
+            return { ...parseJsonOutline(text), source: 'json', rawText: text };
         }
         if (isDocx) {
             const text = await extractDocxText(file);
             if (!text.trim()) throw new Error('无法从 docx 提取文字');
-            return { ...parseMarkdownOutline(text), source: 'docx' };
+            return { ...parseMarkdownOutline(text), source: 'docx', rawText: text };
         }
         const text = await file.text();
         if (!text.trim()) throw new Error('文件内容为空');
-        return { ...parseMarkdownOutline(text), source: 'markdown' };
+        return { ...parseMarkdownOutline(text), source: 'markdown', rawText: text };
     }
 
     async function extractDocxText(file) {
@@ -1512,7 +1601,7 @@
         status.style.display = 'block';
         status.innerHTML = `
             <strong>已导入：${escapeHtml(filename)}（${parsed.chapters.length} 章）</strong>
-            <span style="color:var(--text-muted);">创建小说时会自动带入这些章节。</span>
+            <span style="color:var(--text-muted);">左侧已尝试从大纲自动识别小说名 / 主角 / 类型。检查无误后点下方"下一步"继续。</span>
             <ul>
                 ${preview.map((chapter, index) => `<li>第${index + 1}章 · ${escapeHtml(chapter.title)}</li>`).join('')}
             </ul>
@@ -1520,10 +1609,19 @@
             <div class="import-status-actions">
                 <button class="toolbar-btn" type="button" data-action="clear-imported-outline">清除导入</button>
                 <button class="toolbar-btn" type="button" id="exportOutlineBtnInline" data-action="export-imported-outline">导出大纲 (.md)</button>
+                <button class="toolbar-btn primary" type="button" data-action="go-to-build">下一步：填写配置 →</button>
             </div>
         `;
         status.querySelector('[data-action="clear-imported-outline"]')?.addEventListener('click', () => clearImportedOutline());
         status.querySelector('[data-action="export-imported-outline"]')?.addEventListener('click', exportImportedOutline);
+        status.querySelector('[data-action="go-to-build"]')?.addEventListener('click', () => {
+            switchTab('build');
+            const el = $('novelName');
+            if (el) {
+                el.focus();
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
     }
 
     function renderImportError(message) {
