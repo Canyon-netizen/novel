@@ -1510,6 +1510,8 @@ git push origin main
 
 ## Self-Review（实施前再过一遍）
 
+> **⚠️ 2026-06-25 retro 后部分决议已更新**——本段是 plan 阶段的自评，反映"plan 写完时打算怎么做"。W7/W2 已在 Retro 阶段决议为"补做"（见 `## Retro (2026-06-25)` §1 决议表），以 Retro 段为准。
+
 **Spec coverage**:
 - ✅ B1 修复 → Task 6
 - ✅ V1-V7 视觉债 → Task 1（token）+ Task 5（首页）+ Task 6（创建页）+ Task 7（编辑器）+ Task 8（登录）
@@ -1619,13 +1621,13 @@ Task 10 完成后，用户应能：
 
 **教训**: 8 个 plan 后续 commit 中 3 个属于流程缺陷——plan 任务粒度过粗、缺少端到端回归验证。下次写 plan 应在每个 Task 末尾加 "verification artifact"（截图/commit 引用），而不是 "visually verified" 这种口号。
 
-### 4. Retro 补做的 5 个 commit 序列
+### 4. Retro 流程 commit 序列 (3 流程 + 2 功能)
 
-1. `docs(ledger): restructure progress.md to 25-item spec checklist` (5cbdcc4)
-2. `docs(plan): add retro appendix to 2026-06-22-yipye-redesign.md` (本 commit)
-3. `feat(editor): show timestamp in autosave status (W7)` — `js/editor-integration.js` 文案带 HH:MM:SS
-4. `feat(editor): wire export dropdown to NovelExporter (W2)` — editor.html select+button, 调用 NovelExporter.exportAs
-5. `fix(ci): make visual_smoke.py portable + run in CI` — 路径改相对 + test.yml 加 step + actions/upload-artifact
+1. `docs(ledger): restructure progress.md to 25-item spec checklist` (`5cbdcc4`) — 流程：ledger 重写
+2. `docs(plan): add retro appendix to 2026-06-22-yipye-redesign.md` (`2de24fb`) — 流程：plan retro 段
+3. `feat(editor): show timestamp in autosave status (W7)` (`a1e8e02`) — 功能：W7 补做
+4. `feat(editor): wire export dropdown to NovelExporter (W2)` (`0664d8b`) — 功能：W2 补做
+5. `fix(ci): make visual smoke portable + run in CI` (`f4a23a6`) — 流程：smoke 进 CI
 
 ### 5. 不变量 (retro commit 通用约束)
 
