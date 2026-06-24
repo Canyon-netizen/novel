@@ -92,12 +92,13 @@ function setupWritingTools() {
 function updateSaveStatus(status) {
     const el = document.getElementById('saveStatus');
     if (!el) return;
+    const stamp = new Date().toLocaleTimeString('zh-CN', { hour12: false });
     const map = {
         idle: { text: '', cls: '' },
         dirty: { text: '编辑中...', cls: 'status-dirty' },
         saving: { text: '保存中...', cls: 'status-saving' },
-        saved: { text: '已自动保存', cls: 'status-saved' },
-        error: { text: '保存失败', cls: 'status-error' },
+        saved: { text: '已保存 · ' + stamp, cls: 'status-saved' },
+        error: { text: '保存失败 · ' + stamp, cls: 'status-error' },
         restored: { text: '已恢复草稿', cls: 'status-restored' }
     };
     const s = map[status] || map.idle;
