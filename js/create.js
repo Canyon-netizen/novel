@@ -585,7 +585,7 @@
         $('direction')?.addEventListener('input', syncConfigFromControls);
         $('createNovelBtn')?.addEventListener('click', createNovel);
         $('discussInput')?.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault();
                 sendDiscussMessage();
             }

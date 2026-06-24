@@ -626,6 +626,10 @@
             color: var(--text-primary);
             font-family: inherit;
             font-size: 0.9rem;
+            resize: vertical;
+            min-height: 2.5rem;
+            max-height: 12rem;
+            line-height: 1.5;
         }
 
         .discuss-input:focus {
@@ -1396,7 +1400,7 @@
                             </div>
                         </div>
                         <div class="discuss-input-area">
-                            <input type="text" class="discuss-input" id="discussInput" placeholder="输入你的问题..." onkeypress="if(event.key==='Enter')sendDiscussMessage()">
+                            <textarea class="discuss-input" id="discussInput" rows="3" placeholder="输入你的问题（Enter 换行，Ctrl+Enter 发送）"></textarea>
                             <button class="discuss-send-btn" onclick="sendDiscussMessage()">发送</button>
                         </div>
                     </div>
