@@ -5,14 +5,15 @@ Captures 8 screenshots (4 pages × 2 themes) for visual review.
 from playwright.sync_api import sync_playwright
 import os
 
-OUT = 'e:/tmp/visual_smoke'
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+OUT = os.path.join(os.path.dirname(__file__), '.artifacts', 'visual_smoke')
 os.makedirs(OUT, exist_ok=True)
 
 PAGES = [
-    ('login', 'e:/study/novel/login.html'),
-    ('index', 'e:/study/novel/index.html'),
-    ('create', 'e:/study/novel/create.html'),
-    ('editor', 'e:/study/novel/editor.html'),
+    ('login', os.path.join(REPO_ROOT, 'login.html')),
+    ('index', os.path.join(REPO_ROOT, 'index.html')),
+    ('create', os.path.join(REPO_ROOT, 'create.html')),
+    ('editor', os.path.join(REPO_ROOT, 'editor.html')),
 ]
 
 
@@ -28,12 +29,12 @@ def main():
         """)
         for name, path in PAGES:
             for theme in ['light', 'dark']:
-                page.goto(f'file:///{path}')
+                page.goto('file://' + path.replace(os.sep, '/'))
                 page.wait_for_load_state('networkidle', timeout=5000)
                 page.evaluate(f"localStorage.setItem('moyun_theme', '{theme}')")
                 page.evaluate(f"document.documentElement.setAttribute('data-theme', '{theme}')")
                 page.wait_for_timeout(400)
-                page.screenshot(path=f'{OUT}/{name}_{theme}.png', full_page=True)
+                page.screenshot(path=os.path.join(OUT, f'{name}_{theme}.png'), full_page=True)
                 print(f'[shot] {name}_{theme}.png')
         browser.close()
     print('done')

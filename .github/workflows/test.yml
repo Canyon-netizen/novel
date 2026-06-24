@@ -41,3 +41,15 @@ jobs:
       - name: Run E2E tests
         run: |
           pytest tests/e2e -v
+
+      - name: Run visual smoke
+        run: python tests/visual_smoke.py
+
+      - name: Upload visual smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-smoke-${{ github.sha }}
+          path: tests/.artifacts/visual_smoke/
+          retention-days: 30
+          if-no-files-found: warn
