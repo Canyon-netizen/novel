@@ -1621,13 +1621,17 @@ Task 10 完成后，用户应能：
 
 **教训**: 8 个 plan 后续 commit 中 3 个属于流程缺陷——plan 任务粒度过粗、缺少端到端回归验证。下次写 plan 应在每个 Task 末尾加 "verification artifact"（截图/commit 引用），而不是 "visually verified" 这种口号。
 
-### 4. Retro 流程 commit 序列 (3 流程 + 2 功能)
+### 4. Retro 流程 commit 序列 (3 流程 + 2 功能 + 4 修复)
 
 1. `docs(ledger): restructure progress.md to 25-item spec checklist` (`5cbdcc4`) — 流程：ledger 重写
 2. `docs(plan): add retro appendix to 2026-06-22-yipye-redesign.md` (`2de24fb`) — 流程：plan retro 段
 3. `feat(editor): show timestamp in autosave status (W7)` (`a1e8e02`) — 功能：W7 补做
 4. `feat(editor): wire export dropdown to NovelExporter (W2)` (`0664d8b`) — 功能：W2 补做
-5. `fix(ci): make visual smoke portable + run in CI` (`f4a23a6`) — 流程：smoke 进 CI
+5. `fix(ci): make visual smoke portable + run in CI` (`f4a23a6`) — 流程：smoke 进 CI (含 `channel='chrome'` bug 未发现)
+6. `fix(docs): fill retro §4 commit hashes + mark Self-Review as superseded` (`c405710`) — 流程：retro 段 hash + Self-Review 标记
+7. `fix(docs): fill ledger commit hashes + O1 spec line ref` (`125d2ac`) — 流程：ledger hash + spec 行号
+8. `fix(ci): smoke script compatibility for Linux runner` (`11754fa`) — 修复 `f4a23a6` 引入的 Linux CI 不兼容
+9. `docs(verify): append W7/W2/smoke local verification log` (`6d99da4`) — 流程：append 验证日志 + 教训
 
 ### 5. 不变量 (retro commit 通用约束)
 

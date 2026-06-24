@@ -64,4 +64,4 @@
 
 ## Retro 关联
 
-- Plan retro 段: `docs/superpowers/plans/2026-06-22-yipye-redesign.md` 末尾 `## Retro (2026-06-25)` (含 5 commit 序列 `5cbdcc4` / `2de24fb` / `a1e8e02` / `0664d8b` / `f4a23a6`)
+- Plan retro 段: `docs/superpowers/plans/2026-06-22-yipye-redesign.md` 末尾 `## Retro (2026-06-25)` (含 9 commit 序列 `5cbdcc4` / `2de24fb` / `a1e8e02` / `0664d8b` / `f4a23a6` / `c405710` / `125d2ac` / `11754fa` / `6d99da4`)
