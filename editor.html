@@ -355,6 +355,27 @@
                 <span id="temperatureValue" style="color: var(--text-secondary); font-size: 0.85rem; margin-left: 0.5rem;">0.7</span>
             </div>
 
+            <!-- Gist 数据同步 (复用 NovelGistUI 模块) -->
+            <div class="form-group" style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+                <label class="form-label" style="font-weight: 600;">☁️ 数据同步 (Gist)</label>
+                <input type="password" class="form-input" id="githubTokenInput" placeholder="GitHub Token (需勾选 gist 权限)" style="margin-top: 0.5rem;">
+                <p class="form-hint" style="font-size: 0.8rem; color: var(--text-muted); margin: 0.3rem 0 0.5rem;">
+                    <a href="https://github.com/settings/tokens/new?scopes=gist" target="_blank" rel="noopener">创建 Token</a>
+                </p>
+                <div id="gistStatus" class="gist-status" style="display: none; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                    <span id="gistStatusText"></span>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button type="button" class="form-input" style="flex: 1; cursor: pointer; background: var(--bg-secondary);" onclick="connectGist()">连接 / 更新 Gist</button>
+                    <button type="button" class="form-input" id="syncBtn" style="flex: 1; cursor: pointer; background: var(--bg-secondary);" onclick="syncToGist()" disabled>同步</button>
+                    <button type="button" class="form-input" id="loadFromGistBtn" style="flex: 1; cursor: pointer; background: var(--bg-secondary);" onclick="loadFromGist()" disabled>从 Gist 加载</button>
+                </div>
+                <label style="display: flex; align-items: center; gap: 6px; margin-top: 0.8rem; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
+                    <input type="checkbox" id="autoSyncCheckbox" onchange="toggleAutoSync(this.checked)">
+                    <span>数据变更后自动同步到 Gist (5 秒延迟)</span>
+                </label>
+            </div>
+
             <div class="modal-actions">
                 <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
                 <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
@@ -371,6 +392,7 @@
     <script src="app/inspiration.js"></script>
     <script src="app/exporter.js"></script>
     <script src="app/settings-test.js"></script>
+    <script src="app/gist-ui.js"></script>
     <script src="js/editor-integration.js"></script>
 <script src="js/theme-toggle.js"></script>
     <script src="js/states.js"></script>

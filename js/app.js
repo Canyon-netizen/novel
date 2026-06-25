@@ -28,9 +28,7 @@ let currentProjectIndex = -1;
 let currentChapterIndex = -1;
 
 let aiSettings = NovelCommon.DEFAULT_AI_SETTINGS;
-let gistSettings = { token: '', gistId: '', lastSync: null };
 
-const GIST_FILENAME = 'moyun_data.json';
 let currentFilter = { type: null, search: '', timeSort: 'desc' };
 let currentView = 'grid';
 
@@ -40,12 +38,10 @@ function init() {
     loadProjects();
     NovelCommon.loadAISettings(aiSettings);
     NovelCommon.loadTheme();
-    gistSettings = NovelCommon.loadGistSettings();
-    if (gistSettings.autoSyncEnabled === undefined) {
-        gistSettings.autoSyncEnabled = true; // default ON
+    if (window.NovelGistUI) {
+        NovelGistUI.mount({ showToast });
+        NovelGistUI.checkForChangesSinceLastVisit();
     }
-    const autoSyncEl = document.getElementById('autoSyncCheckbox');
-    if (autoSyncEl) autoSyncEl.checked = gistSettings.autoSyncEnabled;
     setupAuthActions();
     updateGreeting();
     renderProjects();
@@ -89,9 +85,8 @@ function handleLogout() { NovelCommon.handleLogout(); }
 function setupAuthActions() { NovelCommon.setupAuthActions(); }
 
 function toggleAutoSync(enabled) {
-    gistSettings.autoSyncEnabled = enabled;
-    NovelCommon.saveGistSettings(gistSettings);
-    showToast(enabled ? '已开启自动同步' : '已关闭自动同步', 'success');
+    if (window.NovelGistUI) NovelGistUI.toggleAutoSync(enabled);
+    else showToast(enabled ? '已开启自动同步' : '已关闭自动同步', 'success');
 }
 
 // storage 委托
@@ -101,7 +96,7 @@ function loadProjects() {
 
 function saveProjects() {
     NovelCommon.saveProjects(projects);
-    scheduleAutoSync();
+    if (window.NovelGistUI) NovelGistUI.scheduleAutoSync();
     window.dispatchEvent(new Event('moyun_projects:changed'));
 }
 
@@ -434,9 +429,9 @@ function openSettingsModal() {
     if (modelEl) modelEl.value = aiSettings.model;
     if (tempInput) tempInput.value = aiSettings.temperature;
     if (tempVal) tempVal.textContent = aiSettings.temperature;
-    if (tokenEl) tokenEl.value = gistSettings.token || '';
+    if (tokenEl && window.NovelGistUI) tokenEl.value = NovelGistUI.getSettings().token || '';
     onApiProviderChange();
-    updateGistStatus();
+    if (window.NovelGistUI) NovelGistUI.updateGistStatus();
 }
 
 function closeSettingsModal() {
@@ -510,332 +505,6 @@ function showToast(message, type = 'info') {
         toast.style.animation = 'toastIn 0.3s ease reverse';
         setTimeout(() => toast.remove(), 300);
     }, 3000);
-}
-
-// ==================== Gist 同步 ====================
-function loadGistSettings() {
-    if (gistSettings.token) {
-        const input = document.getElementById('githubTokenInput');
-        if (input) input.value = gistSettings.token;
-    }
-    updateGistStatus();
-}
-
-function saveGistSettings() {
-    NovelCommon.saveGistSettings(gistSettings);
-}
-
-function updateGistStatus() {
-    const statusEl = document.getElementById('gistStatus');
-    const statusText = document.getElementById('gistStatusText');
-    const syncBtn = document.getElementById('syncBtn');
-    const loadBtn = document.getElementById('loadFromGistBtn');
-
-    if (!statusEl) return;
-
-    if (gistSettings.token) {
-        statusEl.style.display = 'block';
-        if (syncBtn) syncBtn.disabled = false;
-        if (loadBtn) loadBtn.disabled = false;
-        if (statusText) {
-            if (gistSettings.gistId) {
-                statusText.textContent = `✅ 已连接 Gist (ID: ${gistSettings.gistId.slice(0, 8)}...) 上次同步: ${gistSettings.lastSync || '从未'}`;
-            } else {
-                statusText.textContent = '⚠️ Token 已设置，点击"连接/更新 Gist"创建或更新 Gist';
-            }
-        }
-    } else {
-        statusEl.style.display = 'none';
-        if (syncBtn) syncBtn.disabled = true;
-        if (loadBtn) loadBtn.disabled = true;
-    }
-}
-
-function getSyncData() {
-    return {
-        projects: projects,
-        aiSettings: aiSettings,
-        userTemplates: safeLoadUserTemplates(),
-        userName: localStorage.getItem('moyun_user_name') || 'yyy',
-        theme: localStorage.getItem('moyun_theme') || 'dark',
-        syncTime: new Date().toISOString()
-    };
-}
-
-async function connectGist() {
-    const token = document.getElementById('githubTokenInput').value.trim();
-    if (!token) {
-        showToast('请输入 GitHub Token', 'error');
-        return;
-    }
-
-    gistSettings.token = token;
-    saveGistSettings();
-
-    try {
-        const data = getSyncData();
-        const gistData = JSON.stringify(data, null, 2);
-
-        if (gistSettings.gistId) {
-            const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    description: '墨韵AI 数据同步',
-                    files: { [GIST_FILENAME]: { content: gistData } }
-                })
-            });
-
-            if (!response.ok) throw new Error(`更新失败 (${response.status})`);
-
-            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-            saveGistSettings();
-            updateGistStatus();
-            showToast('✅ Gist 已更新！', 'success');
-        } else {
-            const response = await fetch('https://api.github.com/gists', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    description: '墨韵AI 数据同步',
-                    public: false,
-                    files: { [GIST_FILENAME]: { content: gistData } }
-                })
-            });
-
-            if (!response.ok) throw new Error(`创建失败 (${response.status})`);
-
-            const result = await response.json();
-            gistSettings.gistId = result.id;
-            gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-            saveGistSettings();
-            updateGistStatus();
-            showToast('✅ Gist 创建成功！\n\nGist ID: ' + gistSettings.gistId, 'success');
-        }
-    } catch (error) {
-        showToast('❌ Gist 操作失败：' + error.message, 'error');
-    }
-}
-
-async function syncToGist() {
-    if (!gistSettings.token || !gistSettings.gistId) {
-        showToast('请先点击"连接/更新 Gist"', 'error');
-        return;
-    }
-
-    const syncBtn = document.getElementById('syncBtn');
-    const originalText = syncBtn.textContent;
-    syncBtn.textContent = '同步中...';
-    syncBtn.disabled = true;
-
-    try {
-        const response = await fetch(`https://api.github.com/gists/${gistSettings.gistId}`, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${gistSettings.token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                description: '墨韵AI 数据同步',
-                files: { [GIST_FILENAME]: { content: JSON.stringify(getSyncData(), null, 2) } }
-            })
-        });
-
-        if (!response.ok) throw new Error(`同步失败 (${response.status})`);
-
-        gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-        saveGistSettings();
-        updateGistStatus();
-        showToast('✅ 数据已同步到 Gist！', 'success');
-    } catch (error) {
-        showToast('❌ 同步失败：' + error.message, 'error');
-    } finally {
-        syncBtn.textContent = originalText;
-        syncBtn.disabled = false;
-    }
-}
-
-// Debounced auto-sync: when data changes, schedule a sync 5s later.
-// Only fires if user has set up Gist (token + gistId).
-let autoSyncTimer = null;
-let lastSyncedProjects = null;
-function scheduleAutoSync() {
-    if (!gistSettings || !gistSettings.token || !gistSettings.gistId) return;
-    if (gistSettings.autoSyncEnabled === false) return; // user disabled
-    // Read from localStorage directly so it works even on editor/create
-    // pages where the in-memory `projects` array might be stale.
-    let current;
-    try {
-        current = localStorage.getItem('moyun_projects') || '';
-    } catch (e) { return; }
-    if (!current || current === lastSyncedProjects) return; // no change
-    if (autoSyncTimer) clearTimeout(autoSyncTimer);
-    autoSyncTimer = setTimeout(async () => {
-        autoSyncTimer = null;
-        try {
-            await syncToGist();
-            lastSyncedProjects = current;
-            localStorage.setItem(LAST_SYNCED_KEY, current);
-        } catch (e) {
-            console.warn("[auto-sync] failed", e);
-        }
-    }, 5000);
-}
-
-// Expose for other pages (editor/create) to trigger.
-window.NovelAutoSync = { schedule: scheduleAutoSync, perform: performSync };
-
-// Listen to localStorage writes from any page in the same tab
-// (other tabs use the native 'storage' event; same tab needs a
-// custom event because the browser doesn't dispatch 'storage'
-// for self-writes). Also: detect changes that happened on a
-// previous page (editor -> home navigation) by comparing the
-// current moyun_projects against a cached baseline.
-let cachedProjects = null;
-const LAST_SYNCED_KEY = 'moyun_projects_last_synced';
-function checkForChangesSinceLastVisit() {
-    try {
-        const current = localStorage.getItem('moyun_projects') || '';
-        if (!current) return;
-        const lastSynced = localStorage.getItem(LAST_SYNCED_KEY);
-        if (lastSynced !== null && current !== lastSynced) {
-            // Run the sync directly, in case the user navigates away before
-            // the 5s debounce in scheduleAutoSync fires.
-            performSync(current);
-        }
-        if (lastSynced === null) {
-            localStorage.setItem(LAST_SYNCED_KEY, current);
-        }
-    } catch (e) {}
-}
-
-async function performSync(snapshot) {
-    if (!gistSettings || !gistSettings.token || !gistSettings.gistId) return;
-    if (gistSettings.autoSyncEnabled === false) return;
-    // Skip if already up to date
-    if (snapshot === localStorage.getItem(LAST_SYNCED_KEY)) return;
-    try {
-        const response = await fetch("https://api.github.com/gists/" + gistSettings.gistId, {
-            method: 'PATCH',
-            headers: {
-                "Authorization": "Bearer " + gistSettings.token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                description: "一页 数据同步",
-                files: { [GIST_FILENAME]: { content: JSON.stringify(parseSyncData(snapshot), null, 2) } }
-            })
-        });
-        if (response.ok) {
-            localStorage.setItem(LAST_SYNCED_KEY, snapshot);
-        } else {
-            const msg = `Gist 同步失败 HTTP ${response.status}`;
-            console.warn("[auto-sync]", msg);
-            if (typeof showToast === 'function') showToast(msg, 'error', 6000);
-        }
-    } catch (e) {
-        const msg = `Gist 同步异常: ${e && e.message ? e.message : e}`;
-        console.warn("[auto-sync] failed", e);
-        if (typeof showToast === 'function') showToast(msg, 'error', 6000);
-    }
-}
-
-function parseSyncData(snapshot) {
-    try {
-        return { projects: JSON.parse(snapshot), templates: [], lastSync: new Date().toISOString() };
-    } catch (e) {
-        return { projects: [], templates: [], lastSync: new Date().toISOString() };
-    }
-}
-window.addEventListener('moyun_projects:changed', scheduleAutoSync);
-window.addEventListener('storage', (e) => {
-    if (e.key === 'moyun_projects') scheduleAutoSync();
-});
-// Check on every page load (covers editor -> home nav)
-checkForChangesSinceLastVisit();
-
-async function loadFromGist() {
-    if (!gistSettings.token) {
-        showToast('请先输入 Token 并点击"连接/更新 Gist"', 'error');
-        return;
-    }
-
-    const loadBtn = document.getElementById('loadFromGistBtn');
-    const originalText = loadBtn.textContent;
-    loadBtn.textContent = '加载中...';
-    loadBtn.disabled = true;
-
-    try {
-        let gistId = gistSettings.gistId;
-
-        if (!gistId) {
-            gistId = prompt('请输入 Gist ID（首次使用后会自动保存）：');
-            if (!gistId) {
-                loadBtn.textContent = originalText;
-                loadBtn.disabled = false;
-                return;
-            }
-            gistSettings.gistId = gistId;
-            saveGistSettings();
-        }
-
-        const response = await fetch(`https://api.github.com/gists/${gistId}`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${gistSettings.token}` }
-        });
-
-        if (!response.ok) throw new Error('加载失败，请检查 Gist ID 和 Token');
-
-        const result = await response.json();
-        const file = result.files[GIST_FILENAME];
-
-        if (!file) throw new Error('Gist 中未找到数据文件');
-
-        const data = JSON.parse(file.content);
-
-        if (data.projects) {
-            projects = data.projects;
-            localStorage.setItem('moyun_projects', JSON.stringify(projects));
-        }
-        if (data.aiSettings) {
-            aiSettings = data.aiSettings;
-            localStorage.setItem('moyun_ai_settings', JSON.stringify(aiSettings));
-        }
-        if (data.userTemplates) {
-            localStorage.setItem('moyun_user_templates', JSON.stringify(data.userTemplates));
-        }
-        if (data.userName) {
-            localStorage.setItem('moyun_user_name', data.userName);
-        }
-        if (data.theme) {
-            localStorage.setItem('moyun_theme', data.theme);
-        }
-
-        loadProjects();
-        loadSettings();
-        loadTheme();
-        updateGreeting();
-        renderProjects();
-        updateStats();
-        updateAIStatus();
-
-        gistSettings.lastSync = new Date().toLocaleString('zh-CN');
-        saveGistSettings();
-        updateGistStatus();
-
-        showToast('✅ 数据加载成功！', 'success');
-    } catch (error) {
-        showToast('❌ 加载失败：' + error.message, 'error');
-    } finally {
-        loadBtn.textContent = originalText;
-        loadBtn.disabled = false;
-    }
 }
 
 // ==================== API 测试 ====================

@@ -58,6 +58,7 @@ function init() {
     updateAIStatus();
     setupEventListeners();
     setupProjectSwitcher();
+    if (typeof loadGistSettings === 'function') loadGistSettings();
     renderBatchCard();
     setupPopState();
     if (window.NovelAutoSync && window.NovelAutoSync.setErrorHandler) {

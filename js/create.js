@@ -302,6 +302,7 @@
         updateWordCountLabel();
         updateTabChrome('build');
         restoreDiscussHistory();
+        if (typeof loadGistSettings === 'function') loadGistSettings();
     }
 
     function restoreDiscussHistory() {

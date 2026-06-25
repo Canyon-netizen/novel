@@ -2,4 +2,4 @@
 /__pycache__/
 *.md
 !/docs/outline-template.md
-/tests/.artifacts/
+/tests/
