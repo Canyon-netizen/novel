@@ -1306,25 +1306,29 @@
 
     function inferOutlineMeta(rawText) {
         const meta = { title: '', protagonist: '', direction: '', genre: '', totalWordTarget: '' };
-        // Title: look for "作品名称：xxx" or "书名：《xxx》" patterns, or
-        // fall back to the first H1 / H2 heading that doesn't match skip.
-        const titleMatch = rawText.match(/(?:作品名称|书名)\s*[::]\s*[`【《]?\s*([^\n】》】`]+)/);
+        // Colon can be either half-width ':' (0x3A) or full-width '：' (0xFF1A);
+        // tolerate optional leading **bold** or # heading markers.
+        const colon = '[:：]';
+        const kw = '\\*?\\*?';
+
+        // Title: "作品名称：xxx" or "书名：《xxx》" or "**作品名称**：xxx"
+        const titleMatch = rawText.match(new RegExp(`(?:作品名称|书名)${kw}\\s*${colon}\\s*[\\\`【《]?\\s*([^\\n】》】\\\`]+)`));
         if (titleMatch) meta.title = titleMatch[1].trim();
         if (!meta.title) {
             const h1 = rawText.match(/^#\s+([^\n]+)/m);
             if (h1) meta.title = h1[1].trim();
         }
 
-        // Protagonist: look for "主角：xxx" or "核心主角：xxx" patterns
-        const protagMatch = rawText.match(/(?:核心)?主角(?:名)?\s*[::]\s*([^\n]+)/);
+        // Protagonist: "主角：xxx" or "核心主角：xxx" or "### 核心主角：xxx" or "**主角**：xxx"
+        const protagMatch = rawText.match(new RegExp(`(?:^|\\n)\\s*[#*]*\\s*🔹?\\s*(?:核心)?主角(?:名)?\\s*${colon}\\s*([^\\n]+)`));
         if (protagMatch) meta.protagonist = protagMatch[1].split(/[,，、]/)[0].trim();
 
-        // Direction / synopsis: first non-empty line under "简介" or "创作方向"
-        const dirMatch = rawText.match(/(?:简介|创作方向|故事基调)\s*[::]\s*([^\n]+(?:\n[^\n#]+)?)/);
+        // Direction / synopsis: "简介：xxx" or "创作方向：xxx" or "**故事基调**：xxx"
+        const dirMatch = rawText.match(new RegExp(`(?:简介|创作方向|故事基调)${kw}\\s*${colon}\\s*([^\\n]+(?:\\n[^\\n#]+)?)`));
         if (dirMatch) meta.direction = dirMatch[1].replace(/\n+/g, ' ').trim().slice(0, 200);
 
-        // Total word count: "总字数：108万字" or "108万" patterns
-        const totalMatch = rawText.match(/总字数\s*[::]\s*(\d+)\s*万/);
+        // Total word count: "总字数：108万字" or "**总字数**：108万字"
+        const totalMatch = rawText.match(new RegExp(`${kw}总字数${kw}\\s*${colon}\\s*(\\d+)\\s*万`));
         if (totalMatch) {
             const wan = parseInt(totalMatch[1], 10);
             if (wan > 0 && wan < 1000) meta.totalWordTarget = String(wan);
