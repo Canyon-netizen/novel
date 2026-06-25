@@ -57,6 +57,7 @@ function init() {
     loadProject();
     updateAIStatus();
     setupEventListeners();
+    setupProjectSwitcher();
     renderBatchCard();
     setupPopState();
     if (window.NovelAutoSync && window.NovelAutoSync.setErrorHandler) {
@@ -66,6 +67,97 @@ function init() {
             }
         });
     }
+}
+
+// ==================== Project Switcher (header dropdown) ====================
+function readProjects() {
+    try {
+        const raw = localStorage.getItem('moyun_projects');
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function formatTimeAgo(iso) {
+    if (!iso) return '';
+    const t = new Date(iso).getTime();
+    if (Number.isNaN(t)) return '';
+    const diff = Date.now() - t;
+    if (diff < 60_000) return '刚刚';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
+    if (diff < 30 * 86_400_000) return `${Math.floor(diff / 86_400_000)} 天前`;
+    return new Date(iso).toLocaleDateString('zh-CN');
+}
+
+function setupProjectSwitcher() {
+    const btn = document.getElementById('projectSwitcherBtn');
+    const menu = document.getElementById('projectSwitcherMenu');
+    const titleEl = document.getElementById('projectSwitcherTitle');
+    if (!btn || !menu || !titleEl) return;
+
+    const render = () => {
+        const projects = readProjects();
+        const current = projects[projectIndex];
+        titleEl.textContent = current ? current.title : '未选择项目';
+
+        if (projects.length === 0) {
+            menu.innerHTML = '<div class="project-switcher__empty">还没有项目,先去 <a href="index.html">首页</a> 创建一个吧</div>';
+            return;
+        }
+
+        menu.innerHTML = projects.map((p, i) => {
+            const isActive = i === projectIndex;
+            const chapterCount = Array.isArray(p.chapters) ? p.chapters.length : 0;
+            const meta = `${chapterCount} 章 · ${formatTimeAgo(p.updatedAt || p.createdAt)}`;
+            const safeTitle = String(p.title || '未命名').replace(/[<>&"]/g, (c) => ({'<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;'})[c]);
+            return `<button type="button" class="project-switcher__item ${isActive ? 'is-active' : ''}" data-index="${i}" role="option" aria-selected="${isActive}">
+                <span class="project-switcher__item-title">${safeTitle}</span>
+                <span class="project-switcher__item-meta">${meta}</span>
+            </button>`;
+        }).join('');
+
+        menu.querySelectorAll('.project-switcher__item').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const target = parseInt(el.getAttribute('data-index'), 10);
+                if (Number.isNaN(target) || target === projectIndex) {
+                    close();
+                    return;
+                }
+                window.location.href = `editor.html?project=${target}&chapter=0`;
+            });
+        });
+    };
+
+    const open = () => {
+        render();
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+    };
+    const close = () => {
+        menu.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+    };
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (menu.hidden) open();
+        else close();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !menu.hidden) close();
+    });
+
+    render();
 }
 
 function setupPopState() {
@@ -946,10 +1038,16 @@ function updateAIStatus() {
 
     if (aiSettings.provider === 'local') {
         status.textContent = '📍 本地模式';
+        status.onclick = null;
+        status.classList.remove('ai-status--clickable');
     } else if (aiSettings.apiKey) {
         status.textContent = '✅ ' + (aiSettings.model || aiSettings.provider.toUpperCase());
+        status.onclick = null;
+        status.classList.remove('ai-status--clickable');
     } else {
-        status.textContent = '⚠️ 未配置API';
+        status.textContent = '⚠️ 未配置 API · 点此配置';
+        status.onclick = openSettingsModal;
+        status.classList.add('ai-status--clickable');
     }
 }
 
