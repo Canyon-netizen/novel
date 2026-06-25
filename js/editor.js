@@ -278,6 +278,7 @@ function selectChapterByIndex(index) {
 }
 
 function selectChapter(project, index) {
+    if (!project || !Array.isArray(project.chapters) || index < 0 || index >= project.chapters.length) return;
     chapterIndex = index;
     const chapter = project.chapters[index];
     const editorTitle = document.getElementById('editorTitle');
