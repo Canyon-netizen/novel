@@ -1,9 +1,12 @@
+@import './motion.css';
+
 /* ==================== Theme Variables (new spec) ==================== */
 :root {
     /* Light theme (default) */
     --bg-primary: #F8F6F1;
     --bg-secondary: #EFE9DD;
     --bg-card: #FFFFFF;
+    --bg-card-hover: #F8F6F1;
     --bg-input: #FFFFFF;
     --text-primary: #1A1815;
     --text-secondary: #6B6258;
@@ -13,8 +16,13 @@
     --accent-soft: #E0EBEC;
     --accent-purple: #8B5CF6;
     --accent-blue: #60A5FA;
+    --accent-blue-hover: #3B82F6;
+    --accent-teal: #14B8A6;
+    --accent-gold: #F59E0B;
+    --accent-pink: #EC4899;
     --border-color: #E0D9C8;
     --border-strong: #C9C0AB;
+    --border-radius: 12px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.08);
@@ -25,13 +33,14 @@
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
-    --font-ui: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-ui: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystem, 'Segoe UI', sans-serif;
     --font-reading: 'Noto Serif SC', 'Source Serif Pro', serif;
 }
 [data-theme="dark"] {
     --bg-primary: #1A1815;
     --bg-secondary: #221F1B;
     --bg-card: #2A2722;
+    --bg-card-hover: #33302C;
     --bg-input: #1F1C18;
     --text-primary: #F0EDE5;
     --text-secondary: #B0A89E;
@@ -41,8 +50,13 @@
     --accent-soft: #2F3A3B;
     --accent-purple: #A78BFA;
     --accent-blue: #60A5FA;
+    --accent-blue-hover: #93C5FD;
+    --accent-teal: #2DD4BF;
+    --accent-gold: #FBBF24;
+    --accent-pink: #F472B6;
     --border-color: #3A3530;
     --border-strong: #4F4840;
+    --border-radius: 12px;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
     --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
@@ -51,8 +65,6 @@
     --success: #8FAE6E;
     --success-soft: #2B3325;
 }
-
-@import './motion.css';
 
 /* ==================== Base Styles (global reset) ==================== */
 *, *::before, *::after { box-sizing: border-box; }
