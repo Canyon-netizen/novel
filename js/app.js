@@ -52,7 +52,22 @@ function init() {
     renderRecent();
     updateStats();
     updateAIStatus();
+    updateProjectBadge();
     setupEventListeners();
+}
+
+function updateProjectBadge() {
+    const badge = document.getElementById('projectBadge');
+    const countEl = document.getElementById('projectBadgeCount');
+    if (!badge || !countEl) return;
+    const n = (Array.isArray(projects) ? projects : []).length;
+    if (n === 0) {
+        badge.hidden = true;
+        return;
+    }
+    badge.hidden = false;
+    countEl.textContent = String(n);
+    badge.setAttribute('aria-label', `我的小说 (${n} 个)`);
 }
 
 function setupEventListeners() {
