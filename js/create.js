@@ -7,8 +7,11 @@
         aiSettings: 'moyun_ai_settings',
         theme: 'moyun_theme',
         userName: 'moyun_user_name',
-        userTemplates: 'moyun_user_templates'
+        userTemplates: 'moyun_user_templates',
+        discussHistory: 'moyun_discuss_history'
     };
+
+    const MAX_DISCUSS_HISTORY = 50;
 
     const TYPE_LABELS = {
         all: '全部',
@@ -236,7 +239,7 @@
     let currentTemplateFilter = 'all';
     let selectedTemplateId = null;
     let importedOutline = null;
-    let discussHistory = [];
+    let discussHistory = readJson(STORAGE.discussHistory, []);
     let discussBusy = false;
 
     const $ = (id) => document.getElementById(id);
@@ -298,6 +301,21 @@
         updateTropeTags();
         updateWordCountLabel();
         updateTabChrome('build');
+        restoreDiscussHistory();
+    }
+
+    function restoreDiscussHistory() {
+        if (!discussHistory.length) return;
+        // 已注入过(哨兵消息在历史头)→ 不再注入,直接渲染历史
+        discussContextInjected = discussHistory[0] && discussHistory[0].__context === true;
+        const messagesEl = $('discussMessages');
+        if (!messagesEl) return;
+        // 清掉默认欢迎语
+        messagesEl.innerHTML = '';
+        discussHistory.forEach((entry) => {
+            // 哨兵 (__context) 消息不带"应用到创作方向"按钮
+            appendDiscussMessage(entry.role, entry.content, { skipApply: entry.__context === true });
+        });
     }
 
     // ==================== DOM Setup ====================
@@ -721,6 +739,19 @@
 
     function writeJson(key, value) {
         localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    function trimDiscussHistory() {
+        if (discussHistory.length > MAX_DISCUSS_HISTORY) {
+            // 保留第一条 [项目上下文] 哨兵消息 + 截断尾部
+            const head = discussHistory[0] && discussHistory[0].__context ? [discussHistory[0]] : [];
+            discussHistory = head.concat(discussHistory.slice(-MAX_DISCUSS_HISTORY + head.length));
+        }
+    }
+
+    function persistDiscussHistory() {
+        trimDiscussHistory();
+        writeJson(STORAGE.discussHistory, discussHistory);
     }
 
     // ==================== Theme & User ====================
@@ -1723,15 +1754,18 @@
         }
         discussContext = '你是一位专业的中文小说创作助手。当前用户正在创建以下项目：\n' + ctx + '\n请基于此项目情况回答问题；当用户要求时，帮忙补全字段。';
 
-        if (!discussContextInjected) {
-            const userMsg = '[项目上下文] ' + ctx;
-            const aiMsg = '已了解项目「' + (config.novelName || '未命名') + '」的配置。我们来讨论：你可以问世界观、人物设定、情节冲突、写作技巧，或让我帮你补全字段。';
-            discussHistory.push({ role: 'user', content: userMsg });
-            discussHistory.push({ role: 'assistant', content: aiMsg });
-            appendDiscussMessage('user', userMsg);
-            appendDiscussMessage('assistant', aiMsg);
-            discussContextInjected = true;
-        }
+        // 切回 discuss tab 时总是刷新 discussContext 字符串(发给 AI),
+        // 但不往历史里再 push 一次 [项目上下文] 消息,避免刷屏。
+        if (discussContextInjected) return;
+
+        const userMsg = '[项目上下文] ' + ctx;
+        const aiMsg = '已了解项目「' + (config.novelName || '未命名') + '」的配置。我们来讨论：你可以问世界观、人物设定、情节冲突、写作技巧，或让我帮你补全字段。';
+        discussHistory.push({ role: 'user', content: userMsg, __context: true });
+        discussHistory.push({ role: 'assistant', content: aiMsg, __context: true });
+        appendDiscussMessage('user', userMsg);
+        appendDiscussMessage('assistant', aiMsg, { skipApply: true });
+        discussContextInjected = true;
+        persistDiscussHistory();
     }
 
     function updateTabChrome(tabName) {
@@ -1900,6 +1934,7 @@
         appendDiscussMessage('user', message);
         input.value = '';
         discussHistory.push({ role: 'user', content: message });
+        persistDiscussHistory();
         discussBusy = true;
 
         await withButtonBusy(sendButton, '发送中...', async () => {
@@ -1918,6 +1953,7 @@
                 loading.remove();
                 appendDiscussMessage('assistant', response);
                 discussHistory.push({ role: 'assistant', content: response });
+                persistDiscussHistory();
             } catch (error) {
                 loading.remove();
                 const detail = normalizeNetworkError(error);
@@ -1948,15 +1984,15 @@
             loading.textContent = content;
             body.appendChild(loading);
         } else {
-            body.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
-            // 双向联动 A: AI 回复（非 loading）加"应用到创作方向"按钮
-            if (role === 'assistant' && !options.loading) {
+            body.innerHTML = renderMarkdown(content);
+            // 双向联动 A: AI 回复（非 loading、不是项目上下文问候）加"应用到创作方向"按钮
+            if (role === 'assistant' && !options.loading && !options.skipApply) {
                 const actions = document.createElement('div');
                 actions.className = 'message-actions';
                 const applyBtn = document.createElement('button');
                 applyBtn.type = 'button';
                 applyBtn.className = 'discuss-apply-btn';
-                applyBtn.textContent = '应用到创作方向';
+                applyBtn.textContent = '覆盖创作方向';
                 applyBtn.addEventListener('click', () => applyDiscussToDirection(content));
                 actions.appendChild(applyBtn);
                 body.appendChild(actions);
@@ -1973,23 +2009,25 @@
     function applyDiscussToDirection(text) {
         const dirInput = $('direction');
         if (!dirInput) return;
-        const existing = dirInput.value.trim();
-        const newVal = existing ? existing + '\n\n' + text : text;
-        dirInput.value = newVal;
+        dirInput.value = text;
         // 触发 input 事件让 syncConfigFromControls 同步
         dirInput.dispatchEvent(new Event('input', { bubbles: true }));
-        toast('已应用为创作方向', 'success');
+        toast('已替换为创作方向', 'success');
     }
 
     function localDiscussReply(message) {
         const genre = TYPE_LABELS[config.genre] || '小说';
         const title = config.novelName || '当前作品';
+        // 防止用户输入里的 markdown 元字符误触发渲染(书名 / 用户问题不应当被解析为 markdown)
+        const escapeMd = (s) => String(s ?? '').replace(/([\\*_`~])/g, (m) => `&#${m.charCodeAt(0)};`);
+        const safeTitle = escapeMd(title);
+        const safeMessage = escapeMd(message);
         return [
-            `可以先围绕《${title}》的${genre}定位来拆解。`,
+            `可以先围绕《${safeTitle}》的${genre}定位来拆解。`,
             `1. 明确主角此刻最想要什么，以及失去它会付出什么代价。`,
             `2. 把冲突落到一个可写的场景里：对手、限制、倒计时三者至少保留两个。`,
             `3. 下一章结尾留一个选择题，而不是单纯的信息揭示。`,
-            `你刚才的问题是：“${message}”。建议先写 300 字试场，再根据人物反应调整设定。`
+            `你刚才的问题是："${safeMessage}"。建议先写 300 字试场，再根据人物反应调整设定。`
         ].join('\n');
     }
 
@@ -2206,6 +2244,45 @@
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#039;');
+    }
+
+    // 最小 markdown -> HTML。先 escapeHtml,再按受控 token 替换,
+    // 不允许原始用户输入进入 href/src/事件属性。
+    function renderMarkdown(input) {
+        let text = escapeHtml(input ?? '');
+        // 代码块 ```...```
+        text = text.replace(/```([\s\S]*?)```/g, (_, code) => `<pre><code>${code.trim()}</code></pre>`);
+        // 行内代码 `code`
+        text = text.replace(/`([^`\n]+)`/g, (_, code) => `<code>${code}</code>`);
+        // 标题 ######..#
+        text = text.replace(/^(#{1,6})\s+(.+)$/gm, (_, hashes, title) => `<h${hashes.length}>${title}</h${hashes.length}>`);
+        // 链接 [text](url) - 拒绝 javascript:/data: 协议
+        text = text.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, url) => {
+            const safeUrl = /^(https?:|mailto:|#|\/)/i.test(url) ? url : '#';
+            return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+        });
+        // 加粗 **text** / __text__
+        text = text.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+        text = text.replace(/__([^_\n]+)__/g, '<strong>$1</strong>');
+        // 斜体 *text* / _text_
+        text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+        text = text.replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+        // 无序列表 - 块
+        text = text.replace(/(^|\n)((?:[-*+]\s+.+\n?)+)/g, (match, prefix, block) => {
+            const items = block.trim().split('\n').map((line) => `<li>${line.replace(/^[-*+]\s+/, '')}</li>`).join('');
+            return `${prefix}<ul>${items}</ul>`;
+        });
+        // 有序列表 1. 块
+        text = text.replace(/(^|\n)((?:\d+\.\s+.+\n?)+)/g, (match, prefix, block) => {
+            const items = block.trim().split('\n').map((line) => `<li>${line.replace(/^\d+\.\s+/, '')}</li>`).join('');
+            return `${prefix}<ol>${items}</ol>`;
+        });
+        // 段落 - 双换行分段
+        text = text.split(/\n{2,}/).map((para) => {
+            if (/^<(h\d|ul|ol|pre|blockquote)/.test(para.trim())) return para;
+            return `<p>${para.replace(/\n/g, '<br>')}</p>`;
+        }).join('\n');
+        return text;
     }
 
     function capitalize(value) {
