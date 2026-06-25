@@ -720,10 +720,14 @@ async function performSync(snapshot) {
         if (response.ok) {
             localStorage.setItem(LAST_SYNCED_KEY, snapshot);
         } else {
-            console.warn("[auto-sync] HTTP", response.status);
+            const msg = `Gist 同步失败 HTTP ${response.status}`;
+            console.warn("[auto-sync]", msg);
+            if (typeof showToast === 'function') showToast(msg, 'error', 6000);
         }
     } catch (e) {
+        const msg = `Gist 同步异常: ${e && e.message ? e.message : e}`;
         console.warn("[auto-sync] failed", e);
+        if (typeof showToast === 'function') showToast(msg, 'error', 6000);
     }
 }
 
@@ -929,6 +933,10 @@ function deleteProject(index) {
 
 function exportProject(index) {
     const project = projects[index];
+    if (!project) {
+        showToast('项目不存在或已删除', 'error');
+        return;
+    }
     if (!project.chapters || project.chapters.length === 0) {
         showToast('没有可导出的内容', 'error');
         return;
@@ -942,7 +950,7 @@ function exportProject(index) {
     a.href = url;
     a.download = `${project.title}.md`;
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function exportCurrentProject() {
@@ -988,7 +996,7 @@ function inferApiProfile(baseUrl, model) {
     if (/\/anthropic\b/i.test(normalizedBaseUrl)) return 'anthropic';
     if (/api\.anthropic\.com/i.test(normalizedBaseUrl)) return 'anthropic';
     if (/api\.deepseek\.com/i.test(normalizedBaseUrl)) return 'deepseek';
-    if (/api\.minimax\.chat/i.test(normalizedBaseUrl)) return 'minimax';
+    if (/api\.minimax(?:i)?\.(?:chat|io|com)/i.test(normalizedBaseUrl)) return 'minimax';
     if (/api\.moonshot\.cn/i.test(normalizedBaseUrl)) return 'kimi';
     if (/bigmodel\.cn/i.test(normalizedBaseUrl)) return 'glm';
     if (/api\.openai\.com/i.test(normalizedBaseUrl)) return 'openai';

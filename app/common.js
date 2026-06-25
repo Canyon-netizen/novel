@@ -93,10 +93,13 @@
         menu.hidden = true;
       }
     });
-    document.addEventListener('click', function () {
-      userInfo.classList.remove('open');
-      menu.hidden = true;
-    });
+    if (!userInfo.dataset.outsideBound) {
+      document.addEventListener('click', function () {
+        userInfo.classList.remove('open');
+        menu.hidden = true;
+      });
+      userInfo.dataset.outsideBound = '1';
+    }
   }
 
   // ==================== AI Settings ====================
@@ -173,6 +176,10 @@
     if (!theme) return;
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('moyun_theme', theme);
+  }
+
+  function getTheme() {
+    return localStorage.getItem('moyun_theme') || 'light';
   }
 
   // ==================== Utils ====================
@@ -257,7 +264,7 @@
     // Storage
     loadProjects, saveProjects, loadGistSettings, saveGistSettings,
     // Theme
-    loadTheme, toggleTheme, setTheme,
+    loadTheme, toggleTheme, setTheme, getTheme,
     // Utils
     parseJson, getTypeName, getProjectWordCount, getThemePrompt, THEME_PROMPTS
   };

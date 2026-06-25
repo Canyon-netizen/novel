@@ -96,10 +96,11 @@
     }
 
     let html = '<div style="display:grid;gap:0.5rem;">';
+    var escapeInsp = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };
     result.options.forEach(function (opt, i) {
       html += '<div class="inspiration-option" data-index="' + i + '" style="border:1px solid #bdc3c7;border-radius:6px;padding:0.75rem;cursor:pointer;background:#fff;">';
-      html += '<strong>' + (i + 1) + '. ' + opt.title + '</strong>';
-      html += '<p style="margin:0.5rem 0;color:#34495e;">' + opt.content + '</p>';
+      html += '<strong>' + (i + 1) + '. ' + escapeInsp(opt.title) + '</strong>';
+      html += '<p style="margin:0.5rem 0;color:#34495e;">' + escapeInsp(opt.content) + '</p>';
       html += '<button class="apply-inspiration" data-index="' + i + '" style="padding:0.25rem 0.75rem;background:#3498db;color:#fff;border:none;border-radius:4px;cursor:pointer;">使用这个方向</button>';
       html += '</div>';
     });
@@ -182,19 +183,19 @@
 
   // ==================== 工具栏按钮注入 ====================
   function injectToolbarButtons() {
+    if (document.getElementById('inspirationBtn')) return;
     var tries = 0;
     var timer = setInterval(function () {
       tries++;
-      // 找 create.html 实际的工具栏容器（create.html 用 .template-toolbar，不是 .toolbar/.actions）
       var toolbar = document.querySelector('.template-toolbar, [data-toolbar="create"], .toolbar, .actions');
       if (!toolbar) {
-        if (tries > 30) clearInterval(timer);
+        if (tries > 30) {
+          clearInterval(timer);
+          console.warn('[create-integration] 工具栏未找到,放弃注入灵感/导出按钮');
+        }
         return;
       }
       clearInterval(timer);
-
-      // 避免重复注入
-      if (document.getElementById('inspirationBtn')) return;
 
       var insBtn = document.createElement('button');
       insBtn.type = 'button';

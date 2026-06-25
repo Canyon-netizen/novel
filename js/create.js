@@ -21,10 +21,11 @@
         mystery: '悬疑',
         wuxia: '武侠',
         game: '游戏',
-        apocalypse: '末世'
+        apocalypse: '末世',
+        horror: '恐怖'
     };
 
-    const NOVEL_TYPES = ['fantasy', 'xianxia', 'urban', 'scifi', 'historical', 'romance', 'mystery', 'wuxia', 'game', 'apocalypse'];
+    const NOVEL_TYPES = ['fantasy', 'xianxia', 'urban', 'scifi', 'historical', 'romance', 'mystery', 'wuxia', 'game', 'apocalypse', 'horror'];
 
     const DEFAULT_CONFIG = {
         novelName: '',
@@ -448,8 +449,11 @@
             fileInput.id = 'outlineFileInput';
             fileInput.accept = '.md,.markdown,.json,.txt,.docx,application/json,text/markdown,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
             fileInput.style.display = 'none';
-            fileInput.addEventListener('change', handleOutlineFile);
             importPanel.appendChild(fileInput);
+        }
+        if (!fileInput.dataset.bound) {
+            fileInput.addEventListener('change', handleOutlineFile);
+            fileInput.dataset.bound = '1';
         }
 
         const chooseButton = qs('button.toolbar-btn', importPanel);
@@ -518,6 +522,8 @@
     function enhanceLogout() {
         const userInfo = qs('.user-info');
         if (!userInfo) return;
+        if (userInfo.dataset.enhanced === '1') return;
+        userInfo.dataset.enhanced = '1';
 
         userInfo.setAttribute('role', 'button');
         userInfo.setAttribute('tabindex', '0');
@@ -565,10 +571,14 @@
                 menu.hidden = true;
             }
         });
-        document.addEventListener('click', () => {
-            userInfo.classList.remove('open');
-            menu.hidden = true;
-        });
+        if (!document.body.dataset.userMenuOutsideBound) {
+            document.addEventListener('click', (event) => {
+                if (event.target.closest('.user-info')) return;
+                userInfo.classList.remove('open');
+                menu.hidden = true;
+            });
+            document.body.dataset.userMenuOutsideBound = '1';
+        }
     }
 
     function bindEvents() {
@@ -1320,16 +1330,19 @@
             if (wan > 0 && wan < 1000) meta.totalWordTarget = String(wan);
         }
 
-        // Genre: detect by keywords
+        // Genre: detect by keywords (keys must match HTML data-value in create.html genreTags)
         const genreMap = [
-            { kw: ['玄幻', '修真', '仙侠', '灵脉', '筑基'], genre: 'xuanhuan' },
+            { kw: ['玄幻', '修真', '灵脉', '筑基'], genre: 'fantasy' },
+            { kw: ['仙侠', '修仙', '问道', '飞升'], genre: 'xianxia' },
             { kw: ['都市', '职场', '现代'], genre: 'urban' },
             { kw: ['科幻', '星际', '未来', '赛博'], genre: 'scifi' },
             { kw: ['历史', '王朝', '古代', '穿越'], genre: 'historical' },
             { kw: ['言情', '爱情', '恋爱'], genre: 'romance' },
             { kw: ['悬疑', '推理', '侦探', '破案'], genre: 'mystery' },
             { kw: ['武侠', '江湖', '门派', '武功'], genre: 'wuxia' },
-            { kw: ['末世', '废土', '末日', '丧尸'], genre: 'wasteland' }
+            { kw: ['游戏', '副本', '升级系统'], genre: 'game' },
+            { kw: ['末世', '废土', '末日', '丧尸'], genre: 'apocalypse' },
+            { kw: ['恐怖', '灵异', '惊悚', '鬼'], genre: 'horror' }
         ];
         for (const { kw, genre } of genreMap) {
             if (kw.some(k => rawText.includes(k))) { meta.genre = genre; break; }

@@ -58,6 +58,23 @@ function init() {
     updateAIStatus();
     setupEventListeners();
     renderBatchCard();
+    setupPopState();
+    if (window.NovelAutoSync && window.NovelAutoSync.setErrorHandler) {
+        window.NovelAutoSync.setErrorHandler((message) => {
+            if (typeof showToast === 'function') {
+                showToast(message, 'error', 6000);
+            }
+        });
+    }
+}
+
+function setupPopState() {
+    window.addEventListener('popstate', () => {
+        const urlChapter = parseInt(new URL(window.location).searchParams.get('chapter') || '0', 10);
+        if (!Number.isNaN(urlChapter) && urlChapter !== chapterIndex) {
+            selectChapterByIndex(urlChapter);
+        }
+    });
 }
 
 function setupEventListeners() {
@@ -236,6 +253,11 @@ function selectChapterByIndex(index) {
 
     const projects = safeLoadProjects();
     const project = projects[projectIndex];
+    if (!project || !Array.isArray(project.chapters)) return;
+    if (index < 0 || index >= project.chapters.length) {
+        showToast(`章节索引 ${index} 越界 (共 ${project.chapters.length} 章)`, 'error');
+        return;
+    }
     const chapter = project.chapters[index];
 
     const editorTitle = document.getElementById('editorTitle');
@@ -1146,7 +1168,7 @@ function renderBatchCard() {
     if (s.phase === 'error') {
         card.classList.add('error');
         const { index, error } = s.failedAt || {};
-        body.innerHTML = `第 ${index + 1} 章失败:${error}`;
+        body.textContent = `第 ${index + 1} 章失败:${error}`;
         actions.innerHTML = `<button class="toolbar-btn primary" data-batch-action="retry">重试第 ${index + 1} 章</button>
             <button class="toolbar-btn" data-batch-action="cancel">终止</button>`;
         return;

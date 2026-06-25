@@ -5,6 +5,16 @@
     'use strict';
 
     const LAST_SYNCED_KEY = 'moyun_projects_last_synced';
+    let onSyncError = null;
+
+    function setErrorHandler(fn) {
+        onSyncError = (typeof fn === 'function') ? fn : null;
+    }
+
+    function notifyError(message) {
+        console.warn('[auto-sync]', message);
+        try { if (onSyncError) onSyncError(message); } catch (_) { /* ignore */ }
+    }
 
     function getSettings() {
         try {
@@ -35,14 +45,13 @@
             });
             if (response.ok) {
                 localStorage.setItem(LAST_SYNCED_KEY, snapshot);
-                // Update lastSync display in gist settings
                 settings.lastSync = new Date().toLocaleString('zh-CN');
                 localStorage.setItem('moyun_gist_settings', JSON.stringify(settings));
             } else {
-                console.warn('[auto-sync] HTTP', response.status);
+                notifyError(`Gist 同步失败 HTTP ${response.status}`);
             }
         } catch (e) {
-            console.warn('[auto-sync] failed', e);
+            notifyError(`Gist 同步异常: ${e && e.message ? e.message : e}`);
         }
     }
 
@@ -59,6 +68,7 @@
 
     root.NovelAutoSync = {
         perform: performSync,
+        setErrorHandler,
         GIST_FILENAME
     };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
