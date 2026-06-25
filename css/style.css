@@ -11,6 +11,8 @@
     --accent-primary: #2F5D62;
     --accent-primary-hover: #244C50;
     --accent-soft: #E0EBEC;
+    --accent-purple: #8B5CF6;
+    --accent-blue: #60A5FA;
     --border-color: #E0D9C8;
     --border-strong: #C9C0AB;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
@@ -37,6 +39,8 @@
     --accent-primary: #5A8C92;
     --accent-primary-hover: #6FA0A6;
     --accent-soft: #2F3A3B;
+    --accent-purple: #A78BFA;
+    --accent-blue: #60A5FA;
     --border-color: #3A3530;
     --border-strong: #4F4840;
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
