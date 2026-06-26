@@ -1673,19 +1673,15 @@
     }
 
     // 从 summary (含 "1.4w字" 或 "8000字" 等) parse 出目标字数
+    // 注意: 中文输入法可能把 "1.4w" 自动转义为 "1\.4w" (实为反斜杠+点)
     function parseTargetWords(summary) {
         if (!summary) return 0;
-        const blob = summary;
-        const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
+        // 先把所有反斜杠去掉 (中文输入法误加)
+        const blob = summary.replace(/\\/g, '');
+        const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*[wW万]\s*字?/);
         if (wanMatch) {
             const raw = parseFloat(wanMatch[1]);
-            const hasDot = String(wanMatch[1]).indexOf('.') !== -1;
-            const val = hasDot ? raw : raw;  // "4w" = 40000; ".4w" 通过 hasDot 区分
-            // 如果 group 是 "4" 但 blob 含 ".4w" 形式, 实际是 0.4w
-            if (!hasDot && blob.indexOf('.' + wanMatch[1] + 'w') !== -1) {
-                return Math.round(val / 10 * 10000);
-            }
-            return Math.round(val * 10000);
+            return Math.round(raw * 10000);
         }
         const kMatch = blob.match(/(\d{3,5})\s*字/);
         if (kMatch) {
