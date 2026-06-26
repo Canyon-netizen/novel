@@ -5,14 +5,40 @@
     'use strict';
 
     const LAST_SYNCED_KEY = 'moyun_projects_last_synced';
+    const ERROR_THROTTLE_KEY = 'moyun_sync_error_throttle';
+    const ERROR_THROTTLE_MS = 60_000; // 同一错误 60s 内不重复 toast
     let onSyncError = null;
 
     function setErrorHandler(fn) {
         onSyncError = (typeof fn === 'function') ? fn : null;
     }
 
+    function shouldNotify(message) {
+        // throttle: 同一消息 60s 内只通知一次
+        try {
+            const raw = localStorage.getItem(ERROR_THROTTLE_KEY);
+            const last = raw ? JSON.parse(raw) : {};
+            const now = Date.now();
+            if (last.message === message && now - (last.ts || 0) < ERROR_THROTTLE_MS) {
+                return false;
+            }
+            // 记录这次 (仅在将真要通知时写)
+            return true;
+        } catch (_) {
+            return true;
+        }
+    }
+
+    function markNotified(message) {
+        try {
+            localStorage.setItem(ERROR_THROTTLE_KEY, JSON.stringify({ message, ts: Date.now() }));
+        } catch (_) { /* ignore */ }
+    }
+
     function notifyError(message) {
         console.warn('[auto-sync]', message);
+        if (!shouldNotify(message)) return;
+        markNotified(message);
         try { if (onSyncError) onSyncError(message); } catch (_) { /* ignore */ }
     }
 
@@ -47,12 +73,17 @@
                 localStorage.setItem(LAST_SYNCED_KEY, snapshot);
                 settings.lastSync = new Date().toLocaleString('zh-CN');
                 localStorage.setItem('moyun_gist_settings', JSON.stringify(settings));
+                clearErrorThrottle(); // 成功后清掉, 下次 401 能正常提示
             } else {
                 notifyError(`Gist 同步失败 HTTP ${response.status}`);
             }
         } catch (e) {
             notifyError(`Gist 同步异常: ${e && e.message ? e.message : e}`);
         }
+    }
+
+    function clearErrorThrottle() {
+        try { localStorage.removeItem(ERROR_THROTTLE_KEY); } catch (_) { /* ignore */ }
     }
 
     function parseSyncData(snapshot) {
