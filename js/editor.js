@@ -1134,8 +1134,18 @@ function detectChapterTargetWords(chapter) {
     const summary = chapter.summary || '';
     const blob = title + ' ' + summary;
     // 1.4w / 2.5w / 1万 / 1.2万 / 8000字 / 12000字
+    // 万字: 必须有前导数字 (1.4w / 0.4w / 1w 都行)
+    // 单独 ".4w" 这种缺前导 0 的, 补成 0.4w
     const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
-    if (wanMatch) return String(Math.round(parseFloat(wanMatch[1]) * 10000));
+    if (wanMatch) {
+        const raw = parseFloat(wanMatch[1]);
+        // 修正: ".4w" 这种 (group 没匹到 .) -> 实际上 wanMatch[1] 会是 "4" 不是 ".4"
+        // regex 里 \d+ 是必需的, 所以 ".4w" 匹到 "4" 而非 ".4". 需要 fallback
+        if (String(wanMatch[1]).indexOf('.') === -1 && blob.indexOf('.' + wanMatch[1] + 'w') !== -1) {
+            return String(Math.round(raw / 10 * 10000));  // 0.4w
+        }
+        return String(Math.round(raw * 10000));
+    }
     const kMatch = blob.match(/(\d{3,5})\s*字/);
     if (kMatch) {
         const n = parseInt(kMatch[1], 10);
@@ -1295,8 +1305,21 @@ function renderBatchCard() {
         const done = s.completed.length;
         const pct = total ? Math.round(done / total * 100) : 0;
         // 用最近 5 段平均 (旧数据会拖慢反应)
+        // 至少 3 段才信任, 否则不显示
         const recent = s.durations.slice(-5);
-        const avgSegment = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+        const avgSegment = recent.length >= 3 ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+        // DEBUG: 临时打印 ETA 计算细节 (部署后你会看到)
+        if (typeof console !== 'undefined' && s.durations.length > 0) {
+            console.log('[ETA DEBUG]', {
+                durations_len: s.durations.length,
+                recent,
+                avgSegment,
+                pendingChapterSegments: s.pendingChapterSegments,
+                completedChapterSegments: s.completedChapterSegments,
+                segPerChapter_len: s.segmentsPerChapter?.length,
+                segPerChapter_sample: s.segmentsPerChapter?.slice(0, 5)
+            });
+        }
         // 剩余段数 = 当前章剩余段 + pending 章按目标字数估算的段数
         const currentSegRemaining = Math.max(0, s.pendingChapterSegments - s.completedChapterSegments);
         // pending 章用首章段数作为估算(没精确数据, 简化)
