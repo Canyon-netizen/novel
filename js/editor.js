@@ -1238,8 +1238,18 @@ function renderBatchCard() {
         const total = s.completed.length + s.pending.length;
         const done = s.completed.length;
         const pct = total ? Math.round(done / total * 100) : 0;
-        const avg = s.durations.length ? s.durations.reduce((a, b) => a + b, 0) / s.durations.length : 0;
-        const eta = avg * s.pending.length;
+        // 用最近 5 段平均 (旧数据会拖慢反应)
+        const recent = s.durations.slice(-5);
+        const avgSegment = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
+        // 剩余段数 = 当前章剩余段 + pending 章按目标字数估算的段数
+        const currentSegRemaining = Math.max(0, s.pendingChapterSegments - s.completedChapterSegments);
+        // pending 章用首章段数作为估算(没精确数据, 简化)
+        // pending[0] 是正在写的章, 从已完成章(idx=done)开始算
+        const segPerChapter = Array.isArray(s.segmentsPerChapter) ? s.segmentsPerChapter : [];
+        // pending 章里 idx >= done+1 的段数总和 (因为 pending[0] 是当前章, 在 s.pendingChapterSegments 里追踪)
+        const pendingSegRemaining = s.pending.slice(1).reduce((sum, idx) => sum + (segPerChapter[idx] || 1), 0);
+        const totalSegRemaining = currentSegRemaining + pendingSegRemaining;
+        const eta = avgSegment * totalSegRemaining;
         const status = s.phase === 'paused' ? '⏸ 已暂停' : '正在生成';
         const segInfo = s.pendingChapterSegments > 1
             ? ` · 本章 ${s.completedChapterSegments}/${s.pendingChapterSegments} 段`
@@ -1314,6 +1324,12 @@ async function aiBatchStart(mode) {
     batchState.durations = [];
     batchState.startedAt = Date.now();
     batchState.abort = new AbortController();
+    // 预计算每章段数 (用于 ETA 估算)
+    batchState.segmentsPerChapter = indexes.map((i) => {
+        const c = project.chapters[i];
+        const tw = parseInt(detectChapterTargetWords(c) || '2500', 10);
+        return Math.max(1, Math.ceil(tw / 2500));
+    });
     renderBatchCard();
     await aiBatchRun();
 }
