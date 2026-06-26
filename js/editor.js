@@ -1445,7 +1445,10 @@ async function aiBatchRun() {
         const t0 = Date.now();
         try {
             await aiBatchWriteOne(project, idx);
-            batchState.durations.push(Date.now() - t0);
+            // aiBatchWriteOne 内部已经按段 push duration (ETA 准)
+            // 整章耗时另外记一份, 用于以后统计
+            batchState.chapterDurations = batchState.chapterDurations || [];
+            batchState.chapterDurations.push(Date.now() - t0);
             batchState.pending.shift();
             batchState.completed.push(idx);
             // aiBatchWriteOne already persists; do NOT call saveCurrentChapterLocal
@@ -1495,6 +1498,7 @@ async function aiBatchWriteOne(project, idx) {
         }
         const isFirst = chunkIdx === 0;
         const isLast = chunkIdx === totalChunks - 1;
+        const segStart = Date.now();
         const wordsThisChunk = isLast
             ? Math.max(1000, targetWords - chunkSize * (totalChunks - 1))  // last chunk may be smaller
             : chunkSize;
@@ -1508,6 +1512,9 @@ ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 
 
         const text = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], systemPrompt);
         if (!text || !text.trim()) throw new Error(`第 ${idx + 1} 章第 ${chunkIdx + 1} 段 AI 返回内容为空`);
+
+        // 记录单段耗时 (ETA 用), 整章耗时在 aiBatchRun 末尾 push
+        batchState.durations.push(Date.now() - segStart);
 
         accumulatedContent = accumulatedContent
             ? accumulatedContent + '\n\n' + text.trim()
