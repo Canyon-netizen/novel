@@ -8,10 +8,12 @@
         theme: 'moyun_theme',
         userName: 'moyun_user_name',
         userTemplates: 'moyun_user_templates',
-        discussHistory: 'moyun_discuss_history'
+        discussHistory: 'moyun_discuss_history',
+        standardChapterWords: 'moyun_standard_chapter_words'
     };
 
     const MAX_DISCUSS_HISTORY = 50;
+    const DEFAULT_STANDARD_CHAPTER_WORDS = 3000;
 
     const TYPE_LABELS = {
         all: '全部',
@@ -303,6 +305,26 @@
         updateTabChrome('build');
         restoreDiscussHistory();
         if (typeof loadGistSettings === 'function') loadGistSettings();
+        loadStandardChapterWordsSetting();
+    }
+
+    function loadStandardChapterWordsSetting() {
+        const input = document.getElementById('standardChapterWordsInput');
+        if (!input) return;
+        const saved = parseInt(localStorage.getItem(STORAGE.standardChapterWords), 10);
+        input.value = (saved >= 500 && saved <= 20000) ? saved : DEFAULT_STANDARD_CHAPTER_WORDS;
+        input.addEventListener('change', () => {
+            const v = parseInt(input.value, 10);
+            const safe = (Number.isFinite(v) && v >= 500 && v <= 20000) ? v : DEFAULT_STANDARD_CHAPTER_WORDS;
+            input.value = safe;
+            localStorage.setItem(STORAGE.standardChapterWords, String(safe));
+            toast(`标准章字数已设为 ${safe} 字`, 'success');
+        });
+    }
+
+    function getStandardChapterWords() {
+        const saved = parseInt(localStorage.getItem(STORAGE.standardChapterWords), 10);
+        return (saved >= 500 && saved <= 20000) ? saved : DEFAULT_STANDARD_CHAPTER_WORDS;
     }
 
     function restoreDiscussHistory() {
@@ -1625,7 +1647,86 @@
             throw new Error('没有识别到章节标题');
         }
 
-        return { type: 'markdown', chapters: normalized.slice(0, 200) };
+        const expanded = expandChaptersByWords(normalized);
+
+        return { type: 'markdown', chapters: expanded.slice(0, 200) };
+    }
+
+    // 暴露给测试用 (正常用户不依赖)
+    if (typeof window !== 'undefined') {
+        window.__novelCreate = window.__novelCreate || {};
+        window.__novelCreate.parseMarkdownOutline = function(text) {
+            return parseMarkdownOutline(text);
+        };
+    }
+
+    // 中文数字转阿拉伯数字 (用于 "第十一章" 这类序号)
+    function cnNumToInt(s) {
+        const map = { '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+        let n = 0;
+        for (const ch of s) {
+            if (ch in map) n = n * 10 + map[ch];
+            else if (ch === '十') n = n === 0 ? 10 : n * 10 + 10;
+            else if (ch === '百') n = n === 0 ? 100 : n * 100;
+        }
+        return n;
+    }
+
+    // 从 summary (含 "1.4w字" 或 "8000字" 等) parse 出目标字数
+    function parseTargetWords(summary) {
+        if (!summary) return 0;
+        const blob = summary;
+        const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
+        if (wanMatch) {
+            const raw = parseFloat(wanMatch[1]);
+            const hasDot = String(wanMatch[1]).indexOf('.') !== -1;
+            const val = hasDot ? raw : raw;  // "4w" = 40000; ".4w" 通过 hasDot 区分
+            // 如果 group 是 "4" 但 blob 含 ".4w" 形式, 实际是 0.4w
+            if (!hasDot && blob.indexOf('.' + wanMatch[1] + 'w') !== -1) {
+                return Math.round(val / 10 * 10000);
+            }
+            return Math.round(val * 10000);
+        }
+        const kMatch = blob.match(/(\d{3,5})\s*字/);
+        if (kMatch) {
+            const n = parseInt(kMatch[1], 10);
+            if (n >= 1000) return n;
+        }
+        return 0;
+    }
+
+    // 把每个 chapter 按字数拆成多个, target > standard 时拆
+    function expandChaptersByWords(chapters) {
+        const standard = getStandardChapterWords();
+        const out = [];
+        chapters.forEach((chapter) => {
+            const target = parseTargetWords(chapter.summary || '');
+            // 抽掉 summary 里的字数字符串, 让生成的每段 summary 更聚焦剧情
+            const cleanSummary = (chapter.summary || '').replace(/\s*[\[【\(（]?\s*\d+(?:\.\d+)?\s*[wW]\s*字?\s*[\]】\)）]?\s*/, '').trim();
+            const originalTitle = chapter.title;
+            if (target > 0 && target > standard) {
+                const n = Math.ceil(target / standard);
+                const perFirst = Math.floor(standard * (standard / Math.floor(standard)));  // standard 通常 round
+                // 每章字数: 前 n-1 章 = standard, 最后 = target - (n-1)*standard
+                for (let i = 0; i < n; i++) {
+                    const subWords = (i < n - 1) ? standard : (target - standard * (n - 1));
+                    const subTitle = `${originalTitle}·${['一','二','三','四','五','六','七','八','九','十'][i] || (i + 1)}`;
+                    out.push({
+                        title: subTitle,
+                        summary: cleanSummary ? `${cleanSummary}\n\n(本段约 ${subWords} 字,原计划 ${target} 字)` : `(本段约 ${subWords} 字,原计划 ${target} 字)`,
+                        content: ''
+                    });
+                }
+            } else {
+                // 不拆, summary 仍剥掉字数字符串
+                out.push({
+                    title: originalTitle,
+                    summary: cleanSummary || chapter.summary || '',
+                    content: ''
+                });
+            }
+        });
+        return out;
     }
 
     function renderImportStatus(parsed, filename) {

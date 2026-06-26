@@ -1404,6 +1404,11 @@
                             <a class="toolbar-btn" href="docs/outline-template.md" download="novel-outline-template.md" style="text-decoration:none;display:inline-block;">📥 下载大纲模板</a>
                         </div>
                         <p style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted);">第一次使用?先下载模板,按 `__填写__` 提示编辑后再上传</p>
+                        <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:center;align-items:center;font-size:0.85rem;color:var(--text-secondary);">
+                            <label for="standardChapterWordsInput">标准章字数</label>
+                            <input type="number" id="standardChapterWordsInput" min="500" max="20000" step="100" value="3000" style="width:90px;padding:4px 8px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-input);color:var(--text-primary);">
+                            <span style="color:var(--text-muted);">字 / 章 (大纲中 > 此字数的章节自动拆成多章)</span>
+                        </div>
                         <div id="importStatus" style="margin-top:1.5rem;display:none;"></div>
                     </div>
                 </div>
