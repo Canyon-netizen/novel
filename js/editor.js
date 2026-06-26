@@ -59,7 +59,6 @@ function init() {
     setupEventListeners();
     setupProjectSwitcher();
     if (typeof loadGistSettings === 'function') loadGistSettings();
-    restoreBatchState();
     renderBatchCard();
     setupPopState();
     if (window.NovelAutoSync && window.NovelAutoSync.setErrorHandler) {
@@ -1134,18 +1133,8 @@ function detectChapterTargetWords(chapter) {
     const summary = chapter.summary || '';
     const blob = title + ' ' + summary;
     // 1.4w / 2.5w / 1万 / 1.2万 / 8000字 / 12000字
-    // 万字: 必须有前导数字 (1.4w / 0.4w / 1w 都行)
-    // 单独 ".4w" 这种缺前导 0 的, 补成 0.4w
     const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
-    if (wanMatch) {
-        const raw = parseFloat(wanMatch[1]);
-        // 修正: ".4w" 这种 (group 没匹到 .) -> 实际上 wanMatch[1] 会是 "4" 不是 ".4"
-        // regex 里 \d+ 是必需的, 所以 ".4w" 匹到 "4" 而非 ".4". 需要 fallback
-        if (String(wanMatch[1]).indexOf('.') === -1 && blob.indexOf('.' + wanMatch[1] + 'w') !== -1) {
-            return String(Math.round(raw / 10 * 10000));  // 0.4w
-        }
-        return String(Math.round(raw * 10000));
-    }
+    if (wanMatch) return String(Math.round(parseFloat(wanMatch[1]) * 10000));
     const kMatch = blob.match(/(\d{3,5})\s*字/);
     if (kMatch) {
         const n = parseInt(kMatch[1], 10);
@@ -1175,61 +1164,8 @@ const batchState = {
     durations: [],          // ms per chapter (for ETA)
     userApproved: false,    // when 'all' is chosen after sampling
     pendingChapterSegments: 0,    // segments to write in current chapter (long-chapter mode)
-    completedChapterSegments: 0,  // segments written so far
-    segmentsPerChapter: []        // 预计算每章段数 (用于 ETA)
+    completedChapterSegments: 0   // segments written so far
 };
-
-const BATCH_STATE_KEY = 'moyun_batch_state';
-
-function persistBatchState() {
-    // 跳过不能序列化的字段 (abort) + 终态 (done/idle)
-    if (batchState.phase === 'idle' || batchState.phase === 'done') {
-        try { localStorage.removeItem(BATCH_STATE_KEY); } catch (_) {}
-        return;
-    }
-    try {
-        const snapshot = {
-            phase: batchState.phase === 'error' ? 'paused' : batchState.phase,
-            pending: batchState.pending,
-            completed: batchState.completed,
-            durations: batchState.durations,
-            startedAt: batchState.startedAt,
-            userApproved: batchState.userApproved,
-            pendingChapterSegments: batchState.pendingChapterSegments,
-            completedChapterSegments: batchState.completedChapterSegments,
-            segmentsPerChapter: batchState.segmentsPerChapter
-        };
-        localStorage.setItem(BATCH_STATE_KEY, JSON.stringify(snapshot));
-    } catch (_) { /* quota 等异常忽略 */ }
-}
-
-function restoreBatchState() {
-    try {
-        const raw = localStorage.getItem(BATCH_STATE_KEY);
-        if (!raw) return;
-        const s = JSON.parse(raw);
-        if (!s || !s.pending || s.pending.length === 0) {
-            localStorage.removeItem(BATCH_STATE_KEY);
-            return;
-        }
-        // 恢复为 paused 状态, 让用户主动点"继续" (避免后台自动打 API 烧 token)
-        batchState.phase = 'paused';
-        batchState.pending = s.pending;
-        batchState.completed = s.completed || [];
-        batchState.durations = s.durations || [];
-        batchState.startedAt = s.startedAt || Date.now();
-        batchState.userApproved = s.userApproved || false;
-        batchState.pendingChapterSegments = s.pendingChapterSegments || 0;
-        batchState.completedChapterSegments = s.completedChapterSegments || 0;
-        batchState.segmentsPerChapter = s.segmentsPerChapter || [];
-        // 注意: 跨页面恢复时, pendingChapterSegments/completedChapterSegments
-        // 对应的"当前章"是 pending[0] 但 localStorage 存的是刷新前那一刻的状态, 准确
-        renderBatchCard();
-        showToast('检测到上次未完成的批量写作, 点击"继续"恢复', 'info', 5000);
-    } catch (_) {
-        try { localStorage.removeItem(BATCH_STATE_KEY); } catch (_) {}
-    }
-}
 
 const BATCH_ACTIONS = {
     sample: () => aiBatchStart('sample'),
@@ -1242,8 +1178,6 @@ const BATCH_ACTIONS = {
 };
 
 function renderBatchCard() {
-    // 先持久化 (无论后面走哪个 phase 分支都会 return)
-    persistBatchState();
     const card = document.getElementById('batchCard');
     if (!card) return;
     const body = document.getElementById('batchCardBody');
@@ -1305,21 +1239,8 @@ function renderBatchCard() {
         const done = s.completed.length;
         const pct = total ? Math.round(done / total * 100) : 0;
         // 用最近 5 段平均 (旧数据会拖慢反应)
-        // 至少 3 段才信任, 否则不显示
         const recent = s.durations.slice(-5);
-        const avgSegment = recent.length >= 3 ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
-        // DEBUG: 临时打印 ETA 计算细节 (部署后你会看到)
-        if (typeof console !== 'undefined' && s.durations.length > 0) {
-            console.log('[ETA DEBUG]', {
-                durations_len: s.durations.length,
-                recent,
-                avgSegment,
-                pendingChapterSegments: s.pendingChapterSegments,
-                completedChapterSegments: s.completedChapterSegments,
-                segPerChapter_len: s.segmentsPerChapter?.length,
-                segPerChapter_sample: s.segmentsPerChapter?.slice(0, 5)
-            });
-        }
+        const avgSegment = recent.length ? recent.reduce((a, b) => a + b, 0) / recent.length : 0;
         // 剩余段数 = 当前章剩余段 + pending 章按目标字数估算的段数
         const currentSegRemaining = Math.max(0, s.pendingChapterSegments - s.completedChapterSegments);
         // pending 章用首章段数作为估算(没精确数据, 简化)
@@ -1557,20 +1478,6 @@ ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 
             batchState.pendingChapterSegments = totalChunks;
             batchState.completedChapterSegments = segmentsDone;
             renderBatchCard();
-        }
-
-        // 段间 2s delay: 避免 1 分钟内打 N 次 API 触发限流 (429)
-        // 仅在还有下一段时延迟; 尊重 abort signal
-        if (chunkIdx < totalChunks - 1) {
-            await new Promise((resolve, reject) => {
-                const timer = setTimeout(resolve, 2000);
-                if (batchState.abort) {
-                    batchState.abort.signal.addEventListener('abort', () => {
-                        clearTimeout(timer);
-                        reject(new DOMException('Aborted', 'AbortError'));
-                    }, { once: true });
-                }
-            });
         }
     }
 
