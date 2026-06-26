@@ -59,6 +59,7 @@ function init() {
     setupEventListeners();
     setupProjectSwitcher();
     if (typeof loadGistSettings === 'function') loadGistSettings();
+    restoreBatchState();
     renderBatchCard();
     setupPopState();
     if (window.NovelAutoSync && window.NovelAutoSync.setErrorHandler) {
@@ -1164,8 +1165,61 @@ const batchState = {
     durations: [],          // ms per chapter (for ETA)
     userApproved: false,    // when 'all' is chosen after sampling
     pendingChapterSegments: 0,    // segments to write in current chapter (long-chapter mode)
-    completedChapterSegments: 0   // segments written so far
+    completedChapterSegments: 0,  // segments written so far
+    segmentsPerChapter: []        // 预计算每章段数 (用于 ETA)
 };
+
+const BATCH_STATE_KEY = 'moyun_batch_state';
+
+function persistBatchState() {
+    // 跳过不能序列化的字段 (abort) + 终态 (done/idle)
+    if (batchState.phase === 'idle' || batchState.phase === 'done') {
+        try { localStorage.removeItem(BATCH_STATE_KEY); } catch (_) {}
+        return;
+    }
+    try {
+        const snapshot = {
+            phase: batchState.phase === 'error' ? 'paused' : batchState.phase,
+            pending: batchState.pending,
+            completed: batchState.completed,
+            durations: batchState.durations,
+            startedAt: batchState.startedAt,
+            userApproved: batchState.userApproved,
+            pendingChapterSegments: batchState.pendingChapterSegments,
+            completedChapterSegments: batchState.completedChapterSegments,
+            segmentsPerChapter: batchState.segmentsPerChapter
+        };
+        localStorage.setItem(BATCH_STATE_KEY, JSON.stringify(snapshot));
+    } catch (_) { /* quota 等异常忽略 */ }
+}
+
+function restoreBatchState() {
+    try {
+        const raw = localStorage.getItem(BATCH_STATE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (!s || !s.pending || s.pending.length === 0) {
+            localStorage.removeItem(BATCH_STATE_KEY);
+            return;
+        }
+        // 恢复为 paused 状态, 让用户主动点"继续" (避免后台自动打 API 烧 token)
+        batchState.phase = 'paused';
+        batchState.pending = s.pending;
+        batchState.completed = s.completed || [];
+        batchState.durations = s.durations || [];
+        batchState.startedAt = s.startedAt || Date.now();
+        batchState.userApproved = s.userApproved || false;
+        batchState.pendingChapterSegments = s.pendingChapterSegments || 0;
+        batchState.completedChapterSegments = s.completedChapterSegments || 0;
+        batchState.segmentsPerChapter = s.segmentsPerChapter || [];
+        // 注意: 跨页面恢复时, pendingChapterSegments/completedChapterSegments
+        // 对应的"当前章"是 pending[0] 但 localStorage 存的是刷新前那一刻的状态, 准确
+        renderBatchCard();
+        showToast('检测到上次未完成的批量写作, 点击"继续"恢复', 'info', 5000);
+    } catch (_) {
+        try { localStorage.removeItem(BATCH_STATE_KEY); } catch (_) {}
+    }
+}
 
 const BATCH_ACTIONS = {
     sample: () => aiBatchStart('sample'),
@@ -1178,6 +1232,8 @@ const BATCH_ACTIONS = {
 };
 
 function renderBatchCard() {
+    // 先持久化 (无论后面走哪个 phase 分支都会 return)
+    persistBatchState();
     const card = document.getElementById('batchCard');
     if (!card) return;
     const body = document.getElementById('batchCardBody');
@@ -1471,6 +1527,20 @@ ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 
             batchState.pendingChapterSegments = totalChunks;
             batchState.completedChapterSegments = segmentsDone;
             renderBatchCard();
+        }
+
+        // 段间 2s delay: 避免 1 分钟内打 N 次 API 触发限流 (429)
+        // 仅在还有下一段时延迟; 尊重 abort signal
+        if (chunkIdx < totalChunks - 1) {
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(resolve, 2000);
+                if (batchState.abort) {
+                    batchState.abort.signal.addEventListener('abort', () => {
+                        clearTimeout(timer);
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    }, { once: true });
+                }
+            });
         }
     }
 
