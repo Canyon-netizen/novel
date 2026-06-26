@@ -158,34 +158,47 @@
                         files: { [GIST_FILENAME]: { content: gistData } }
                     })
                 });
+                // 旧 Gist 不存在/无权访问 -> 清掉 gistId, 自动转去创建新 Gist
+                if (response.status === 404 || response.status === 410) {
+                    setGistId('');
+                    return await createNewGist(token, gistData);
+                }
                 if (!response.ok) throw new Error(`更新失败 (${response.status})`);
 
                 setLastSync(new Date().toLocaleString('zh-CN'));
                 updateGistStatus();
                 _showToast('✅ Gist 已更新!', 'success');
             } else {
-                const response = await fetch('https://api.github.com/gists', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        description: '墨韵AI 数据同步',
-                        public: false,
-                        files: { [GIST_FILENAME]: { content: gistData } }
-                    })
-                });
-                if (!response.ok) throw new Error(`创建失败 (${response.status})`);
-
-                const result = await response.json();
-                setGistId(result.id);
-                setLastSync(new Date().toLocaleString('zh-CN'));
-                updateGistStatus();
-                _showToast('✅ Gist 创建成功!\n\nGist ID: ' + result.id, 'success');
+                return await createNewGist(token, gistData);
             }
         } catch (error) {
             _showToast('❌ Gist 操作失败: ' + (error.message || error), 'error');
+        }
+    }
+
+    async function createNewGist(token, gistData) {
+        try {
+            const response = await fetch('https://api.github.com/gists', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    description: '墨韵AI 数据同步',
+                    public: false,
+                    files: { [GIST_FILENAME]: { content: gistData } }
+                })
+            });
+            if (!response.ok) throw new Error(`创建失败 (${response.status})`);
+
+            const result = await response.json();
+            setGistId(result.id);
+            setLastSync(new Date().toLocaleString('zh-CN'));
+            updateGistStatus();
+            _showToast('✅ Gist 创建成功!\n\nGist ID: ' + result.id, 'success');
+        } catch (error) {
+            _showToast('❌ Gist 创建失败: ' + (error.message || error), 'error');
         }
     }
 
@@ -215,6 +228,13 @@
                     files: { [GIST_FILENAME]: { content: JSON.stringify(getSyncData(), null, 2) } }
                 })
             });
+            // 旧 Gist 404 -> 清掉, 下次 connectGist 会创建新的
+            if (response.status === 404 || response.status === 410) {
+                setGistId('');
+                updateGistStatus();
+                _showToast('⚠️ 原 Gist 已不存在, 请重新点击"连接/更新 Gist"创建新 Gist', 'warning', 6000);
+                return;
+            }
             if (!response.ok) throw new Error(`同步失败 (${response.status})`);
 
             setLastSync(new Date().toLocaleString('zh-CN'));
