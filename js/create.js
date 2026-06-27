@@ -1341,6 +1341,35 @@
 
         try {
             const parsed = await parseOutlineFile(file);
+            // AI 子章命名 (机械命名 -> 自然命名)
+            // 拆分后调, 按原章 group 批量处理
+            if (parsed.chapters && parsed.chapters.length > 0) {
+                const groups = groupExpandedByOriginal(parsed.chapters);
+                const hasMultiSub = groups.some(g => g.subChapters.length > 1);
+                if (hasMultiSub) {
+                    if (isAIConfiguredForNaming()) {
+                        toast(`正在为 ${parsed.chapters.length} 个子章 AI 起名...`, 'info', 2000);
+                        const result = await aiNameSubchapters(groups);
+                        if (result.skipped) {
+                            toast('AI 未配置, 子章使用默认命名 (机械顺序)', 'info');
+                        } else if (result.failed > 0) {
+                            toast(`AI 命名完成, ${result.failed} 个原章失败 (使用默认命名)`, 'warning');
+                        } else {
+                            // 用 AI 命名替换
+                            groups.forEach(g => {
+                                g.subChapters.forEach((sub, i) => {
+                                    const newTitle = result.renamed[sub.title];
+                                    if (newTitle) sub.title = newTitle;
+                                });
+                            });
+                            toast(`AI 命名完成 ${groups.length} 个原章`, 'success');
+                        }
+                    } else {
+                        toast('AI 未配置, 子章使用默认命名 (机械顺序). 右上角齿轮可配置 AI', 'info', 4000);
+                    }
+                }
+            }
+
             importedOutline = parsed;
             // Extract project meta from the raw outline text and auto-fill
             // the build tab so the user doesn't have to retype 小说名称,
@@ -1575,12 +1604,19 @@
             /^【.*】$/,
             /^正文第/,
             /阶段[:：]/,
+            // 角色/冲突/卷次标题 (用户的 .md 里 ### 角色名 / ### 卷X 标题模式)
+            /^(核心|唯一|剧社|宿舍)/i,
+            /^[一二三四五六七八九十]+\.\s*(核心|个人|感情|主线|内心)/,
+            /群像|配角|四人组|主线人物/,
+            /^[一二三四五六七八九十]+\s*(万字|卷)/,
         ];
-        const shouldSkip = (title) => skipPatterns.some(p => p.test(title.trim()));
+        // 容忍 leading emoji + 空格 (用户 .md 标题前常有 🔹 📌 等)
+        const stripHeadingPrefix = (t) => String(t || '').replace(/^[\s\u{1F000}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]*/u, '').trim();
+        const shouldSkip = (title) => skipPatterns.some(p => p.test(stripHeadingPrefix(title)));
         const isChapterList = (line) =>
             /^\s*\d+\.\s*\*?\*?第[一二三四五六七八九十百零\d]+[章节回]/.test(line);
 
-        lines.forEach((line) => {
+        lines.forEach((line, i) => {
             const heading = line.match(/^\s{0,3}(#{1,4})\s+(.+?)\s*#*\s*$/);
             if (heading) {
                 const level = heading[1].length;
@@ -1698,19 +1734,24 @@
         chapters.forEach((chapter) => {
             const target = parseTargetWords(chapter.summary || '');
             // 抽掉 summary 里的字数字符串, 让生成的每段 summary 更聚焦剧情
-            const cleanSummary = (chapter.summary || '').replace(/\s*[\[【\(（]?\s*\d+(?:\.\d+)?\s*[wW]\s*字?\s*[\]】\)）]?\s*/, '').trim();
+            const cleanSummary = (chapter.summary || '').replace(/\s*[\[【\(（]?\s*\d+(?:[.\\][\d]+|\.\d+)?\s*[wW]\s*字?\s*[\]】\)）]?\s*/, '').trim();
             const originalTitle = chapter.title;
             if (target > 0 && target > standard) {
                 const n = Math.ceil(target / standard);
-                const perFirst = Math.floor(standard * (standard / Math.floor(standard)));  // standard 通常 round
+                const subChapterMarkers = ['一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五','十六','十七','十八','十九','二十'];
                 // 每章字数: 前 n-1 章 = standard, 最后 = target - (n-1)*standard
                 for (let i = 0; i < n; i++) {
                     const subWords = (i < n - 1) ? standard : (target - standard * (n - 1));
-                    const subTitle = `${originalTitle}·${['一','二','三','四','五','六','七','八','九','十'][i] || (i + 1)}`;
+                    const subTitle = `${originalTitle}·${subChapterMarkers[i] || (i + 1)}`;
                     out.push({
                         title: subTitle,
                         summary: cleanSummary ? `${cleanSummary}\n\n(本段约 ${subWords} 字,原计划 ${target} 字)` : `(本段约 ${subWords} 字,原计划 ${target} 字)`,
-                        content: ''
+                        content: '',
+                        _origTitle: originalTitle,
+                        _subIndex: i,
+                        _subCount: n,
+                        _subWords: subWords,
+                        _origTarget: target
                     });
                 }
             } else {
@@ -1718,11 +1759,105 @@
                 out.push({
                     title: originalTitle,
                     summary: cleanSummary || chapter.summary || '',
-                    content: ''
+                    content: '',
+                    _origTitle: originalTitle,
+                    _subIndex: 0,
+                    _subCount: 1,
+                    _subWords: target || 0,
+                    _origTarget: target
                 });
             }
         });
         return out;
+    }
+
+    // 检查 AI 是否已配置可用
+    function isAIConfiguredForNaming() {
+        if (!aiSettings || typeof NovelLLMClient === 'undefined' || !NovelLLMClient.callAI) return false;
+        // local 模式或没 apiKey 都视为不可用
+        if (aiSettings.provider === 'local') return false;
+        if (!aiSettings.apiKey || !aiSettings.apiKey.trim()) return false;
+        return true;
+    }
+
+    // AI 给拆分的子章起名字
+    // groupedChapters: [{ originalTitle, summary, subChapters: [{title, summary, _subIndex}] }, ...]
+    // 调用 1 次 AI 处理 1 个原章的所有子章 -> 拿 N 个标题
+    async function aiNameSubchapters(groupedChapters) {
+        if (!isAIConfiguredForNaming()) {
+            return { skipped: true, reason: 'AI 未配置' };
+        }
+        const renamed = {};
+        let failed = 0;
+
+        // 顺序处理, 不并发避免 API 限流
+        for (const group of groupedChapters) {
+            if (group.subChapters.length <= 1) continue;  // 不拆的跳过
+            try {
+                const prompt = buildSubChapterNamingPrompt(group);
+                const result = await NovelLLMClient.callAI(aiSettings, [{ role: 'user', content: prompt }],
+                    '你是小说创作助手,擅长把长章节拆分成有意义的子章并起名字。');
+                const names = parseSubChapterNames(result, group.subChapters.length);
+                if (names && names.length === group.subChapters.length) {
+                    group.subChapters.forEach((sub, i) => {
+                        if (names[i] && names[i].trim()) {
+                            // 用原标题 + "·" + AI 名字, 保留编号结构
+                            renamed[sub.title] = `${group.originalTitle}·${names[i].trim()}`;
+                        }
+                    });
+                } else {
+                    failed++;
+                }
+            } catch (e) {
+                failed++;
+                console.warn('[ai-naming] 原章失败:', group.originalTitle, e.message);
+            }
+        }
+
+        return { skipped: false, renamed, failed };
+    }
+
+    function buildSubChapterNamingPrompt(group) {
+        const summary = group.summary || '';
+        const n = group.subChapters.length;
+        const perWords = group.subChapters[0]._subWords || 3000;
+        const lines = [
+            `原章标题: ${group.originalTitle}`,
+            `原章字数: ${group._origTarget || '?'} 字`,
+            `拆成: ${n} 个子章, 每个约 ${perWords} 字`,
+            ``,
+            `原章大纲:`,
+            summary.slice(0, 800),
+            ``,
+            `请为这 ${n} 个子章起名字 (每行 1 个, 不要编号, 不要 "第N章", 简短 4-12 字):`,
+            ...group.subChapters.map((_, i) => `子章${i + 1}: `)
+        ];
+        return lines.join('\n');
+    }
+
+    function parseSubChapterNames(text, expected) {
+        if (!text) return null;
+        // 尝试解析多行: 提取每行去掉 "子章N:" 等前缀
+        const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return null;
+        const cleaned = lines.map(l => l.replace(/^子章\s*\d+[:：]\s*/, '').replace(/^[\d]+[.、)\]:\s]+/, '').trim()).filter(Boolean);
+        if (cleaned.length < expected) return null;
+        return cleaned.slice(0, expected);
+    }
+
+    // 把 expanded 列表按原章分组 (从 _origTitle 提取)
+    function groupExpandedByOriginal(expanded) {
+        const groups = [];
+        let current = null;
+        for (const ch of expanded) {
+            const orig = ch._origTitle || ch.title;
+            if (!current || current.originalTitle !== orig) {
+                current = { originalTitle: orig, summary: ch.summary, subChapters: [] };
+                groups.push(current);
+            }
+            current.subChapters.push(ch);
+        }
+        return groups;
     }
 
     function renderImportStatus(parsed, filename) {
@@ -2301,8 +2436,11 @@
             .filter(Boolean);
         // Prioritize beats with structural keywords; fall back to first lines.
         const beatKeywords = /^(主线剧情|主线|剧情|关键冲突|关键事件|核心冲突|核心事件|冲突|事件|伏笔|暗线|主线|明线)/;
-        const beats = clean.filter(l => beatKeywords.test(l));
-        const pool = beats.length >= 2 ? beats : clean;
+        // 第一行（章节列表本身）必含字数标记 (1.4w字), 必须保留否则 expandChaptersByWords
+        // 拿不到 target words 拆不开
+        const firstLine = clean[0] || '';
+        const beats = clean.filter(l => l !== firstLine && beatKeywords.test(l));
+        const pool = beats.length >= 2 ? [firstLine].concat(beats) : clean;
         const out = [];
         let total = 0;
         for (const line of pool) {
