@@ -1685,7 +1685,7 @@
 
         const expanded = expandChaptersByWords(normalized);
 
-        return { type: 'markdown', chapters: expanded.slice(0, 200) };
+        return { type: 'markdown', chapters: expanded };
     }
 
     // 暴露给测试用 (正常用户不依赖)
