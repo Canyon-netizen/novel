@@ -1745,7 +1745,7 @@
                     const subTitle = `${originalTitle}·${subChapterMarkers[i] || (i + 1)}`;
                     out.push({
                         title: subTitle,
-                        summary: cleanSummary ? `${cleanSummary}\n\n(本段约 ${subWords} 字,原计划 ${target} 字)` : `(本段约 ${subWords} 字,原计划 ${target} 字)`,
+                        summary: cleanSummary ? `${cleanSummary}` : '',
                         content: '',
                         _origTitle: originalTitle,
                         _subIndex: i,
