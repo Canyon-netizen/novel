@@ -1431,56 +1431,87 @@ async function aiBatchWriteOne(project, idx) {
 
     const systemPrompt = buildWriteSystemPrompt(project, chapter);
 
-    // Generate each chunk; subsequent chunks see the previous tail for continuity.
+    // 上文衔接: 仅当 idx > 0 时的前章末尾 (用于章内第 1 段)
+    // 章内并发段不依赖前段实际内容 - 牺牲一定衔接性换 2x 加速
     let accumulatedContent = chapter.content?.trim() || '';
     const prev = idx > 0 ? project.chapters[idx - 1] : null;
     const crossTail = prev?.content?.trim() ? prev.content.trim().slice(-200) : '';
 
-    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
-        if (batchState.abort && batchState.abort.signal && batchState.abort.signal.aborted) {
-            throw new DOMException('Aborted', 'AbortError');
-        }
-        // 节流: 1 秒间隔, 避免 1 分钟内 N 次请求触发 429 限流
-        if (chunkIdx > 0) await new Promise(r => setTimeout(r, 1000));
-
+    // 构建每段 prompt
+    const buildPrompt = (chunkIdx) => {
         const isFirst = chunkIdx === 0;
         const isLast = chunkIdx === totalChunks - 1;
-        const segStart = Date.now();
         const wordsThisChunk = isLast
             ? Math.max(1000, targetWords - chunkSize * (totalChunks - 1))  // last chunk may be smaller
             : chunkSize;
-        const tail = chunkIdx === 0 ? crossTail : accumulatedContent.slice(-200);
-
+        // 章内段并发: 不传前段实际内容, 只传 crossTail (前章末尾)
+        const tail = isFirst ? crossTail : '';
         const outlineContext = buildOutlineContext(project, idx);
-        const userPrompt = `${outlineContext}
+        return `${outlineContext}
 ${tail ? `\n\n【衔接上文】\n…${tail}` : ''}
 
 ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 ${chunkIdx + 1}/${totalChunks} 段,本段约 ${wordsThisChunk}字。\n` : ''}请基于全书大纲${tail ? '和上文衔接' : ''},${isFirst ? '开始写本章' : '继续写本章'}正文（约${wordsThisChunk}字,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释。`;
+    };
 
-        const text = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: userPrompt }], systemPrompt);
+    // 单段执行函数
+    const runSegment = async (chunkIdx) => {
+        if (batchState.abort && batchState.abort.signal && batchState.abort.signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+        const segStart = Date.now();
+        const text = await NovelLLMClient.callAI(aiSettings,[{ role: 'user', content: buildPrompt(chunkIdx) }], systemPrompt);
         if (!text || !text.trim()) throw new Error(`第 ${idx + 1} 章第 ${chunkIdx + 1} 段 AI 返回内容为空`);
-
-        // 记录单段耗时 (ETA 用), 整章耗时在 aiBatchRun 末尾 push
         batchState.durations.push(Date.now() - segStart);
+        return { chunkIdx, text: text.trim() };
+    };
 
-        accumulatedContent = accumulatedContent
-            ? accumulatedContent + '\n\n' + text.trim()
-            : text.trim();
-
-        // Persist incrementally so progress is observable & resumable
+    // 章内段并发 2 批
+    const CONCURRENCY = 2;
+    for (let batch = 0; batch < totalChunks; batch += CONCURRENCY) {
+        if (batchState.abort && batchState.abort.signal && batchState.abort.signal.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+        // 构造这一批的段索引
+        const batchSegs = [];
+        for (let k = 0; k < CONCURRENCY && batch + k < totalChunks; k++) {
+            batchSegs.push(batch + k);
+        }
+        // 并发跑这一批
+        const results = await Promise.allSettled(batchSegs.map(i => runSegment(i)));
+        // 检查 + 合并结果
+        const sorted = results
+            .map((r, idx) => ({ r, chunkIdx: batchSegs[idx] }))
+            .filter(x => x.r.status === 'fulfilled')
+            .sort((a, b) => a.chunkIdx - b.chunkIdx);
+        if (sorted.length === 0) {
+            // 全部失败, 抛首个错误
+            const first = results.find(x => x.r.status === 'rejected');
+            throw first.r.reason;
+        }
+        // 按顺序 append
+        for (const { r } of sorted) {
+            const { text } = r.value;
+            accumulatedContent = accumulatedContent
+                ? accumulatedContent + '\n\n' + text
+                : text;
+        }
+        // 持久化 (一节/批写一次)
         chapter.content = accumulatedContent;
         chapter.lastEditedAt = Date.now();
         const all = safeLoadProjects();
         all[projectIndex] = project;
         project.lastEditedAt = new Date().toISOString();
         localStorage.setItem('moyun_projects', JSON.stringify(all));
-
-        // Update batch UI to reflect progress within this chapter
+        // UI 段数更新
         if (isLongChapter) {
-            const segmentsDone = chunkIdx + 1;
+            const segmentsDone = Math.min(batch + CONCURRENCY, totalChunks);
             batchState.pendingChapterSegments = totalChunks;
             batchState.completedChapterSegments = segmentsDone;
             renderBatchCard();
+        }
+        // 批间节流 1s (避免连续批瞬间打 2 请求)
+        if (batch + CONCURRENCY < totalChunks) {
+            await new Promise(r => setTimeout(r, 1000));
         }
     }
 
