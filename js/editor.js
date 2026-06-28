@@ -1425,7 +1425,7 @@ async function aiBatchRun() {
 async function aiBatchWriteOne(project, idx) {
     const chapter = project.chapters[idx];
     const targetWords = parseInt(detectChapterTargetWords(chapter) || '2500', 10);
-    const chunkSize = 2500; // each API call asks for ~2.5k chars
+    const chunkSize = 1500; // 减小段大小, AI 一次返回更快 (2500 -> 1500, 段数约 +1.6x 但单段时间减半)
     const totalChunks = Math.max(1, Math.ceil(targetWords / chunkSize));
     const isLongChapter = totalChunks > 1;
 
@@ -1440,6 +1440,9 @@ async function aiBatchWriteOne(project, idx) {
         if (batchState.abort && batchState.abort.signal && batchState.abort.signal.aborted) {
             throw new DOMException('Aborted', 'AbortError');
         }
+        // 节流: 1 秒间隔, 避免 1 分钟内 N 次请求触发 429 限流
+        if (chunkIdx > 0) await new Promise(r => setTimeout(r, 1000));
+
         const isFirst = chunkIdx === 0;
         const isLast = chunkIdx === totalChunks - 1;
         const segStart = Date.now();
