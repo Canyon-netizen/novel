@@ -1383,29 +1383,41 @@ async function aiBatchRun() {
     const project = projects[projectIndex];
     if (!project?.chapters?.length) return;
 
+    const CONCURRENCY = 5; // 5 章同时跑, 5x 加速 (用户确认接受 429 风险)
+
     while (batchState.pending.length > 0) {
         if (batchState.phase === 'idle' || batchState.phase === 'done' || batchState.phase === 'paused') return;
-        const idx = batchState.pending[0];
+        // 取一批 N 章
+        const batch = batchState.pending.slice(0, CONCURRENCY);
         const t0 = Date.now();
         try {
-            await aiBatchWriteOne(project, idx);
-            // aiBatchWriteOne 内部已经按段 push duration (ETA 准)
-            // 整章耗时另外记一份, 用于以后统计
+            // 并发跑这一批
+            const results = await Promise.allSettled(batch.map(idx => aiBatchWriteOne(project, idx)));
+            // 记录整章耗时
             batchState.chapterDurations = batchState.chapterDurations || [];
             batchState.chapterDurations.push(Date.now() - t0);
-            batchState.pending.shift();
-            batchState.completed.push(idx);
-            // aiBatchWriteOne already persists; do NOT call saveCurrentChapterLocal
-            // here — it would clobber the just-written chapter with stale
-            // contentEditor value from whatever chapter the user happens to
-            // have open in the sidebar.
-            renderOutlineTab();
-        } catch (e) {
-            if (e.name === 'AbortError' || batchState.phase === 'paused') {
-                // Pause: leave the failed chapter at the head of pending
-                return;
+            // 处理结果: 成功 push 到 completed, 失败 push 到 failedAt (但继续)
+            for (let i = 0; i < batch.length; i++) {
+                const idx = batch[i];
+                const r = results[i];
+                // 从 pending 移除 (无论成功失败)
+                batchState.pending.shift();
+                if (r.status === 'fulfilled') {
+                    batchState.completed.push(idx);
+                } else {
+                    // 失败: 记录但不中断 batch
+                    console.warn(`第 ${idx + 1} 章失败:`, r.reason?.message);
+                    batchState.failedAt = batchState.failedAt || { index: idx, error: r.reason?.message };
+                }
             }
-            batchState.failedAt = { index: idx, error: e.message };
+            renderOutlineTab();
+            renderBatchCard();
+            // 章间无 throttle (5 章并发已分散请求, 章间再 1s 限流更稳)
+            await new Promise(r => setTimeout(r, 1000));
+        } catch (e) {
+            // 不应该到这里 (Promise.allSettled 不会 throw)
+            console.error('aiBatchRun unexpected error:', e);
+            batchState.failedAt = { index: batch[0], error: e.message };
             batchState.phase = 'error';
             renderBatchCard();
             return;
