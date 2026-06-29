@@ -1194,6 +1194,20 @@ function renderQualityTab() {
     }
 
     const chapters = project.chapters;
+    // 自动回填缺失的 quality (旧章节没存)
+    let needSave = false;
+    chapters.forEach(ch => {
+        if (ch.content && !ch.quality?.metrics) {
+            const m = analyzeChapterQuality(ch);
+            ch.quality = { metrics: m, score: calculateOverallScore(m), aiReview: null };
+            needSave = true;
+        }
+    });
+    if (needSave) {
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+    }
     const analyzed = chapters.filter(c => c.quality?.metrics);
     const scores = analyzed.map(c => c.quality.score || 0);
     const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
