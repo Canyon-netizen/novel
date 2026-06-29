@@ -198,6 +198,15 @@
                         </button>
                         <span class="quality-batch-hint">为低分章节生成 AI 候选, 逐章审核后应用</span>
                     </div>
+                    <div id="batchProgressBar" class="batch-progress-bar" style="display: none;">
+                        <div class="batch-progress-info">
+                            <span id="batchProgressText">准备中...</span>
+                            <button id="batchCancelBtn" class="batch-cancel-btn" onclick="cancelBatchOptimize()">取消</button>
+                        </div>
+                        <div class="batch-progress-track">
+                            <div id="batchProgressFill" class="batch-progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
                     <div class="quality-list" id="qualityList"></div>
                 </div>
             </aside>
@@ -439,6 +448,20 @@
             <div class="modal-actions">
                 <button class="modal-btn cancel" onclick="onDiffCancel()">取消</button>
                 <button class="modal-btn confirm" onclick="onDiffApply()">应用</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Optimize History Modal -->
+    <div class="modal-overlay" id="historyModal">
+        <div class="modal history-modal">
+            <div class="modal-title-row">
+                <h3 class="modal-title" id="historyModalTitle">优化历史</h3>
+                <button class="modal-x" onclick="closeHistoryModal()" aria-label="关闭">&times;</button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="closeHistoryModal()">关闭</button>
             </div>
         </div>
     </div>
