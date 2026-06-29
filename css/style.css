@@ -1769,6 +1769,105 @@ button.ai-status {
     color: var(--text-muted);
     font-size: 0.85rem;
 }
+
+/* AI 评分按钮 + 展示区 */
+.quality-item-btn {
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.6rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+}
+.quality-item-btn:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+}
+.ai-review {
+    margin-top: 0.6rem;
+    padding: 0.6rem;
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+    border: 1px solid var(--accent-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+}
+.ai-review-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin-bottom: 0.4rem;
+}
+.ai-review-overall {
+    font-size: 0.95rem;
+    background: var(--accent-primary);
+    color: white;
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-sm);
+}
+.ai-review-dims {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin-bottom: 0.4rem;
+}
+.ai-review-dim {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+.ai-review-dim-label {
+    width: 36px;
+    text-align: right;
+}
+.ai-review-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.ai-review-bar-fill {
+    height: 100%;
+    background: var(--accent-primary);
+    transition: width 0.3s;
+}
+.ai-review-dim-score {
+    width: 24px;
+    text-align: right;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+.ai-review-section {
+    margin-top: 0.4rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+.ai-review-section b {
+    color: var(--accent-primary);
+}
+.ai-review-section ul {
+    margin: 0.2rem 0 0;
+    padding-left: 1.2rem;
+}
+.ai-review-section li {
+    margin: 0.1rem 0;
+}
+.ai-review-note {
+    margin-top: 0.3rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    text-align: right;
+    font-style: italic;
+}
     height: auto;
 }
 .batch-card .progress {

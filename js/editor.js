@@ -1236,8 +1236,67 @@ function renderQualityTab() {
                 <div class="quality-item-metric ${paraStatus}">¶ 段落 ${m.paragraphCount}</div>
                 <div class="quality-item-metric">📊 字数比 ${targetPct}%</div>
             </div>
+            ${c.quality.aiReview ? renderAiReview(c.quality.aiReview) : ''}
+            <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">
+                🤖 AI 评分
+            </button>
         </div>`;
     }).join('');
+}
+
+function renderAiReview(review) {
+    const dims = [
+        { key: 'plot', label: '情节' },
+        { key: 'character', label: '人物' },
+        { key: 'writing', label: '文笔' },
+        { key: 'outline', label: '大纲' },
+        { key: 'word', label: '字数' }
+    ];
+    const dimBars = dims.map(d => {
+        const s = review[d.key] || 0;
+        const w = Math.min(100, s * 10);
+        return `<div class="ai-review-dim">
+            <span class="ai-review-dim-label">${d.label}</span>
+            <div class="ai-review-bar"><div class="ai-review-bar-fill" style="width:${w}%"></div></div>
+            <span class="ai-review-dim-score">${s}</span>
+        </div>`;
+    }).join('');
+    const issues = (review.issues || []).map(i => `<li>${escapeHtml(i)}</li>`).join('');
+    const suggestions = (review.suggestions || []).map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    return `<div class="ai-review" onclick="event.stopPropagation()">
+        <div class="ai-review-header">
+            <span>🤖 AI 评语</span>
+            <span class="ai-review-overall">${review.overall || 0} / 10</span>
+        </div>
+        <div class="ai-review-dims">${dimBars}</div>
+        ${issues ? `<div class="ai-review-section"><b>问题:</b><ul>${issues}</ul></div>` : ''}
+        ${suggestions ? `<div class="ai-review-section"><b>建议:</b><ul>${suggestions}</ul></div>` : ''}
+        ${review.autoTriggered ? '<div class="ai-review-note">(自动触发)</div>' : ''}
+    </div>`;
+}
+
+async function triggerAIReview(chapterIndex) {
+    if (!confirm('调用 AI 评分? 会消耗 token (约 2000-3000 input + 300 output).')) return;
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    const chapter = project.chapters[chapterIndex];
+    if (!chapter) return;
+    if (!chapter.quality?.metrics) {
+        chapter.quality = { metrics: analyzeChapterQuality(chapter), score: 0, aiReview: null };
+    }
+    showToast('AI 评分中...', 'info', 1500);
+    const result = await aiReviewChapter(chapter, chapter.quality.metrics);
+    if (result.ok) {
+        chapter.quality.aiReview = result.review;
+        chapter.quality.aiReview.autoTriggered = false;
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+        showToast('AI 评分完成', 'success');
+        renderQualityTab();
+    } else {
+        showToast(`AI 评分失败: ${result.error}`, 'error');
+    }
 }
 
 function renderBatchCard() {
@@ -1522,10 +1581,21 @@ async function aiBatchWriteOne(project, idx) {
         // 章内段并发: 不传前段实际内容, 只传 crossTail (前章末尾)
         const tail = isFirst ? crossTail : '';
         const outlineContext = buildOutlineContext(project, idx);
+        // 质量要求 (提升内容深度, 避免空洞灌水)
+        const qualityReqs = `
+【质量要求 (本段约 ${wordsThisChunk} 字)】
+- 字数: 至少 ${wordsThisChunk} 字, 写满, 不要偷懒
+- 对话: 本段须含 3-5 段对话, 推进情节或揭示人物
+- 感官: 至少 2 处感官描写 (视觉/听觉/触觉/嗅觉/味觉), 让读者身临其境
+- 展示而非告诉: 避免"他很伤心"这种直白, 改为具体动作
+- 对话个性化: 每个角色有自己语气习惯 (常用词/句长/口头禅)
+- 段落变化: 长短句交错, 避免一整段都是 4-6 字的短句堆砌`;
         return `${outlineContext}
 ${tail ? `\n\n【衔接上文】\n…${tail}` : ''}
 
-${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 ${chunkIdx + 1}/${totalChunks} 段,本段约 ${wordsThisChunk}字。\n` : ''}请基于全书大纲${tail ? '和上文衔接' : ''},${isFirst ? '开始写本章' : '继续写本章'}正文（约${wordsThisChunk}字,允许 ±20% 浮动），严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释。`;
+${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 ${chunkIdx + 1}/${totalChunks} 段,本段约 ${wordsThisChunk}字。\n` : ''}${qualityReqs}
+
+请基于全书大纲${tail ? '和上文衔接' : ''},${isFirst ? '开始写本章' : '继续写本章'}正文,严格遵循本章大纲规划的情节走向,输出纯正文不要任何解释或注释。`;
     };
 
     // 单段执行函数
@@ -1607,6 +1677,21 @@ ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 
         const all = safeLoadProjects();
         all[projectIndex] = project;
         localStorage.setItem('moyun_projects', JSON.stringify(all));
+        // 异常时调 AI 评分 (烧 token, 仅 needsAiReview=true 且 AI 已配)
+        if (metrics.needsAiReview && aiSettings?.apiKey && aiSettings.provider !== 'local') {
+            try {
+                const result = await aiReviewChapter(chapter, metrics);
+                if (result.ok) {
+                    chapter.quality.aiReview = result.review;
+                    chapter.quality.aiReview.autoTriggered = true;
+                    const all2 = safeLoadProjects();
+                    all2[projectIndex] = project;
+                    localStorage.setItem('moyun_projects', JSON.stringify(all2));
+                }
+            } catch (e) {
+                console.warn(`第 ${idx + 1} 章 AI 评分失败:`, e);
+            }
+        }
     } catch (e) {
         console.warn(`第 ${idx + 1} 章质量评估失败:`, e);
     }
@@ -2033,6 +2118,77 @@ function calculateOverallScore(metrics) {
     else if (metrics.wordCountRatio >= 0.8) score += 7 * 0.1;
     weight += 0.1;
     return Math.round((score / weight) * 10) / 10;
+}
+
+// AI 评分: 烧 token, 仅在 needsAiReview=true 或手动触发
+async function aiReviewChapter(chapter, metrics) {
+    if (typeof NovelLLMClient === 'undefined' || !NovelLLMClient.callAI) {
+        return { ok: false, error: 'AI 未配置' };
+    }
+    if (aiSettings.provider === 'local' || !aiSettings.apiKey) {
+        return { ok: false, error: 'AI 未配置 token' };
+    }
+    const systemPrompt = '你是文学评论家. 严格按 JSON 输出, 字段名固定: plot/character/writing/outline/word/overall/issues/suggestions. issues 与 suggestions 为字符串数组.';
+    const content = chapter.content || '';
+    const userPrompt = `【章节标题】${chapter.title || '未命名'}
+【目标字数】${metrics.targetWords}
+【实际字数】${metrics.wordCount}
+【大纲摘要】${(chapter.summary || '').slice(0, 300)}
+
+【章节正文】
+${content.slice(0, 4000)}${content.length > 4000 ? '\n...(已截断)' : ''}
+
+【前端指标 (供参考)】
+- 关键词命中率: ${(metrics.keywordHitRate * 100).toFixed(0)}%
+- 对话比例: ${(metrics.dialogueRatio * 100).toFixed(0)}%
+- 感官词密度: ${(metrics.sensoryDensity * 100).toFixed(2)}%
+
+请给以下 5 维评分 (各 0-10, 整数):
+1. plot (情节连贯/节奏)
+2. character (人物塑造/对话/性格)
+3. writing (文笔/细节/感官/文学性)
+4. outline (大纲符合度)
+5. word (字数达标度)
+最后算 overall (5 维平均, 保留 1 位小数)
+另外给出 issues (问题数组) 和 suggestions (改进建议数组)
+
+输出严格 JSON 格式:
+{"plot":N,"character":N,"writing":N,"outline":N,"word":N,"overall":N.x,"issues":["..."],"suggestions":["..."]}`;
+    try {
+        const raw = await NovelLLMClient.callAI(aiSettings, [{ role: 'user', content: userPrompt }], systemPrompt);
+        // 解析 JSON (容错)
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (!m) return { ok: false, error: 'AI 返回非 JSON' };
+        const data = JSON.parse(m[0]);
+        // 校验
+        const scores = ['plot', 'character', 'writing', 'outline', 'word'];
+        for (const k of scores) {
+            if (typeof data[k] !== 'number') data[k] = 5;
+            data[k] = Math.max(0, Math.min(10, data[k]));
+        }
+        if (typeof data.overall !== 'number') {
+            data.overall = (data.plot + data.character + data.writing + data.outline + data.word) / 5;
+        }
+        data.overall = Math.round(data.overall * 10) / 10;
+        return { ok: true, review: { ...data, reviewedAt: new Date().toISOString() } };
+    } catch (e) {
+        return { ok: false, error: e.message || 'AI 评分失败' };
+    }
+}
+
+// 触发 AI 评分 (异常时自动, 手动按钮)
+async function maybeReviewChapter(project, chapter) {
+    if (!chapter.quality?.metrics) {
+        chapter.quality = { metrics: analyzeChapterQuality(chapter), score: 0, aiReview: null };
+    }
+    const needs = chapter.quality.metrics.needsAiReview;
+    const isAIConfigured = aiSettings?.apiKey && aiSettings.provider !== 'local';
+    if (needs && isAIConfigured) {
+        const result = await aiReviewChapter(chapter, chapter.quality.metrics);
+        if (result.ok) {
+            chapter.quality.aiReview = result.review;
+        }
+    }
 }
 
 // ==================== 初始化 ====================
