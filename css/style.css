@@ -1751,7 +1751,7 @@ button.ai-status {
 .quality-item-score.is-high { background: #d8f0db; color: #2d6b3f; }
 .quality-item-metrics {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
     gap: 0.3rem 0.6rem;
     font-size: 0.75rem;
     color: var(--text-secondary);

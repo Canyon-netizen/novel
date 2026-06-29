@@ -1195,12 +1195,13 @@ function renderQualityTab() {
     }
 
     const chapters = project.chapters;
-    // 自动回填缺失的 quality (旧章节没存)
+    // 自动回填缺失的 quality (旧章节没存 或 老 shape 缺 description 字段)
     let needSave = false;
     chapters.forEach(ch => {
-        if (ch.content && !ch.quality?.metrics) {
+        if (ch.content && needsReanalysis(ch.quality)) {
             const m = analyzeChapterQuality(ch);
-            ch.quality = { metrics: m, score: calculateOverallScore(m), aiReview: null };
+            const oldAiReview = ch.quality?.aiReview || null;
+            ch.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
             needSave = true;
         }
     });
@@ -1230,26 +1231,43 @@ function renderQualityTab() {
         const score = c.quality.score || 0;
         const scoreClass = score >= 7.5 ? 'is-high' : score >= 5 ? 'is-mid' : 'is-low';
         const targetPct = Math.round(m.wordCountRatio * 100);
-        const targetStatus = m.wordCountRatio >= 0.8 ? 'is-ok' : 'is-warn';
+        const targetStatus = m.wordCountRatio >= QUALITY_THRESHOLDS.wordCountRatio ? 'is-ok' : 'is-warn';
         const keywordPct = Math.round(m.keywordHitRate * 100);
-        const keywordStatus = m.keywordHitRate >= 0.5 ? 'is-ok' : 'is-warn';
+        const keywordStatus = m.keywordHitRate >= QUALITY_THRESHOLDS.keywordHitRate ? 'is-ok' : 'is-warn';
         const dialoguePct = Math.round(m.dialogueRatio * 100);
-        const dialogueStatus = m.dialogueRatio >= 0.05 && m.dialogueRatio <= 0.6 ? 'is-ok' : 'is-warn';
-        const sensoryPct = (m.sensoryDensity * 100).toFixed(2);
-        const sensoryStatus = m.sensoryDensity >= 0.01 ? 'is-ok' : 'is-warn';
-        const paraStatus = m.paragraphCount >= 3 ? 'is-ok' : 'is-warn';
+        const dialogueStatus = m.dialogueRatio >= QUALITY_THRESHOLDS.dialogueRatioMin && m.dialogueRatio <= QUALITY_THRESHOLDS.dialogueRatioMax ? 'is-ok' : 'is-warn';
+        const paraStatus = m.paragraphCount >= QUALITY_THRESHOLDS.paragraphCount ? 'is-ok' : 'is-warn';
+        const d = m.description.densities;
+        const descChips = [
+            { emoji: '🏃', label: '动作', value: (d.action * 100).toFixed(2) + '%',
+              ok: d.action >= QUALITY_THRESHOLDS.descActionMin },
+            { emoji: '🌄', label: '景物', value: (d.scenery * 100).toFixed(2) + '%',
+              ok: d.scenery >= QUALITY_THRESHOLDS.descSceneryMin },
+            { emoji: '💭', label: '心理', value: (d.psychology * 100).toFixed(2) + '%',
+              ok: d.psychology >= QUALITY_THRESHOLDS.descPsychologyMin },
+            { emoji: '🪶', label: '白描', value: Math.round(d.whiteSpace * 100) + '%',
+              ok: d.whiteSpace >= QUALITY_THRESHOLDS.descWhiteSpaceMin },
+            { emoji: '👁', label: '视觉', value: (d.visual * 100).toFixed(2) + '%',
+              ok: d.visual >= QUALITY_THRESHOLDS.descVisualMin },
+            { emoji: '👂', label: '听觉', value: (d.audio * 100).toFixed(2) + '%',
+              ok: d.audio >= QUALITY_THRESHOLDS.descAudioMin },
+            { emoji: '✋', label: '触觉', value: (d.touch * 100).toFixed(2) + '%',
+              ok: d.touch >= QUALITY_THRESHOLDS.descTouchMin }
+        ];
+        const descHtml = descChips.map(c =>
+            `<div class="quality-item-metric ${c.ok ? 'is-ok' : 'is-warn'}">${c.emoji} ${c.label} ${c.value}</div>`
+        ).join('');
         return `<div class="quality-item" onclick="selectChapterByIndex(${i})">
             <div class="quality-item-head">
                 <div class="quality-item-title">${escapeHtml(c.title)}</div>
                 <div class="quality-item-score ${scoreClass}">${score}</div>
             </div>
             <div class="quality-item-metrics">
-                <div class="quality-item-metric ${targetStatus}">📝 ${m.wordCount}/${m.targetWords} (${targetPct}%)</div>
+                ${descHtml}
+                <div class="quality-item-metric ${targetStatus}">📝 字数 ${m.wordCount}/${m.targetWords} (${targetPct}%)</div>
                 <div class="quality-item-metric ${keywordStatus}">🔑 关键词 ${m.keywordHits.length}/${m.keywords.length} (${keywordPct}%)</div>
                 <div class="quality-item-metric ${dialogueStatus}">💬 对话 ${dialoguePct}%</div>
-                <div class="quality-item-metric ${sensoryStatus}">👁 感官 ${sensoryPct}%</div>
                 <div class="quality-item-metric ${paraStatus}">¶ 段落 ${m.paragraphCount}</div>
-                <div class="quality-item-metric">📊 字数比 ${targetPct}%</div>
             </div>
             ${c.quality.aiReview ? renderAiReview(c.quality.aiReview) : ''}
             <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">
@@ -1296,8 +1314,10 @@ async function triggerAIReview(chapterIndex) {
     const project = projects[projectIndex];
     const chapter = project.chapters[chapterIndex];
     if (!chapter) return;
-    if (!chapter.quality?.metrics) {
-        chapter.quality = { metrics: analyzeChapterQuality(chapter), score: 0, aiReview: null };
+    if (!chapter.quality?.metrics || needsReanalysis(chapter.quality)) {
+        const m = analyzeChapterQuality(chapter);
+        const oldAiReview = chapter.quality?.aiReview || null;
+        chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
     }
     showToast('AI 评分中...', 'info', 1500);
     const result = await aiReviewChapter(chapter, chapter.quality.metrics);
@@ -1986,29 +2006,143 @@ if (typeof NovelShortcuts !== 'undefined') {
 
 // ==================== 章节质量评估 (前端指标, 0 token) ====================
 //
-// 5 个客观指标, 不调 AI, 每次 batch 写完自动跑, 结果存 chapter.quality
-// AI 评分 (可选) 触发条件: 任意指标 < 阈值
+// 7 维描写评估 (动作/景物/心理/白描/视觉/听觉/触觉) + 4 维结构指标 (字数/关键词/对话/段落).
+// 综合分 100% 反映描写; 结构指标仅作 needsAiReview 异常触发器.
+// AI 评分 (plot/character/writing/outline/word) 独立, 主观判断, 不与前端混算.
 
 const QUALITY_THRESHOLDS = {
-    wordCountRatio: 0.8,        // 字数达标率 (实际/目标)
-    keywordHitRate: 0.5,        // 大纲关键词命中率
-    dialogueRatioMax: 0.6,       // 对话比例上限 (> 60% 视为灌水)
-    dialogueRatioMin: 0.05,      // 对话比例下限 (< 5% 视为过少)
-    sensoryDensity: 0.01,        // 感官词密度下限
-    paragraphCount: 3            // 段落数下限
+    // 7 维描写密度下限 (任一不及格则 needsAiReview)
+    descActionMin: 0.008,         // 动作描写
+    descSceneryMin: 0.005,        // 景物描写
+    descPsychologyMin: 0.005,     // 心理描写
+    descWhiteSpaceMin: 0.10,      // 白描/留白 (10% 段落)
+    descVisualMin: 0.008,         // 视觉描写
+    descAudioMin: 0.003,          // 听觉描写
+    descTouchMin: 0.002,          // 触觉描写
+    // 4 维结构异常 (沿用, 略放宽)
+    wordCountRatio: 0.7,          // 字数达标率
+    keywordHitRate: 0.4,          // 大纲关键词命中率
+    dialogueRatioMax: 0.65,       // 对话比例上限
+    dialogueRatioMin: 0.03,       // 对话比例下限
+    paragraphCount: 2             // 段落数下限
 };
 
-const SENSORY_WORDS = {
-    // 视觉
-    sight: ['看见', '看到', '望去', '注视', '凝视', '瞥见', '俯视', '仰望', '眺望', '视野', '光线', '明亮', '黑暗', '阴影', '灯光', '阳光', '月光', '色彩', '颜色', '红', '黄', '蓝', '白', '黑'],
-    // 听觉
-    sound: ['听见', '听到', '声音', '响声', '噪音', '寂静', '沉默', '低声', '高声', '呼唤', '喊道', '耳语', '音乐', '笑声', '哭泣', '叹息'],
-    // 触觉
-    touch: ['抚摸', '触碰', '摩擦', '光滑', '粗糙', '冰冷', '温暖', '温热', '炎热', '冰凉', '刺痛', '柔软', '坚硬', '沉重', '轻盈'],
-    // 嗅觉
-    smell: ['气味', '味道', '芳香', '臭味', '清香', '腐烂', '汗味', '烟味', '木质', '花香味'],
-    // 味觉
-    taste: ['甜', '苦', '辣', '酸', '咸', '涩', '鲜美', '苦涩', '清甜', '醇厚']
+const DESCRIPTION_DICTIONARIES = {
+    // 1. 动作描写: 身体位移 + 肢体动作 + 状态变化
+    action: [
+        '走', '走去', '走来', '走开', '走近', '走过', '路过', '踏入', '跨入', '进入', '离开',
+        '转身', '回头', '迈步', '踏出', '踏进', '起身', '站起', '坐下', '躺下', '蹲下',
+        '跑', '跑来', '跑去', '奔跑', '冲', '冲出', '冲进', '追', '追来', '追去', '逃', '逃走', '逃开', '逃进',
+        '跳', '跳起', '跳下', '跃', '跃起', '扑', '扑向', '扑倒', '跌', '跌倒', '摔倒', '滚', '滚落',
+        '抓', '抓住', '抓紧', '握', '握住', '握手',
+        '推', '推开', '推进', '推倒', '拽', '拉', '拉住', '拉起', '拉回',
+        '扯', '扯开', '抽', '抽出', '抬手', '举手', '挥手', '挥拳', '挥刀',
+        '举', '举起', '抬', '抬起', '放下', '按', '按住', '按下', '摸', '摸出',
+        '打', '打到', '打中', '拍', '拍了', '击', '击中', '砍', '砍去', '劈', '刺', '踢', '踢中',
+        '扭头', '侧身', '弯腰', '俯身', '挺身', '倒地', '昏倒',
+        '抖', '发抖', '颤抖', '颤动', '战栗', '摇晃', '晃荡', '震动',
+        '点头', '摇头', '抬眼', '低头', '仰头', '抬头', '侧头', '回眸', '转眼',
+        '睁', '睁开', '眯', '眯起', '睁大', '闭上', '合上', '张嘴', '闭嘴',
+        '呼吸', '喘气', '喘息', '叹气', '咳嗽',
+        '站定', '站住', '站稳', '停住', '停下', '止步', '驻足'
+    ],
+
+    // 2. 景物描写: 自然/建筑/天气/光影/空间
+    scenery: [
+        '山', '山峰', '山顶', '山脚', '山腰', '山谷', '山崖', '山岭', '山脉', '山峦', '山丘', '山冈',
+        '河', '河流', '溪', '溪流', '湖', '湖泊', '湖面', '海', '海面', '海浪', '波涛',
+        '江', '江面', '水面', '池塘', '潭', '瀑布',
+        '树', '树木', '树林', '树荫', '树影', '树枝', '树叶', '树梢', '树干', '古树',
+        '花', '鲜花', '花瓣', '花朵', '花丛', '花园', '花坛', '野花', '花影',
+        '草', '草地', '草原', '青草', '野草', '草丛', '草叶',
+        '森林', '密林', '竹林', '松林', '林间', '林中',
+        '阳光', '日光', '光', '光线', '光亮', '光影', '光芒', '光晕', '反光', '晨光', '暮光',
+        '月光', '星光', '灯火', '灯光', '火光', '烛光', '晨曦', '暮色', '霞光', '朝霞', '晚霞',
+        '阴影', '阴翳', '影子', '暗影', '树影', '人影', '黑影',
+        '雾', '雾气', '云雾', '烟', '烟雾', '炊烟', '云', '云层', '云朵', '云彩',
+        '风', '微风', '清风', '寒风', '晚风', '晨风', '凉风', '暖风', '风起', '风声',
+        '雨', '雨水', '细雨', '大雨', '小雨', '阵雨', '雨丝', '雨滴', '雨声', '雨点',
+        '雪', '雪花', '雪片', '白雪', '飞雪', '大雪', '小雪', '残雪', '雪地', '雪景',
+        '霜', '霜雪', '露', '露水', '冰', '冰霜',
+        '天', '天空', '天际', '天边', '天色', '苍穹', '大地', '旷野', '原野', '荒原',
+        '太阳', '朝阳', '落日', '夕阳', '残阳', '月亮', '明月', '圆月', '残月', '星星', '星辰',
+        '路', '道路', '小路', '山路', '大道', '长路', '路口',
+        '城', '城墙', '城镇', '村庄', '村落', '宫殿', '庙宇', '寺庙', '楼阁', '高楼',
+        '门', '大门', '城门', '房门', '窗户', '窗', '屋檐', '屋脊', '屋顶', '院落', '院子',
+        '桌子', '椅子', '床', '床榻', '书架'
+    ],
+
+    // 3. 心理描写: 认知/情绪/意志
+    psychology: [
+        '想', '心想', '想到', '想起', '想去',
+        '觉得', '感到', '感觉', '意识到', '明白', '懂', '懂得', '知道', '得知', '晓得',
+        '认为', '以为', '猜', '猜测', '猜想', '怀疑', '确信', '相信', '信任',
+        '回忆', '忆起', '记起', '记得', '记住', '忘记', '忘掉', '忘却',
+        '思考', '思索', '思量', '琢磨', '揣摩', '盘算', '考虑', '思忖', '沉思', '思虑',
+        '决定', '决心', '犹豫', '迟疑', '踌躇', '动摇', '挣扎', '纠结', '矛盾',
+        '心', '心中', '心里', '内心', '心底', '心头', '心间', '心田', '心坎',
+        '心绪', '心情', '情绪', '心境', '心思', '念头', '想法',
+        '喜悦', '欢喜', '高兴', '快乐', '愉快', '开心', '欣喜', '欣慰', '满足', '幸福',
+        '悲伤', '伤心', '难过', '悲痛', '哀伤', '痛苦', '忧', '忧郁', '郁闷', '愁', '忧愁', '惆怅',
+        '愤怒', '恼怒', '怒火', '怒气', '愤恨', '恨', '怨恨', '恼火', '气愤',
+        '恐惧', '害怕', '畏惧', '惊恐', '惊慌', '惊惧', '惶恐', '恐慌', '怕', '怯',
+        '紧张', '不安', '焦虑', '烦躁', '心烦', '焦急', '急切', '心急',
+        '失望', '绝望', '无奈', '无助', '孤独', '寂寞', '空虚', '茫然', '迷惘', '困惑',
+        '羞', '羞愧', '惭愧', '愧疚', '后悔', '懊悔', '悔恨', '心疼', '心痛', '心酸'
+    ],
+
+    // 4. 白描/留白: 词典为空, 由 computeWhiteSpaceScore 结构法计算
+    whiteSpace: [],
+
+    // 5. 视觉描写
+    visual: [
+        '看见', '看到', '望去', '注视', '凝视', '盯着', '盯住', '瞥见', '扫视',
+        '俯视', '俯看', '仰望', '仰视', '眺望', '望见', '望到',
+        '视野', '视线', '眼角', '眼底', '眼前', '眼帘', '目送',
+        '明亮', '黑暗', '昏黄', '暗淡', '黯淡', '耀目', '刺眼', '刺目', '亮堂', '昏暗',
+        '光线', '光影', '光点', '光斑', '光束', '折光',
+        '灯', '灯光', '灯火', '烛', '烛光', '油灯', '灯笼', '灯盏',
+        '阴影', '阴翳', '影子', '暗影', '虚影', '残影', '幻影',
+        '色彩', '颜色', '红色', '黄色', '蓝色', '白色', '黑色', '绿色', '紫色', '灰色', '彩色',
+        '红', '黄', '蓝', '白', '黑', '绿', '紫', '灰', '粉', '橙', '金', '银', '棕',
+        '清澈', '清晰', '朦胧', '模糊', '透明', '澄澈',
+        '样子', '模样', '形态', '形状', '外形', '轮廓', '身影', '容貌', '容颜', '面容', '面庞',
+        '眉', '眉毛', '眼眸', '眼睛', '目光', '眼神', '瞳孔', '眼波',
+        '面孔', '脸色', '面色', '面颊', '脸颊', '嘴角', '嘴唇',
+        '发', '头发', '长发', '短发', '黑发', '白发', '青丝', '鬓发',
+        '身材', '身形', '身姿', '体态'
+    ],
+
+    // 6. 听觉描写
+    audio: [
+        '听见', '听到', '听闻', '耳中', '耳畔', '耳里', '耳旁', '耳边', '入耳',
+        '声音', '响声', '声响', '噪音', '噪声', '寂静', '沉寂', '沉静',
+        '沉默', '默默', '默然', '无声', '悄然', '静默',
+        '低声', '高声', '大声', '小声', '轻声', '细声', '微声',
+        '呼唤', '呼喊', '喊', '喊道', '叫', '叫喊', '吼', '吼叫', '呼叫', '大喊',
+        '耳语', '私语', '低语', '喃喃', '呢喃', '嘀咕', '嘟囔',
+        '音乐', '歌声', '唱', '唱起', '唱了', '乐曲', '琴声', '笛声', '箫声', '鼓声',
+        '笑', '大笑', '笑了', '笑出声', '笑声',
+        '哭', '哭泣', '哭声', '抽泣', '啜泣', '呜咽', '哭喊',
+        '叹气', '叹息', '感慨', '感叹', '长叹',
+        '叮当', '叮咚', '噼啪', '哗啦', '轰鸣', '响', '响起', '响彻', '回荡',
+        '砰', '哐当', '咔嚓', '嘶嘶', '嗖嗖', '簌簌', '窸窣',
+        '脚步', '脚步声', '足音', '马蹄', '马蹄声',
+        '钟', '钟声', '鼓', '鼓声', '铃声', '铃铛', '铃响'
+    ],
+
+    // 7. 触觉描写
+    touch: [
+        '抚摸', '抚', '抚上', '抚过', '抚着', '触碰', '触', '触到', '接触',
+        '摩擦', '摩挲', '蹭', '擦', '擦过', '划过',
+        '光滑', '粗糙', '毛糙', '细腻', '柔软', '柔嫩', '柔滑', '坚硬', '硬邦邦',
+        '冰冷', '冷', '凉', '冰凉', '寒', '寒冷', '凉飕飕', '冷冰冰',
+        '温暖', '温', '温热', '热', '炎热', '滚烫', '烫', '灼热', '暖', '暖意', '暖流', '热乎乎',
+        '刺痛', '痛', '疼痛', '疼', '胀痛', '酸痛', '钝痛', '麻', '麻木', '酥麻', '痒', '瘙痒',
+        '沉重', '沉', '沉甸甸', '轻', '轻盈', '轻飘飘', '轻巧',
+        '湿', '湿润', '潮湿', '干', '干燥', '干涸', '润', '润滑',
+        '紧', '紧绷', '松', '松弛', '松软', '松垮'
+    ]
 };
 
 // 提取大纲关键词: 找【】、·、:、，等分隔, 取 2-6 字片段
@@ -2052,19 +2186,59 @@ function countParagraphs(text) {
     return text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
 }
 
-// 数感官词出现次数
-function countSensoryWords(text) {
-    if (!text) return { count: 0, density: 0 };
-    let count = 0;
+// 白描/留白: 1-2 句 + 每句≤18 字 + 无程度副词 + 无抽象名词 的段落占比
+function computeWhiteSpaceScore(text) {
+    if (!text) return 0;
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+    if (!paragraphs.length) return 0;
+    const intensifiers = /[很非常特别极其无比相当十分万分格外分外]/;
+    const abstracts = /(命运|灵魂|永恒|真理|思想|意识|存在|哲理|本质|奥义|玄机|大道|天道|轮回)/;
+    const sentEnd = /[。！？]/g;
+    let white = 0;
+    for (const para of paragraphs) {
+        const trimmed = para.replace(/\s+/g, '');
+        const sents = trimmed.split(sentEnd).filter(s => s.length > 0);
+        if (!sents.length) continue;
+        const allShort = sents.every(s => s.length <= 18);
+        const tooMany = sents.length > 2;
+        const noIntens = !intensifiers.test(trimmed);
+        const noAbs = !abstracts.test(trimmed);
+        if (allShort && !tooMany && noIntens && noAbs) white++;
+    }
+    return white / paragraphs.length;
+}
+
+function zeroDescription() {
+    const empty = { action: 0, scenery: 0, psychology: 0, whiteSpace: 0, visual: 0, audio: 0, touch: 0 };
+    return { counts: { ...empty }, densities: { ...empty }, charCount: 0 };
+}
+
+// 7 维描写计数: 6 维词袋 + 1 维白描结构
+function countDescription(text) {
+    if (!text) return zeroDescription();
     const charCount = text.length;
-    for (const words of Object.values(SENSORY_WORDS)) {
+    const counts = {};
+    for (const [dim, words] of Object.entries(DESCRIPTION_DICTIONARIES)) {
+        if (dim === 'whiteSpace') continue;
+        let c = 0;
         for (const w of words) {
             const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
             const m = text.match(re);
-            if (m) count += m.length;
+            if (m) c += m.length;
         }
+        counts[dim] = c;
     }
-    return { count, density: charCount > 0 ? count / charCount : 0 };
+    counts.whiteSpace = computeWhiteSpaceScore(text);
+    const densities = {};
+    for (const k of Object.keys(counts)) {
+        densities[k] = charCount > 0 ? counts[k] / charCount : 0;
+    }
+    return { counts, densities, charCount };
+}
+
+// 老 quality 记录 (无 description 字段) 需重分析
+function needsReanalysis(quality) {
+    return !quality?.metrics || !quality.metrics.description;
 }
 
 // 主分析函数
@@ -2082,17 +2256,28 @@ function analyzeChapterQuality(chapter) {
     const dialogueChars = countDialogueChars(content);
     const dialogueRatio = actualChars > 0 ? dialogueChars / actualChars : 0;
     const paragraphCount = countParagraphs(content);
-    const sensory = countSensoryWords(content);
+    const description = countDescription(content);
 
-    // 是否需要 AI 复评
+    const d = description.densities;
+    // 7 维描写异常 OR 4 维结构异常
     const needsAiReview = (
+        d.action < QUALITY_THRESHOLDS.descActionMin ||
+        d.scenery < QUALITY_THRESHOLDS.descSceneryMin ||
+        d.psychology < QUALITY_THRESHOLDS.descPsychologyMin ||
+        d.whiteSpace < QUALITY_THRESHOLDS.descWhiteSpaceMin ||
+        d.visual < QUALITY_THRESHOLDS.descVisualMin ||
+        d.audio < QUALITY_THRESHOLDS.descAudioMin ||
+        d.touch < QUALITY_THRESHOLDS.descTouchMin ||
         wordCountRatio < QUALITY_THRESHOLDS.wordCountRatio ||
         keywordHitRate < QUALITY_THRESHOLDS.keywordHitRate ||
         dialogueRatio > QUALITY_THRESHOLDS.dialogueRatioMax ||
         dialogueRatio < QUALITY_THRESHOLDS.dialogueRatioMin ||
-        sensory.density < QUALITY_THRESHOLDS.sensoryDensity ||
         paragraphCount < QUALITY_THRESHOLDS.paragraphCount
     );
+
+    // 派生: 旧字段 sensoryCount/sensoryDensity = visual+audio+touch (供旧 AI prompt / 旧测试用)
+    const legacySensoryCount = description.counts.visual + description.counts.audio + description.counts.touch;
+    const legacySensoryDensity = d.visual + d.audio + d.touch;
 
     return {
         wordCount: actualWords,
@@ -2102,41 +2287,36 @@ function analyzeChapterQuality(chapter) {
         keywordHits,
         keywordHitRate: Math.round(keywordHitRate * 1000) / 1000,
         dialogueRatio: Math.round(dialogueRatio * 1000) / 1000,
-        sensoryCount: sensory.count,
-        sensoryDensity: Math.round(sensory.density * 10000) / 10000,
         paragraphCount,
+        description,
+        descriptionDensities: d,
+        sensoryCount: legacySensoryCount,
+        sensoryDensity: Math.round(legacySensoryDensity * 10000) / 10000,
         needsAiReview,
         analyzedAt: new Date().toISOString()
     };
 }
 
-// 给章节质量打分 (纯前端 0-10, 不调 AI)
+// 给章节质量打分 (纯前端 0-10, 不调 AI): 100% 描写 (7 维加权)
 function calculateOverallScore(metrics) {
-    let score = 0;
-    let weight = 0;
-    // 字数 (25%)
-    const wordScore = Math.min(1, metrics.wordCountRatio) * 10;
-    score += wordScore * 0.25; weight += 0.25;
-    // 关键词 (20%)
-    score += metrics.keywordHitRate * 10 * 0.2; weight += 0.2;
-    // 对话比例 (15%) - 中间值 15-30% 最佳
-    let dialogueScore = 5;
-    if (metrics.dialogueRatio >= 0.1 && metrics.dialogueRatio <= 0.35) {
-        dialogueScore = 10;
-    } else if (metrics.dialogueRatio >= 0.05 && metrics.dialogueRatio <= 0.5) {
-        dialogueScore = 7;
+    const DESC_WEIGHTS = {
+        action: 0.18, scenery: 0.18, psychology: 0.18, whiteSpace: 0.12,
+        visual: 0.14, audio: 0.10, touch: 0.10
+    };
+    const TARGET_DENSITY = 0.02;
+    let score = 0, weight = 0;
+    const d = metrics.description?.densities || {};
+    for (const [dim, w] of Object.entries(DESC_WEIGHTS)) {
+        const density = d[dim] || 0;
+        let dimScore;
+        if (dim === 'whiteSpace') {
+            dimScore = Math.min(1, density) * 10;
+        } else {
+            dimScore = Math.min(1, density / TARGET_DENSITY) * 10;
+        }
+        score += dimScore * w;
+        weight += w;
     }
-    score += dialogueScore * 0.15; weight += 0.15;
-    // 感官词 (20%)
-    const sensoryScore = Math.min(1, metrics.sensoryDensity / 0.02) * 10;
-    score += sensoryScore * 0.2; weight += 0.2;
-    // 段落数 (10%)
-    const paraScore = Math.min(1, metrics.paragraphCount / 20) * 10;
-    score += paraScore * 0.1; weight += 0.1;
-    // 字数达标率额外奖励 (10%)
-    if (metrics.wordCountRatio >= 0.95) score += 10 * 0.1;
-    else if (metrics.wordCountRatio >= 0.8) score += 7 * 0.1;
-    weight += 0.1;
     return Math.round((score / weight) * 10) / 10;
 }
 
@@ -2198,8 +2378,10 @@ ${content.slice(0, 4000)}${content.length > 4000 ? '\n...(已截断)' : ''}
 
 // 触发 AI 评分 (异常时自动, 手动按钮)
 async function maybeReviewChapter(project, chapter) {
-    if (!chapter.quality?.metrics) {
-        chapter.quality = { metrics: analyzeChapterQuality(chapter), score: 0, aiReview: null };
+    if (!chapter.quality?.metrics || needsReanalysis(chapter.quality)) {
+        const m = analyzeChapterQuality(chapter);
+        const oldAiReview = chapter.quality?.aiReview || null;
+        chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
     }
     const needs = chapter.quality.metrics.needsAiReview;
     const isAIConfigured = aiSettings?.apiKey && aiSettings.provider !== 'local';
