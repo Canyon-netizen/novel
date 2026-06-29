@@ -1669,6 +1669,106 @@ button.ai-status {
 .batch-card-actions .toolbar-btn {
     padding: 0.4rem 0.7rem;
     font-size: 0.8rem;
+}
+
+/* 质量评估 tab */
+.quality-header h3 {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+.quality-subtitle {
+    margin: 0 0 0.8rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+.quality-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+.quality-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem;
+    text-align: center;
+}
+.quality-stat-num {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin-bottom: 0.2rem;
+}
+.quality-stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.quality-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.quality-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem;
+    transition: all 0.2s;
+}
+.quality-item:hover {
+    border-color: var(--accent-primary);
+    cursor: pointer;
+}
+.quality-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4rem;
+}
+.quality-item-title {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.quality-item-score {
+    font-size: 1rem;
+    font-weight: 600;
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+}
+.quality-item-score.is-low { background: #fde2e2; color: #b54242; }
+.quality-item-score.is-mid { background: #fff4d6; color: #8a6700; }
+.quality-item-score.is-high { background: #d8f0db; color: #2d6b3f; }
+.quality-item-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+.quality-item-metric {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.quality-item-metric.is-warn { color: #b54242; }
+.quality-item-metric.is-ok { color: #2d6b3f; }
+.quality-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
     height: auto;
 }
 .batch-card .progress {

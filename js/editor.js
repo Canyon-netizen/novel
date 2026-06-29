@@ -316,6 +316,8 @@ function switchSidebarTab(tabName) {
     if (tabName === 'outline') {
         renderOutlineTab();
         renderBatchCard();
+    } else if (tabName === 'quality') {
+        renderQualityTab();
     }
 }
 
@@ -1177,6 +1179,67 @@ const BATCH_ACTIONS = {
     retry: () => aiBatchRetry()
 };
 
+function renderQualityTab() {
+    const list = document.getElementById('qualityList');
+    const avgEl = document.getElementById('qualityAvgScore');
+    const anaEl = document.getElementById('qualityAnalyzed');
+    const warnEl = document.getElementById('qualityWarnCount');
+    if (!list || !avgEl || !anaEl || !warnEl) return;
+
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    if (!project?.chapters?.length) {
+        list.innerHTML = '<div class="quality-empty">暂无章节</div>';
+        return;
+    }
+
+    const chapters = project.chapters;
+    const analyzed = chapters.filter(c => c.quality?.metrics);
+    const scores = analyzed.map(c => c.quality.score || 0);
+    const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
+    const warnCount = analyzed.filter(c => c.quality.metrics.needsAiReview).length;
+
+    avgEl.textContent = avg;
+    anaEl.textContent = `${analyzed.length}/${chapters.length}`;
+    warnEl.textContent = warnCount;
+    // 警告变红
+    warnEl.style.color = warnCount > 0 ? '#b54242' : '';
+
+    if (analyzed.length === 0) {
+        list.innerHTML = '<div class="quality-empty">还没写章节,无法评估质量</div>';
+        return;
+    }
+
+    list.innerHTML = analyzed.map((c, i) => {
+        const m = c.quality.metrics;
+        const score = c.quality.score || 0;
+        const scoreClass = score >= 7.5 ? 'is-high' : score >= 5 ? 'is-mid' : 'is-low';
+        const targetPct = Math.round(m.wordCountRatio * 100);
+        const targetStatus = m.wordCountRatio >= 0.8 ? 'is-ok' : 'is-warn';
+        const keywordPct = Math.round(m.keywordHitRate * 100);
+        const keywordStatus = m.keywordHitRate >= 0.5 ? 'is-ok' : 'is-warn';
+        const dialoguePct = Math.round(m.dialogueRatio * 100);
+        const dialogueStatus = m.dialogueRatio >= 0.05 && m.dialogueRatio <= 0.6 ? 'is-ok' : 'is-warn';
+        const sensoryPct = (m.sensoryDensity * 100).toFixed(2);
+        const sensoryStatus = m.sensoryDensity >= 0.01 ? 'is-ok' : 'is-warn';
+        const paraStatus = m.paragraphCount >= 3 ? 'is-ok' : 'is-warn';
+        return `<div class="quality-item" onclick="selectChapterByIndex(${i})">
+            <div class="quality-item-head">
+                <div class="quality-item-title">${escapeHtml(c.title)}</div>
+                <div class="quality-item-score ${scoreClass}">${score}</div>
+            </div>
+            <div class="quality-item-metrics">
+                <div class="quality-item-metric ${targetStatus}">📝 ${m.wordCount}/${m.targetWords} (${targetPct}%)</div>
+                <div class="quality-item-metric ${keywordStatus}">🔑 关键词 ${m.keywordHits.length}/${m.keywords.length} (${keywordPct}%)</div>
+                <div class="quality-item-metric ${dialogueStatus}">💬 对话 ${dialoguePct}%</div>
+                <div class="quality-item-metric ${sensoryStatus}">👁 感官 ${sensoryPct}%</div>
+                <div class="quality-item-metric ${paraStatus}">¶ 段落 ${m.paragraphCount}</div>
+                <div class="quality-item-metric">📊 字数比 ${targetPct}%</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
 function renderBatchCard() {
     const card = document.getElementById('batchCard');
     if (!card) return;
@@ -1535,6 +1598,19 @@ ${isLongChapter ? `\n【长章节分段】本章共 ${targetWords}字,这是第 
         console.warn(`第 ${idx + 1} 章实体提取失败:`, e);
     }
 
+    // 质量评估 (前端指标, 0 token)
+    try {
+        const metrics = analyzeChapterQuality(chapter);
+        const overallScore = calculateOverallScore(metrics);
+        chapter.quality = { metrics, score: overallScore, aiReview: null };
+        // 同步到 localStorage
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+    } catch (e) {
+        console.warn(`第 ${idx + 1} 章质量评估失败:`, e);
+    }
+
     renderBatchCard();
     return accumulatedContent;
 }
@@ -1806,6 +1882,157 @@ async function aiImprove() {
 if (typeof NovelShortcuts !== 'undefined') {
     NovelShortcuts.bind('editor', 's', true, () => { saveCurrentChapter(); });
     NovelShortcuts.bind('editor', 'Enter', true, (e) => { e.preventDefault(); aiWrite(); });
+}
+
+// ==================== 章节质量评估 (前端指标, 0 token) ====================
+//
+// 5 个客观指标, 不调 AI, 每次 batch 写完自动跑, 结果存 chapter.quality
+// AI 评分 (可选) 触发条件: 任意指标 < 阈值
+
+const QUALITY_THRESHOLDS = {
+    wordCountRatio: 0.8,        // 字数达标率 (实际/目标)
+    keywordHitRate: 0.5,        // 大纲关键词命中率
+    dialogueRatioMax: 0.6,       // 对话比例上限 (> 60% 视为灌水)
+    dialogueRatioMin: 0.05,      // 对话比例下限 (< 5% 视为过少)
+    sensoryDensity: 0.01,        // 感官词密度下限
+    paragraphCount: 3            // 段落数下限
+};
+
+const SENSORY_WORDS = {
+    // 视觉
+    sight: ['看见', '看到', '望去', '注视', '凝视', '瞥见', '俯视', '仰望', '眺望', '视野', '光线', '明亮', '黑暗', '阴影', '灯光', '阳光', '月光', '色彩', '颜色', '红', '黄', '蓝', '白', '黑'],
+    // 听觉
+    sound: ['听见', '听到', '声音', '响声', '噪音', '寂静', '沉默', '低声', '高声', '呼唤', '喊道', '耳语', '音乐', '笑声', '哭泣', '叹息'],
+    // 触觉
+    touch: ['抚摸', '触碰', '摩擦', '光滑', '粗糙', '冰冷', '温暖', '温热', '炎热', '冰凉', '刺痛', '柔软', '坚硬', '沉重', '轻盈'],
+    // 嗅觉
+    smell: ['气味', '味道', '芳香', '臭味', '清香', '腐烂', '汗味', '烟味', '木质', '花香味'],
+    // 味觉
+    taste: ['甜', '苦', '辣', '酸', '咸', '涩', '鲜美', '苦涩', '清甜', '醇厚']
+};
+
+// 提取大纲关键词: 找【】、·、:、，等分隔, 取 2-6 字片段
+function extractOutlineKeywords(summary) {
+    if (!summary) return [];
+    const keywords = new Set();
+    // 1. 【】 里的内容 (如 【单章1.4w字】 不算; 但 【核心冲突】算)
+    const brackets = summary.matchAll(/【([^】]+)】/g);
+    for (const m of brackets) {
+        const t = m[1].trim();
+        if (!/\d/.test(t) && t.length >= 2 && t.length <= 8) {
+            keywords.add(t);
+        }
+    }
+    // 2. 冒号/句号/逗号/分号/换行/空格 后的人名/地名/事物 (2-5 字)
+    const parts = summary.split(/[。:：,，;；\n\s]+/);
+    for (const p of parts) {
+        const t = p.trim();
+        if (t.length >= 2 && t.length <= 5 && !/\d/.test(t) && !/字$/.test(t) && !/主线|剧情|支线|弱|强/.test(t)) {
+            keywords.add(t);
+        }
+    }
+    return [...keywords].slice(0, 20);  // 最多 20 个关键词
+}
+
+// 数对话字符数 (中英文双引号 + 中文引号)
+function countDialogueChars(text) {
+    if (!text) return 0;
+    const matches = text.match(/[「」"""][^「」"""]*[「」"""]/g) || [];
+    return matches.reduce((sum, m) => sum + m.length, 0);
+}
+
+// 数段落数 (按双换行分)
+function countParagraphs(text) {
+    if (!text) return 0;
+    return text.split(/\n\s*\n/).filter(p => p.trim().length > 0).length;
+}
+
+// 数感官词出现次数
+function countSensoryWords(text) {
+    if (!text) return { count: 0, density: 0 };
+    let count = 0;
+    const charCount = text.length;
+    for (const words of Object.values(SENSORY_WORDS)) {
+        for (const w of words) {
+            const re = new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+            const m = text.match(re);
+            if (m) count += m.length;
+        }
+    }
+    return { count, density: charCount > 0 ? count / charCount : 0 };
+}
+
+// 主分析函数
+function analyzeChapterQuality(chapter) {
+    const content = chapter.content || '';
+    const summary = chapter.summary || '';
+    const targetWords = parseInt(detectChapterTargetWords(chapter) || '2500', 10);
+    const actualChars = content.length;
+    const actualWords = actualChars;  // 中文按字符计字数
+
+    const wordCountRatio = targetWords > 0 ? actualWords / targetWords : 0;
+    const keywords = extractOutlineKeywords(summary);
+    const keywordHits = keywords.filter(kw => content.includes(kw));
+    const keywordHitRate = keywords.length > 0 ? keywordHits.length / keywords.length : 1;
+    const dialogueChars = countDialogueChars(content);
+    const dialogueRatio = actualChars > 0 ? dialogueChars / actualChars : 0;
+    const paragraphCount = countParagraphs(content);
+    const sensory = countSensoryWords(content);
+
+    // 是否需要 AI 复评
+    const needsAiReview = (
+        wordCountRatio < QUALITY_THRESHOLDS.wordCountRatio ||
+        keywordHitRate < QUALITY_THRESHOLDS.keywordHitRate ||
+        dialogueRatio > QUALITY_THRESHOLDS.dialogueRatioMax ||
+        dialogueRatio < QUALITY_THRESHOLDS.dialogueRatioMin ||
+        sensory.density < QUALITY_THRESHOLDS.sensoryDensity ||
+        paragraphCount < QUALITY_THRESHOLDS.paragraphCount
+    );
+
+    return {
+        wordCount: actualWords,
+        targetWords,
+        wordCountRatio: Math.round(wordCountRatio * 1000) / 1000,
+        keywords,
+        keywordHits,
+        keywordHitRate: Math.round(keywordHitRate * 1000) / 1000,
+        dialogueRatio: Math.round(dialogueRatio * 1000) / 1000,
+        sensoryCount: sensory.count,
+        sensoryDensity: Math.round(sensory.density * 10000) / 10000,
+        paragraphCount,
+        needsAiReview,
+        analyzedAt: new Date().toISOString()
+    };
+}
+
+// 给章节质量打分 (纯前端 0-10, 不调 AI)
+function calculateOverallScore(metrics) {
+    let score = 0;
+    let weight = 0;
+    // 字数 (25%)
+    const wordScore = Math.min(1, metrics.wordCountRatio) * 10;
+    score += wordScore * 0.25; weight += 0.25;
+    // 关键词 (20%)
+    score += metrics.keywordHitRate * 10 * 0.2; weight += 0.2;
+    // 对话比例 (15%) - 中间值 15-30% 最佳
+    let dialogueScore = 5;
+    if (metrics.dialogueRatio >= 0.1 && metrics.dialogueRatio <= 0.35) {
+        dialogueScore = 10;
+    } else if (metrics.dialogueRatio >= 0.05 && metrics.dialogueRatio <= 0.5) {
+        dialogueScore = 7;
+    }
+    score += dialogueScore * 0.15; weight += 0.15;
+    // 感官词 (20%)
+    const sensoryScore = Math.min(1, metrics.sensoryDensity / 0.02) * 10;
+    score += sensoryScore * 0.2; weight += 0.2;
+    // 段落数 (10%)
+    const paraScore = Math.min(1, metrics.paragraphCount / 20) * 10;
+    score += paraScore * 0.1; weight += 0.1;
+    // 字数达标率额外奖励 (10%)
+    if (metrics.wordCountRatio >= 0.95) score += 10 * 0.1;
+    else if (metrics.wordCountRatio >= 0.8) score += 7 * 0.1;
+    weight += 0.1;
+    return Math.round((score / weight) * 10) / 10;
 }
 
 // ==================== 初始化 ====================

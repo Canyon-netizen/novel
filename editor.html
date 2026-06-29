@@ -88,6 +88,10 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
                         <span class="sidebar-tab-label">大纲</span>
                     </button>
+                    <button class="sidebar-tab-icon" data-tab="quality" onclick="switchSidebarTab('quality')" title="质量" aria-label="质量">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.5-6.2 4.5 2.4-7.4L2 9.4h7.6z"/></svg>
+                        <span class="sidebar-tab-label">质量</span>
+                    </button>
                 </div>
 
                 <div class="sidebar-content-wrap" id="sidebarContent">
@@ -164,6 +168,26 @@
                         <!-- All chapter outlines rendered here -->
                     </div>
                 </div>
+                <div class="sidebar-content" id="qualityTab" style="display:none;">
+                    <div class="quality-header">
+                        <h3>📊 章节质量评估</h3>
+                        <p class="quality-subtitle">前端指标评分（不烧 token）</p>
+                    </div>
+                    <div class="quality-summary">
+                        <div class="quality-stat-card">
+                            <div class="quality-stat-num" id="qualityAvgScore">-</div>
+                            <div class="quality-stat-label">平均分</div>
+                        </div>
+                        <div class="quality-stat-card">
+                            <div class="quality-stat-num" id="qualityAnalyzed">0/0</div>
+                            <div class="quality-stat-label">已评估</div>
+                        </div>
+                        <div class="quality-stat-card">
+                            <div class="quality-stat-num" id="qualityWarnCount">0</div>
+                            <div class="quality-stat-label">需关注</div>
+                        </div>
+                    </div>
+                    <div class="quality-list" id="qualityList"></div>
                 </div>
             </aside>
 
