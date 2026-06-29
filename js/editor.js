@@ -1616,15 +1616,23 @@ async function aiBatchWriteOne(project, idx) {
         // 章内段并发: 不传前段实际内容, 只传 crossTail (前章末尾)
         const tail = isFirst ? crossTail : '';
         const outlineContext = buildOutlineContext(project, idx);
-        // 质量要求 (提升内容深度, 避免空洞灌水)
+        // 质量要求 (7 维描写驱动, 提升综合分)
+        // 提示用自然语言描述, LLM 不擅长精确计数, 改用"句子里要..." "每个场景..."
         const qualityReqs = `
 【质量要求 (本段约 ${wordsThisChunk} 字)】
 - 字数: 至少 ${wordsThisChunk} 字, 写满, 不要偷懒
 - 对话: 本段须含 3-5 段对话, 推进情节或揭示人物
-- 感官: 至少 2 处感官描写 (视觉/听觉/触觉/嗅觉/味觉), 让读者身临其境
-- 展示而非告诉: 避免"他很伤心"这种直白, 改为具体动作
+- 7 维描写 (本段每个场景都要撒, 不要只堆一维):
+  * 动作描写: 句子里要穿插具体肢体动作 — 走/跑/转身/推开/抓住/站起身/跌倒/挥手/抬眼/喘气/颤抖, 让读者看见人在动
+  * 景物描写: 每个场景都要有环境锚点 — 山/树/光/风/雨/雪/路/灯火/雾气/窗/院落, 配合季节/天气/时辰, 不要让场景悬空
+  * 心理描写: 角色有反应时必须写内在活动 — 心想/觉得/感到/意识到/犹豫/心慌/愤怒/害怕, 避免"他很伤心"直白, 改为"他心里一沉"或具体动作暗示
+  * 视觉: 看见/看到/目光/影子/色彩/光亮/眉眼/轮廓 等, 让读者看见画面
+  * 听觉: 听见/声音/寂静/脚步/笑/哭/风声/雨声/门响 等, 让读者听见声音
+  * 触觉: 冰冷/温暖/粗糙/光滑/刺痛/沉重/湿/紧 等, 让读者感到温度和质地
+  * 白描/留白: 每章留 2-3 个 1-2 句的短段 (每句 ≤18 字), 不用"很/非常/特别"等修饰词, 不用"命运/灵魂/永恒"等抽象词, 让句子有呼吸感
+- 展示而非告诉: "他很伤心" → "他眼眶一热, 转身背过去" (具体动作替代抽象情绪)
 - 对话个性化: 每个角色有自己语气习惯 (常用词/句长/口头禅)
-- 段落变化: 长短句交错, 避免一整段都是 4-6 字的短句堆砌`;
+- 段落交替: 长段描写与白描短段交替, 既不全是长段也不全是短段堆砌`;
         return `${outlineContext}
 ${tail ? `\n\n【衔接上文】\n…${tail}` : ''}
 
@@ -2231,7 +2239,13 @@ function countDescription(text) {
     counts.whiteSpace = computeWhiteSpaceScore(text);
     const densities = {};
     for (const k of Object.keys(counts)) {
-        densities[k] = charCount > 0 ? counts[k] / charCount : 0;
+        // 6 维词袋: density = 字符密度 (count / charCount)
+        // whiteSpace: 已是 0-1 段落比例, 单位不同, 不除以 charCount
+        if (k === 'whiteSpace') {
+            densities[k] = counts[k];
+        } else {
+            densities[k] = charCount > 0 ? counts[k] / charCount : 0;
+        }
     }
     return { counts, densities, charCount };
 }
