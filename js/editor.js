@@ -1133,9 +1133,10 @@ function detectChapterTargetWords(chapter) {
     if (!chapter) return null;
     const title = chapter.title || '';
     const summary = chapter.summary || '';
-    const blob = title + ' ' + summary;
+    // 先去掉所有反斜杠 (中文输入法把半角点转义成 \. )
+    const blob = (title + ' ' + summary).replace(/\\/g, '');
     // 1.4w / 2.5w / 1万 / 1.2万 / 8000字 / 12000字
-    const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*w\s*字?/i) || blob.match(/(\d+(?:\.\d+)?)\s*万\s*字?/);
+    const wanMatch = blob.match(/(\d+(?:\.\d+)?)\s*[wW万]\s*字?/);
     if (wanMatch) return String(Math.round(parseFloat(wanMatch[1]) * 10000));
     const kMatch = blob.match(/(\d{3,5})\s*字/);
     if (kMatch) {
@@ -2022,15 +2023,20 @@ function extractOutlineKeywords(summary) {
             keywords.add(t);
         }
     }
-    // 2. 冒号/句号/逗号/分号/换行/空格 后的人名/地名/事物 (2-5 字)
-    const parts = summary.split(/[。:：,，;；\n\s]+/);
+    // 2. 中文标点分割后, 提取 2-6 字片段 (放宽长度)
+    const parts = summary.split(/[。:：,，;；\n\s【】()（）]+/);
     for (const p of parts) {
         const t = p.trim();
-        if (t.length >= 2 && t.length <= 5 && !/\d/.test(t) && !/字$/.test(t) && !/主线|剧情|支线|弱|强/.test(t)) {
-            keywords.add(t);
-        }
+        // 放宽: 2-6 字 (含专有名词)
+        // 排除: 含数字 / 含"字" / 长噪音词
+        if (t.length < 2 || t.length > 6) continue;
+        if (/\d/.test(t)) continue;
+        if (/字$/.test(t) || /字字/.test(t)) continue;  // "1.4w字" 等
+        if (/^(主线|剧情|支线|弱|强|当下|主线|实写|终场|剧场|卷[一二三四五六]|年|全程|自然|剧情)/.test(t)) continue;  // 噪音词
+        if (/^[^一-龥a-zA-Z]+$/.test(t)) continue;  // 纯符号/数字
+        keywords.add(t);
     }
-    return [...keywords].slice(0, 20);  // 最多 20 个关键词
+    return [...keywords].slice(0, 30);
 }
 
 // 数对话字符数 (中英文双引号 + 中文引号)
