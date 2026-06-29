@@ -186,6 +186,17 @@
                             <div class="quality-stat-num" id="qualityWarnCount">0</div>
                             <div class="quality-stat-label">需关注</div>
                         </div>
+                        <div class="quality-stat-card">
+                            <div class="quality-stat-num" id="qualityPendingCount">0</div>
+                            <div class="quality-stat-label">待审核</div>
+                        </div>
+                    </div>
+                    <div class="quality-batch-row">
+                        <button id="batchOptimizeBtn" class="toolbar-btn primary batch-optimize-btn"
+                                onclick="batchOptimizeBelowThreshold(8.0)" disabled>
+                            ✨ 批量优化 (&lt; 8.0) — 0 章
+                        </button>
+                        <span class="quality-batch-hint">为低分章节生成 AI 候选, 逐章审核后应用</span>
                     </div>
                     <div class="quality-list" id="qualityList"></div>
                 </div>
@@ -403,6 +414,31 @@
             <div class="modal-actions">
                 <button class="modal-btn cancel" onclick="closeSettingsModal()">取消</button>
                 <button class="modal-btn confirm" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Optimize Diff Modal -->
+    <div class="modal-overlay" id="diffModal">
+        <div class="modal diff-modal">
+            <div class="modal-title-row">
+                <h3 class="modal-title" id="diffModalTitle">章节优化对比</h3>
+                <button class="modal-x" onclick="closeDiffModal()" aria-label="关闭">&times;</button>
+            </div>
+            <div class="diff-summary" id="diffSummary"></div>
+            <div class="diff-panes">
+                <div class="diff-pane-wrap">
+                    <div class="diff-pane-label">原文</div>
+                    <pre class="diff-pane" id="diffLeftPane"></pre>
+                </div>
+                <div class="diff-pane-wrap">
+                    <div class="diff-pane-label">AI 优化版</div>
+                    <pre class="diff-pane" id="diffRightPane"></pre>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="modal-btn cancel" onclick="onDiffCancel()">取消</button>
+                <button class="modal-btn confirm" onclick="onDiffApply()">应用</button>
             </div>
         </div>
     </div>

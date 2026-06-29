@@ -1873,6 +1873,110 @@ button.ai-status {
     text-align: right;
     font-style: italic;
 }
+
+/* ==================== Batch Optimize ==================== */
+.quality-batch-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+.batch-optimize-btn { font-weight: 600; }
+.batch-optimize-btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+.quality-batch-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+@media (min-width: 700px) {
+    .quality-summary { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 699px) {
+    .quality-summary { grid-template-columns: repeat(2, 1fr); }
+}
+
+.pending-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    margin-left: 0.4rem;
+    border-radius: 999px;
+    background: #fff4d6;
+    color: #8a6700;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid #f0d68c;
+}
+
+/* ==================== Diff Modal ==================== */
+.diff-modal {
+    max-width: 1200px;
+    width: 95%;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+}
+.diff-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+    padding: 0.7rem;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+}
+.diff-summary-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+.diff-summary-chip.is-up { color: #2d6b3f; }
+.diff-summary-chip.is-down { color: #b54242; }
+.diff-panes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    flex: 1;
+    min-height: 0;
+}
+@media (max-width: 768px) {
+    .diff-panes { grid-template-columns: 1fr; }
+}
+.diff-pane-wrap {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.diff-pane-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3rem;
+}
+.diff-pane {
+    flex: 1;
+    overflow: auto;
+    max-height: 60vh;
+    margin: 0;
+    padding: 0.8rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-family: 'Noto Serif SC', Georgia, serif;
+    font-size: 0.85rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.diff-line { padding: 0 0.3rem; border-radius: 2px; }
+.diff-line.diff-added { background: #d8f0db; color: #1f4d2c; }
+.diff-line.diff-removed { background: #fde2e2; color: #7a2828; text-decoration: line-through; }
     height: auto;
 }
 .batch-card .progress {

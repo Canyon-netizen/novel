@@ -1185,6 +1185,8 @@ function renderQualityTab() {
     const avgEl = document.getElementById('qualityAvgScore');
     const anaEl = document.getElementById('qualityAnalyzed');
     const warnEl = document.getElementById('qualityWarnCount');
+    const pendingEl = document.getElementById('qualityPendingCount');
+    const batchBtn = document.getElementById('batchOptimizeBtn');
     if (!list || !avgEl || !anaEl || !warnEl) return;
 
     const projects = safeLoadProjects();
@@ -1214,12 +1216,22 @@ function renderQualityTab() {
     const scores = analyzed.map(c => c.quality.score || 0);
     const avg = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '-';
     const warnCount = analyzed.filter(c => c.quality.metrics.needsAiReview).length;
+    const pendingCount = analyzed.filter(c => c.quality?.pendingOptimize).length;
+    // 批量优化目标: 分数 < 8.0 且 无 pending
+    const batchTargets = analyzed.filter(c => (c.quality.score || 0) < 8.0 && !c.quality.pendingOptimize).length;
 
     avgEl.textContent = avg;
     anaEl.textContent = `${analyzed.length}/${chapters.length}`;
     warnEl.textContent = warnCount;
-    // 警告变红
     warnEl.style.color = warnCount > 0 ? '#b54242' : '';
+    if (pendingEl) {
+        pendingEl.textContent = pendingCount;
+        pendingEl.style.color = pendingCount > 0 ? '#8a6700' : '';
+    }
+    if (batchBtn) {
+        batchBtn.textContent = `✨ 批量优化 (< 8.0) — ${batchTargets} 章`;
+        batchBtn.disabled = batchTargets === 0;
+    }
 
     if (analyzed.length === 0) {
         list.innerHTML = '<div class="quality-empty">还没写章节,无法评估质量</div>';
@@ -1257,9 +1269,20 @@ function renderQualityTab() {
         const descHtml = descChips.map(c =>
             `<div class="quality-item-metric ${c.ok ? 'is-ok' : 'is-warn'}">${c.emoji} ${c.label} ${c.value}</div>`
         ).join('');
+        // 待审核 badge
+        const pending = c.quality?.pendingOptimize;
+        const pendingBadge = pending
+            ? `<span class="pending-badge">📋 待审核 ${pending.scoreBefore}→${pending.scoreAfter}</span>`
+            : '';
+        // 按钮组: 有候选时 "查看" 优先, 否则 "AI 优化"
+        const actionButtons = pending
+            ? `<button class="quality-item-btn" onclick="event.stopPropagation(); openDiffModal(${i})" title="查看 AI 优化候选, 决定是否应用">📋 查看 (${pending.scoreBefore}→${pending.scoreAfter})</button>
+                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">🤖 AI 评分</button>`
+            : `<button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIOptimize(${i})" title="AI 重写章节, 强化 7 维描写 (烧 token)">✨ AI 优化</button>
+                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">🤖 AI 评分</button>`;
         return `<div class="quality-item" onclick="selectChapterByIndex(${i})">
             <div class="quality-item-head">
-                <div class="quality-item-title">${escapeHtml(c.title)}</div>
+                <div class="quality-item-title">${escapeHtml(c.title)}${pendingBadge}</div>
                 <div class="quality-item-score ${scoreClass}">${score}</div>
             </div>
             <div class="quality-item-metrics">
@@ -1271,12 +1294,7 @@ function renderQualityTab() {
             </div>
             ${c.quality.aiReview ? renderAiReview(c.quality.aiReview) : ''}
             <div class="quality-item-actions">
-                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIOptimize(${i})" title="AI 重写章节, 强化 7 维描写 (烧 token)">
-                    ✨ AI 优化
-                </button>
-                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">
-                    🤖 AI 评分
-                </button>
+                ${actionButtons}
             </div>
         </div>`;
     }).join('');
@@ -1339,37 +1357,286 @@ async function triggerAIReview(chapterIndex) {
     }
 }
 
+// ==================== AI 优化 (candidate 流程) ====================
+// 流程: 调 LLM -> 在 temp clone 上算 scoreAfter -> 存 chapter.quality.pendingOptimize
+//       -> renderQualityTab 显示 badge + 打开 diff 模态 -> 用户点 应用/取消
+// pendingOptimize 持久化, 刷新页面不丢.
+
+let __diffChapterIndex = null;  // 当前 diff 模态对应的 chapter index
+
+// 行级 LCS diff: 返回 [{type:'eq'|'add'|'del', text:String}]
+function lineDiff(before, after) {
+    const A = (before || '').split('\n');
+    const B = (after || '').split('\n');
+    const N = A.length, M = B.length;
+    const dp = Array.from({length: N + 1}, () => new Int32Array(M + 1));
+    for (let i = 1; i <= N; i++) {
+        for (let j = 1; j <= M; j++) {
+            if (A[i - 1] === B[j - 1]) dp[i][j] = dp[i - 1][j - 1] + 1;
+            else dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+    const ops = [];
+    let i = N, j = M;
+    while (i > 0 && j > 0) {
+        if (A[i - 1] === B[j - 1]) { ops.push({type: 'eq', text: A[i - 1]}); i--; j--; }
+        else if (dp[i - 1][j] >= dp[i][j - 1]) { ops.push({type: 'del', text: A[i - 1]}); i--; }
+        else { ops.push({type: 'add', text: B[j - 1]}); j--; }
+    }
+    while (i > 0) { ops.push({type: 'del', text: A[--i]}); }
+    while (j > 0) { ops.push({type: 'add', text: B[--j]}); }
+    return ops.reverse();
+}
+
 async function triggerAIOptimize(chapterIndex) {
     const projects = safeLoadProjects();
     const project = projects[projectIndex];
-    const chapter = project.chapters[chapterIndex];
+    const chapter = project?.chapters?.[chapterIndex];
     if (!chapter) return;
-    if (!confirm(`AI 优化: 保留情节/大纲, 强化 7 维描写, 重写整章.\\n\\n会消耗 token (约 3000-5000 input + ${chapter.content?.length || 2500} output).\\n\\n继续?`)) return;
+
+    if (chapter.quality?.pendingOptimize) {
+        if (!confirm('该章节已有待审核候选, 重新生成将覆盖. 继续?')) return;
+    }
+
+    if (!confirm(`AI 优化: 保留情节/大纲, 强化 7 维描写, 重写整章.\n\n会消耗 token (约 3000-5000 input + ${chapter.content?.length || 2500} output).\n\n生成候选后会弹窗让你对比原文, 确认后才替换. 继续?`)) return;
+
     if (!chapter.quality?.metrics || needsReanalysis(chapter.quality)) {
         const m = analyzeChapterQuality(chapter);
         const oldAiReview = chapter.quality?.aiReview || null;
         chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
     }
+
     showToast('AI 优化中...', 'info', 1500);
     const result = await aiOptimizeChapter(chapter, chapter.quality.metrics);
-    if (result.ok) {
-        const oldAiReview = chapter.quality?.aiReview || null;
-        chapter.content = result.content;
-        // 重算 quality (保留 aiReview — 主观评分不因正文变化而废)
-        const m = analyzeChapterQuality(chapter);
-        chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
-        const all = safeLoadProjects();
-        all[projectIndex] = project;
-        localStorage.setItem('moyun_projects', JSON.stringify(all));
-        showToast(`AI 优化完成, 分数 ${chapter.quality.score}`, 'success');
-        renderQualityTab();
-        // 同步刷新主编辑器 (如果当前正显示这章)
-        if (currentChapterIndex === chapterIndex && typeof renderChapter === 'function') {
-            renderChapter();
-        }
-    } else {
+    if (!result.ok) {
         showToast(`AI 优化失败: ${result.error}`, 'error');
+        return;
     }
+    if (!result.content || result.content === chapter.content) {
+        showToast('AI 未产生有效优化, 已跳过', 'info');
+        return;
+    }
+
+    // 在 temp clone 上算 scoreAfter — 不污染 chapter.content
+    const tempChapter = { ...chapter, content: result.content };
+    const afterMetrics = analyzeChapterQuality(tempChapter);
+    const scoreBefore = chapter.quality.score;
+    const scoreAfter = calculateOverallScore(afterMetrics);
+
+    chapter.quality.pendingOptimize = {
+        original: chapter.content,
+        optimized: result.content,
+        scoreBefore,
+        scoreAfter,
+        densitiesBefore: chapter.quality.metrics.descriptionDensities,
+        densitiesAfter: afterMetrics.descriptionDensities,
+        wordCountBefore: chapter.content.length,
+        wordCountAfter: result.content.length,
+        optimizedAt: new Date().toISOString()
+    };
+
+    const all = safeLoadProjects();
+    all[projectIndex] = project;
+    localStorage.setItem('moyun_projects', JSON.stringify(all));
+
+    if (scoreAfter <= scoreBefore) {
+        showToast(`候选已生成, 分数 ${scoreBefore}→${scoreAfter} (持平或下降, 仍可审核)`, 'info', 2500);
+    } else {
+        showToast('AI 候选已生成, 请审核', 'success');
+    }
+    renderQualityTab();
+}
+
+function applyPendingOptimize(chapterIndex) {
+    const projects = safeLoadProjects();
+    const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
+    const pending = chapter?.quality?.pendingOptimize;
+    if (!pending) { showToast('没有待审核候选', 'info'); return; }
+
+    chapter.content = pending.optimized;
+    const m = analyzeChapterQuality(chapter);
+    const newScore = calculateOverallScore(m);
+
+    // 保留 aiReview 但标 stale (主观评分不因正文变化而废)
+    const oldReview = chapter.quality.aiReview || null;
+    if (oldReview) oldReview.staleAfterOptimize = true;
+
+    chapter.quality = { metrics: m, score: newScore, aiReview: oldReview };
+
+    const all = safeLoadProjects();
+    all[projectIndex] = projects[projectIndex];
+    localStorage.setItem('moyun_projects', JSON.stringify(all));
+    showToast(`已应用: ${pending.scoreBefore} → ${newScore}`, 'success');
+    renderQualityTab();
+    // bug fix: 原代码用 currentChapterIndex (不存在), 改回 chapterIndex (line 40 全局)
+    if (chapterIndex === chapterIndex && typeof renderChapter === 'function') {
+        renderChapter();
+    }
+}
+
+function cancelPendingOptimize(chapterIndex) {
+    const projects = safeLoadProjects();
+    const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
+    if (!chapter?.quality?.pendingOptimize) return;
+    delete chapter.quality.pendingOptimize;
+    const all = safeLoadProjects();
+    all[projectIndex].chapters[chapterIndex] = chapter;
+    localStorage.setItem('moyun_projects', JSON.stringify(all));
+    showToast('已取消候选', 'info');
+    renderQualityTab();
+}
+
+function openDiffModal(chapterIndex) {
+    const projects = safeLoadProjects();
+    const chapter = projects[projectIndex]?.chapters?.[chapterIndex];
+    const pending = chapter?.quality?.pendingOptimize;
+    if (!pending) { showToast('无候选可查看', 'info'); return; }
+
+    __diffChapterIndex = chapterIndex;
+
+    // 标题
+    const delta = (pending.scoreAfter - pending.scoreBefore).toFixed(1);
+    const sign = pending.scoreAfter >= pending.scoreBefore ? '+' : '';
+    const titleEl = document.getElementById('diffModalTitle');
+    if (titleEl) titleEl.textContent = `${chapter.title || '未命名'} — 优化对比 (${pending.scoreBefore} → ${pending.scoreAfter}, ${sign}${delta})`;
+
+    // 摘要: 7 维 density 涨跌 + 字数 delta
+    const summaryEl = document.getElementById('diffSummary');
+    if (summaryEl) {
+        const dims = [
+            { key: 'action', emoji: '🏃', label: '动作' },
+            { key: 'scenery', emoji: '🌄', label: '景物' },
+            { key: 'psychology', emoji: '💭', label: '心理' },
+            { key: 'whiteSpace', emoji: '🪶', label: '白描' },
+            { key: 'visual', emoji: '👁', label: '视觉' },
+            { key: 'audio', emoji: '👂', label: '听觉' },
+            { key: 'touch', emoji: '✋', label: '触觉' }
+        ];
+        const dimChips = dims.map(d => {
+            const before = pending.densitiesBefore[d.key] || 0;
+            const after = pending.densitiesAfter[d.key] || 0;
+            const deltaVal = after - before;
+            const isUp = deltaVal > 0.0001;
+            const isDown = deltaVal < -0.0001;
+            const cls = isUp ? 'is-up' : isDown ? 'is-down' : '';
+            const fmt = d.key === 'whiteSpace' ? v => (v * 100).toFixed(1) + '%' : v => (v * 100).toFixed(2) + '%';
+            return `<span class="diff-summary-chip ${cls}">${d.emoji} ${d.label} ${fmt(before)} → ${fmt(after)}</span>`;
+        }).join('');
+        const wordDelta = pending.wordCountAfter - pending.wordCountBefore;
+        const wordCls = wordDelta > 0 ? 'is-up' : wordDelta < 0 ? 'is-down' : '';
+        const wordChip = `<span class="diff-summary-chip ${wordCls}">📏 字数 ${pending.wordCountBefore} → ${pending.wordCountAfter} (${wordDelta > 0 ? '+' : ''}${wordDelta})</span>`;
+        summaryEl.innerHTML = dimChips + wordChip;
+    }
+
+    // Diff 两栏
+    const ops = lineDiff(pending.original, pending.optimized);
+    const left = ops.filter(o => o.type !== 'add').map(o => {
+        const cls = o.type === 'del' ? 'diff-line diff-removed' : 'diff-line';
+        const prefix = o.type === 'del' ? '− ' : '  ';
+        return `<div class="${cls}">${prefix}${escapeHtml(o.text)}</div>`;
+    }).join('');
+    const right = ops.filter(o => o.type !== 'del').map(o => {
+        const cls = o.type === 'add' ? 'diff-line diff-added' : 'diff-line';
+        const prefix = o.type === 'add' ? '+ ' : '  ';
+        return `<div class="${cls}">${prefix}${escapeHtml(o.text)}</div>`;
+    }).join('');
+    const leftEl = document.getElementById('diffLeftPane');
+    const rightEl = document.getElementById('diffRightPane');
+    if (leftEl) leftEl.innerHTML = left;
+    if (rightEl) rightEl.innerHTML = right;
+
+    const modal = document.getElementById('diffModal');
+    if (modal) modal.classList.add('show');
+}
+
+function closeDiffModal() {
+    const modal = document.getElementById('diffModal');
+    if (modal) modal.classList.remove('show');
+    // 防御性: 清空 pane 内容, 不让候选文本留在 DOM
+    const leftEl = document.getElementById('diffLeftPane');
+    const rightEl = document.getElementById('diffRightPane');
+    if (leftEl) leftEl.innerHTML = '';
+    if (rightEl) rightEl.innerHTML = '';
+    __diffChapterIndex = null;
+}
+
+function onDiffApply() {
+    if (__diffChapterIndex === null) return;
+    applyPendingOptimize(__diffChapterIndex);
+    closeDiffModal();
+}
+
+function onDiffCancel() {
+    if (__diffChapterIndex === null) return;
+    cancelPendingOptimize(__diffChapterIndex);
+    closeDiffModal();
+}
+
+// 批量优化: 串行调 LLM 为分数 < threshold 的章节生成候选, 不替换
+async function batchOptimizeBelowThreshold(threshold = 8.0) {
+    if (window.__batchRunning) { showToast('批量优化进行中', 'info'); return; }
+    if (aiSettings.provider === 'local' || !aiSettings.apiKey) {
+        showToast('AI 未配置 token', 'error');
+        return;
+    }
+
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    if (!project?.chapters?.length) { showToast('当前项目没有章节', 'error'); return; }
+
+    const targets = project.chapters
+        .map((c, i) => ({ c, i }))
+        .filter(({ c }) => c.quality?.metrics && (c.quality.score || 0) < threshold && !c.quality.pendingOptimize);
+
+    if (!targets.length) { showToast(`没有分数 < ${threshold} 的待优化章节`, 'info'); return; }
+
+    const estTokens = targets.length * 6000;
+    if (!confirm(`批量优化 ${targets.length} 个低分章节 (< ${threshold}).\n\n预计消耗 ~${estTokens} tokens.\n每个章节生成后都需要你在弹窗里审核, 不会自动替换. 继续?`)) return;
+
+    window.__batchRunning = true;
+    let ok = 0, fail = 0, noop = 0;
+    try {
+        for (let k = 0; k < targets.length; k++) {
+            const { i } = targets[k];
+            showToast(`批量优化 ${k + 1}/${targets.length}: 第${i + 1}章 ${targets[k].c.title || ''}`, 'info', 2000);
+            // 重新拉取, 防止 stale
+            const cur = safeLoadProjects()[projectIndex];
+            const chapter = cur.chapters[i];
+            if (!chapter?.quality?.metrics) { noop++; continue; }
+            if (chapter.quality.pendingOptimize) { noop++; continue; }  // 用户已手动应用/取消
+
+            try {
+                const result = await aiOptimizeChapter(chapter, chapter.quality.metrics);
+                if (!result.ok || !result.content || result.content === chapter.content) { noop++; continue; }
+                const temp = { ...chapter, content: result.content };
+                const after = analyzeChapterQuality(temp);
+                chapter.quality.pendingOptimize = {
+                    original: chapter.content,
+                    optimized: result.content,
+                    scoreBefore: chapter.quality.score,
+                    scoreAfter: calculateOverallScore(after),
+                    densitiesBefore: chapter.quality.metrics.descriptionDensities,
+                    densitiesAfter: after.descriptionDensities,
+                    wordCountBefore: chapter.content.length,
+                    wordCountAfter: result.content.length,
+                    optimizedAt: new Date().toISOString()
+                };
+                cur.chapters[i] = chapter;
+                const all = safeLoadProjects();
+                all[projectIndex] = cur;
+                localStorage.setItem('moyun_projects', JSON.stringify(all));
+                ok++;
+            } catch (e) {
+                console.warn(`第 ${i + 1} 章批量优化失败:`, e);
+                fail++;
+            }
+            await new Promise(r => setTimeout(r, 50));  // 让出 UI
+        }
+    } finally {
+        window.__batchRunning = false;
+    }
+    showToast(`批量完成: ${ok} 成功, ${fail} 失败, ${noop} 跳过`, 'success', 3000);
+    renderQualityTab();
 }
 
 function renderBatchCard() {
