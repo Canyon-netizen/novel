@@ -1907,6 +1907,30 @@ button.ai-status {
     border: 1px solid #f0d68c;
 }
 
+/* 候选状态: 应用/取消/查看 按钮色彩区分 */
+.quality-item-btn-apply {
+    background: #d8f0db;
+    color: #2d6b3f;
+    border-color: #b6dec0;
+    flex: 1.2;  /* 主按钮稍宽 */
+}
+.quality-item-btn-apply:hover {
+    background: #c5e8cb !important;
+    border-color: #2d6b3f !important;
+    color: #1f4d2c !important;
+}
+.quality-item-btn-cancel {
+    background: #fde2e2;
+    color: #7a2828;
+    border-color: #f0bcbc;
+    flex: 1;
+}
+.quality-item-btn-cancel:hover {
+    background: #f8d0d0 !important;
+    border-color: #7a2828 !important;
+    color: #5a1f1f !important;
+}
+
 /* ==================== Diff Modal ==================== */
 .diff-modal {
     max-width: 1200px;

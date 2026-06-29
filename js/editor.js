@@ -1274,9 +1274,11 @@ function renderQualityTab() {
         const pendingBadge = pending
             ? `<span class="pending-badge">📋 待审核 ${pending.scoreBefore}→${pending.scoreAfter}</span>`
             : '';
-        // 按钮组: 有候选时 "查看" 优先, 否则 "AI 优化"
+        // 按钮组: 有候选时 直接出 应用/取消/查看 三按钮, 模态作为详情查看
         const actionButtons = pending
-            ? `<button class="quality-item-btn" onclick="event.stopPropagation(); openDiffModal(${i})" title="查看 AI 优化候选, 决定是否应用">📋 查看 (${pending.scoreBefore}→${pending.scoreAfter})</button>
+            ? `<button class="quality-item-btn quality-item-btn-apply" onclick="event.stopPropagation(); applyPendingOptimize(${i})" title="应用候选, 替换 chapter.content">✅ 应用</button>
+                <button class="quality-item-btn quality-item-btn-cancel" onclick="event.stopPropagation(); cancelPendingOptimize(${i})" title="取消候选, 保留原文">❌ 取消</button>
+                <button class="quality-item-btn" onclick="event.stopPropagation(); openDiffModal(${i})" title="查看 diff 详情">👁 查看</button>
                 <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">🤖 AI 评分</button>`
             : `<button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIOptimize(${i})" title="AI 重写章节, 强化 7 维描写 (烧 token)">✨ AI 优化</button>
                 <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">🤖 AI 评分</button>`;
