@@ -1270,9 +1270,14 @@ function renderQualityTab() {
                 <div class="quality-item-metric ${paraStatus}">¶ 段落 ${m.paragraphCount}</div>
             </div>
             ${c.quality.aiReview ? renderAiReview(c.quality.aiReview) : ''}
-            <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">
-                🤖 AI 评分
-            </button>
+            <div class="quality-item-actions">
+                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIOptimize(${i})" title="AI 重写章节, 强化 7 维描写 (烧 token)">
+                    ✨ AI 优化
+                </button>
+                <button class="quality-item-btn" onclick="event.stopPropagation(); triggerAIReview(${i})" title="调用 AI 评分 (烧 token)">
+                    🤖 AI 评分
+                </button>
+            </div>
         </div>`;
     }).join('');
 }
@@ -1331,6 +1336,39 @@ async function triggerAIReview(chapterIndex) {
         renderQualityTab();
     } else {
         showToast(`AI 评分失败: ${result.error}`, 'error');
+    }
+}
+
+async function triggerAIOptimize(chapterIndex) {
+    const projects = safeLoadProjects();
+    const project = projects[projectIndex];
+    const chapter = project.chapters[chapterIndex];
+    if (!chapter) return;
+    if (!confirm(`AI 优化: 保留情节/大纲, 强化 7 维描写, 重写整章.\\n\\n会消耗 token (约 3000-5000 input + ${chapter.content?.length || 2500} output).\\n\\n继续?`)) return;
+    if (!chapter.quality?.metrics || needsReanalysis(chapter.quality)) {
+        const m = analyzeChapterQuality(chapter);
+        const oldAiReview = chapter.quality?.aiReview || null;
+        chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
+    }
+    showToast('AI 优化中...', 'info', 1500);
+    const result = await aiOptimizeChapter(chapter, chapter.quality.metrics);
+    if (result.ok) {
+        const oldAiReview = chapter.quality?.aiReview || null;
+        chapter.content = result.content;
+        // 重算 quality (保留 aiReview — 主观评分不因正文变化而废)
+        const m = analyzeChapterQuality(chapter);
+        chapter.quality = { metrics: m, score: calculateOverallScore(m), aiReview: oldAiReview };
+        const all = safeLoadProjects();
+        all[projectIndex] = project;
+        localStorage.setItem('moyun_projects', JSON.stringify(all));
+        showToast(`AI 优化完成, 分数 ${chapter.quality.score}`, 'success');
+        renderQualityTab();
+        // 同步刷新主编辑器 (如果当前正显示这章)
+        if (currentChapterIndex === chapterIndex && typeof renderChapter === 'function') {
+            renderChapter();
+        }
+    } else {
+        showToast(`AI 优化失败: ${result.error}`, 'error');
     }
 }
 
@@ -2387,6 +2425,59 @@ ${content.slice(0, 4000)}${content.length > 4000 ? '\n...(已截断)' : ''}
         return { ok: true, review: { ...data, reviewedAt: new Date().toISOString() } };
     } catch (e) {
         return { ok: false, error: e.message || 'AI 评分失败' };
+    }
+}
+
+// AI 优化: 保留情节/大纲关键词, 补 7 维描写, 重写整章
+async function aiOptimizeChapter(chapter, metrics) {
+    if (typeof NovelLLMClient === 'undefined' || !NovelLLMClient.callAI) {
+        return { ok: false, error: 'AI 未配置' };
+    }
+    if (aiSettings.provider === 'local' || !aiSettings.apiKey) {
+        return { ok: false, error: 'AI 未配置 token' };
+    }
+    const systemPrompt = '你是有 10 年经验的小说编辑, 专长描写强化. 任务: 保留原文情节走向和大纲关键词, 重写章节正文, 强化 7 维描写. 输出纯正文 (不要任何解释/标题/JSON).';
+    const content = chapter.content || '';
+    const d = metrics.descriptionDensities || {};
+    // 7 维诊断: 告诉 LLM 哪些维度低, 它才知道补什么
+    const lowDims = [];
+    if (d.action < 0.008) lowDims.push('动作描写');
+    if (d.scenery < 0.005) lowDims.push('景物描写');
+    if (d.psychology < 0.005) lowDims.push('心理描写');
+    if (d.whiteSpace < 0.10) lowDims.push('白描/留白');
+    if (d.visual < 0.008) lowDims.push('视觉描写');
+    if (d.audio < 0.003) lowDims.push('听觉描写');
+    if (d.touch < 0.002) lowDims.push('触觉描写');
+    const userPrompt = `【章节标题】${chapter.title || '未命名'}
+【目标字数】${metrics.targetWords}
+【大纲摘要】${(chapter.summary || '').slice(0, 500)}
+
+【原文章节正文】
+${content.slice(0, 4000)}${content.length > 4000 ? '\n...(已截断)' : ''}
+
+【7 维描写诊断 (这些维度当前不足)】
+${lowDims.length > 0 ? '需补强: ' + lowDims.join('、') : '描写均衡'}
+
+【重写要求】
+1. 保留原章节的核心情节 (事件顺序、人物行为、关键冲突), 不要改变剧情走向
+2. 保留大纲关键词, 这些词必须在正文中出现
+3. 目标字数 ${metrics.targetWords} 字 (上下浮动 10%)
+4. 强化 7 维描写, 让每个场景都有:
+   * 动作描写: 走/跑/转身/推开/抓住/站起身/跌倒/挥手/抬眼/喘气/颤抖 等具体肢体动作
+   * 景物描写: 山/树/光/风/雨/雪/路/灯火/雾气/窗/院落 等环境元素, 配合季节/天气/时辰
+   * 心理描写: 心想/觉得/感到/意识到/犹豫/心慌/愤怒/害怕 等内在活动, 避免"他很伤心"直白
+   * 视觉: 看见/看到/目光/影子/色彩/光亮/眉眼/轮廓 等
+   * 听觉: 听见/声音/寂静/脚步/笑/哭/风声/雨声/门响 等
+   * 触觉: 冰冷/温暖/粗糙/光滑/刺痛/沉重/湿/紧 等
+   * 白描/留白: 留 2-3 个 1-2 句 ≤18 字的短段, 不用"很/非常/特别", 不用"命运/灵魂/永恒"等抽象词
+5. 保留对话 (3-5 段), 角色语气个性化
+6. 输出纯正文, 不要标题、不要"以下是重写"、不要任何注释`;
+    try {
+        const raw = await NovelLLMClient.callAI(aiSettings, [{ role: 'user', content: userPrompt }], systemPrompt);
+        if (!raw || raw.length < 100) return { ok: false, error: 'AI 返回内容过短' };
+        return { ok: true, content: raw.trim() };
+    } catch (e) {
+        return { ok: false, error: e.message || 'AI 优化失败' };
     }
 }
 

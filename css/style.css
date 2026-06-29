@@ -1771,8 +1771,13 @@ button.ai-status {
 }
 
 /* AI 评分按钮 + 展示区 */
-.quality-item-btn {
+.quality-item-actions {
+    display: flex;
+    gap: 0.4rem;
     margin-top: 0.5rem;
+}
+.quality-item-btn {
+    margin-top: 0;
     padding: 0.3rem 0.6rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -1781,7 +1786,7 @@ button.ai-status {
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
-    width: 100%;
+    flex: 1;
 }
 .quality-item-btn:hover {
     background: var(--accent-soft);
